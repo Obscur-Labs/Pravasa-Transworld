@@ -1,13 +1,16 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, Plus, Bell, LogOut, Globe } from 'lucide-react';
+import { LayoutDashboard, FileText, Plus, Bell, LogOut, Globe, Stamp, CreditCard, FolderLock } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/apply', label: 'Apply for Visa', icon: Plus },
   { href: '/applications', label: 'My Applications', icon: FileText },
+  { href: '/my-visas', label: 'My Visas', icon: Stamp },
+  { href: '/document-vault', label: 'Document Vault', icon: FolderLock },
+  { href: '/payment-history', label: 'Payment History', icon: CreditCard },
   { href: '/notifications', label: 'Notifications', icon: Bell },
 ];
 
@@ -22,7 +25,7 @@ export default function DashboardSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen flex-shrink-0">
       <div className="p-6 border-b border-slate-100">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -35,18 +38,18 @@ export default function DashboardSidebar() {
       <div className="px-4 py-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-            <span className="text-blue-700 font-semibold text-sm">{user?.name?.[0]?.toUpperCase()}</span>
+            <span className="text-blue-700 font-semibold text-sm">{user?.name?.[0]?.toUpperCase() ?? '?'}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-sm font-semibold text-slate-900 truncate">{user?.name ?? ''}</p>
+            <p className="text-xs text-slate-500 truncate">{user?.email ?? ''}</p>
           </div>
         </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'));
           return (
             <Link
               key={href}

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { getApplication, reviewDocument, approveAllDocuments, updateStatus, uploadVisaFile } from '@/lib/api';
+import { getApplication, reviewDocument, approveAllDocuments, updateStatus, uploadVisaFile, manualPaymentOverride } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application, Document, VisaFile } from '@/types';
 import { STATUS_LABELS, ALL_STATUSES } from '@/types';
@@ -117,7 +117,7 @@ export default function AdminApplicationDetailPage() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{application.country?.flag}</span>
+                  <img src={`https://flagcdn.com/w40/${application.country?.flag}.png`} alt={application.country?.name} className="w-10 h-7 object-cover rounded" />
                   <div>
                     <h2 className="font-bold text-slate-900">{application.visaType?.name}</h2>
                     <p className="text-sm text-slate-500">{application.country?.name}</p>
@@ -289,6 +289,41 @@ export default function AdminApplicationDetailPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Cash Payment Override */}
+          {application.status === 'payment_pending' && (
+            <Card className="border-yellow-200">
+              <div className="p-4 border-b border-yellow-100 bg-yellow-50">
+                <h3 className="font-semibold text-yellow-900">Cash Payment Override</h3>
+                <p className="text-xs text-yellow-700 mt-0.5">Mark as paid if user paid in cash</p>
+              </div>
+              <CardContent className="p-4 space-y-3">
+                <textarea
+                  id="cashNote"
+                  rows={2}
+                  placeholder="Note (e.g. 'Cash received at office')"
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+                />
+                <Button
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                  onClick={async () => {
+                    const note = (document.getElementById('cashNote') as HTMLTextAreaElement)?.value;
+                    setProcessing(true);
+                    try {
+                      await manualPaymentOverride(application._id, note);
+                      toast({ title: 'Payment marked as paid (cash)', variant: 'success' });
+                      fetchData();
+                    } catch (err: any) {
+                      toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
+                    } finally { setProcessing(false); }
+                  }}
+                  disabled={processing}
+                >
+                  {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Mark as Paid (Cash)'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Upload Visa */}
           {['visa_approved', 'payment_completed', 'visa_processing', 'embassy_review'].includes(application.status) && (

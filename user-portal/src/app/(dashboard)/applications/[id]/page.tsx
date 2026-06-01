@@ -98,7 +98,7 @@ export default function ApplicationDetailPage() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{application.country?.flag}</span>
+                  <img src={`https://flagcdn.com/w40/${application.country?.flag}.png`} alt={application.country?.name} className="w-10 h-7 object-cover rounded" />
                   <div>
                     <h2 className="font-bold text-slate-900">{application.visaType?.name}</h2>
                     <p className="text-sm text-slate-500">{application.country?.name}</p>

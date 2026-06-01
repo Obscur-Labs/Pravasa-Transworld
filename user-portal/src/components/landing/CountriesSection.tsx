@@ -2,14 +2,14 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 const countries = [
-  { flag: '🇨🇦', name: 'Canada', types: ['Tourist', 'Student', 'Work'] },
-  { flag: '🇺🇸', name: 'United States', types: ['Tourist', 'Student', 'Business'] },
-  { flag: '🇬🇧', name: 'United Kingdom', types: ['Tourist', 'Student', 'Work'] },
-  { flag: '🇦🇺', name: 'Australia', types: ['Tourist', 'Student', 'Work'] },
-  { flag: '🇩🇪', name: 'Germany', types: ['Tourist', 'Student', 'Work'] },
-  { flag: '🇫🇷', name: 'France', types: ['Tourist', 'Business'] },
-  { flag: '🇯🇵', name: 'Japan', types: ['Tourist', 'Business'] },
-  { flag: '🇦🇪', name: 'UAE', types: ['Tourist', 'Business', 'Work'] },
+  { code: 'ca', name: 'Canada', types: ['Tourist', 'Student', 'Work'] },
+  { code: 'us', name: 'United States', types: ['Tourist', 'Student', 'Business'] },
+  { code: 'gb', name: 'United Kingdom', types: ['Tourist', 'Student', 'Work'] },
+  { code: 'au', name: 'Australia', types: ['Tourist', 'Student', 'Work'] },
+  { code: 'de', name: 'Germany', types: ['Tourist', 'Student', 'Work'] },
+  { code: 'fr', name: 'France', types: ['Tourist', 'Business'] },
+  { code: 'jp', name: 'Japan', types: ['Tourist', 'Business'] },
+  { code: 'ae', name: 'UAE', types: ['Tourist', 'Business', 'Work'] },
 ];
 
 export default function CountriesSection() {
@@ -29,7 +29,7 @@ export default function CountriesSection() {
               key={c.name}
               className="bg-white rounded-xl p-5 border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group"
             >
-              <div className="text-4xl mb-3">{c.flag}</div>
+              <img src={`https://flagcdn.com/w40/${c.code}.png`} alt={c.name} className="w-10 h-7 object-cover rounded mb-3" />
               <h3 className="font-semibold text-slate-900 text-sm mb-2 group-hover:text-blue-700 transition-colors">{c.name}</h3>
               <div className="flex flex-wrap gap-1">
                 {c.types.map((t) => (

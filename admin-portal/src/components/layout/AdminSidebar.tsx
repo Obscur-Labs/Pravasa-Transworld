@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, Globe2, CreditCard, Users, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, FileText, Globe2, CreditCard, Users, LogOut, Shield, Kanban } from 'lucide-react';
 import { useAdminAuthStore } from '@/store/auth.store';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/applications', label: 'Applications', icon: FileText },
+  { href: '/processing', label: 'Processing Board', icon: Kanban },
   { href: '/countries', label: 'Countries', icon: Globe2 },
   { href: '/visa-types', label: 'Visa Types', icon: CreditCard },
   { href: '/users', label: 'Users', icon: Users },
@@ -23,7 +24,7 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-slate-900 flex flex-col min-h-screen">
+    <aside className="w-64 bg-slate-900 flex flex-col min-h-screen flex-shrink-0">
       <div className="p-6 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">

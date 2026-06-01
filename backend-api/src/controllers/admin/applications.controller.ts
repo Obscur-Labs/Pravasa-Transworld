@@ -5,6 +5,7 @@ import Document from '../../models/Document';
 import Notification from '../../models/Notification';
 import VisaFile from '../../models/VisaFile';
 import User from '../../models/User';
+import Payment from '../../models/Payment';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { sendSuccess, sendError } from '../../utils/response';
@@ -156,6 +157,57 @@ export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<
   } catch (err) { console.error(err); }
 
   sendSuccess(res, { url }, 'Visa uploaded and delivered');
+};
+
+export const manualPaymentOverride = async (req: AdminRequest, res: Response): Promise<void> => {
+  const { adminNote } = req.body;
+
+  const application = await Application.findById(req.params.id).populate('user', 'name email');
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+  if (application.status !== 'payment_pending') {
+    sendError(res, 'Application is not awaiting payment'); return;
+  }
+
+  const transactionId = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+  await Payment.create({
+    application: application._id,
+    user: application.user,
+    amount: application.paymentAmount,
+    method: 'cash',
+    status: 'completed',
+    transactionId,
+    markedByAdmin: true,
+    adminNote: adminNote || 'Marked as paid by admin (cash)',
+    paidAt: new Date(),
+  });
+
+  application.status = 'payment_completed';
+  await application.save();
+
+  const user = application.user as unknown as { name: string; email: string };
+  await Notification.create({
+    user: application.user,
+    title: 'Payment Confirmed',
+    message: `Your cash payment for application ${application.referenceId} has been confirmed by our team.`,
+    type: 'status_update',
+    application: application._id,
+  });
+
+  try {
+    await sendStatusUpdateEmail(user.email, user.name, 'Payment Confirmed (Cash)', application.referenceId);
+  } catch (err) { console.error(err); }
+
+  sendSuccess(res, application, 'Payment marked as paid (cash override)');
+};
+
+export const getAdminPayments = async (_req: AdminRequest, res: Response): Promise<void> => {
+  const payments = await Payment.find({ status: 'completed' })
+    .populate({ path: 'application', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
+    .populate('user', 'name email')
+    .sort({ createdAt: -1 })
+    .limit(200);
+  sendSuccess(res, payments);
 };
 
 export const getUsers = async (_req: AdminRequest, res: Response): Promise<void> => {

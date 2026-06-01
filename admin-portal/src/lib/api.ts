@@ -56,6 +56,11 @@ export const uploadVisaFile = (id: string, formData: FormData) =>
   api.post(`/admin/applications/${id}/visa-file`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+export const manualPaymentOverride = (id: string, adminNote?: string) =>
+  api.put(`/admin/applications/${id}/manual-payment`, { adminNote });
+
+// Payments
+export const getAdminPayments = () => api.get('/admin/payments');
 
 // Users
 export const getUsers = () => api.get('/admin/users');

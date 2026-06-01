@@ -12,6 +12,8 @@ interface AuthState {
   admin: Admin | null;
   token: string | null;
   isAuthenticated: boolean;
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
   login: (admin: Admin, token: string) => void;
   logout: () => void;
 }
@@ -22,6 +24,8 @@ export const useAdminAuthStore = create<AuthState>()(
       admin: null,
       token: null,
       isAuthenticated: false,
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
       login: (admin, token) => {
         localStorage.setItem('adminToken', token);
         set({ admin, token, isAuthenticated: true });
@@ -31,6 +35,11 @@ export const useAdminAuthStore = create<AuthState>()(
         set({ admin: null, token: null, isAuthenticated: false });
       },
     }),
-    { name: 'admin-auth-storage' }
+    {
+      name: 'admin-auth-storage',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );

@@ -4,15 +4,16 @@ import Admin from '../models/Admin';
 import Country from '../models/Country';
 import VisaType from '../models/VisaType';
 
+// flag stores the ISO 3166-1 alpha-2 code (lowercase) — used with flagcdn.com
 const countries = [
-  { name: 'Canada', flag: '🇨🇦', description: 'Experience the vast landscapes and multicultural cities of Canada.' },
-  { name: 'United States', flag: '🇺🇸', description: 'Explore the land of opportunity from coast to coast.' },
-  { name: 'United Kingdom', flag: '🇬🇧', description: 'Discover historic Britain from London to the Scottish Highlands.' },
-  { name: 'Australia', flag: '🇦🇺', description: 'Adventure awaits across the sunburnt country Down Under.' },
-  { name: 'Germany', flag: '🇩🇪', description: 'Experience innovation, culture, and history in the heart of Europe.' },
-  { name: 'France', flag: '🇫🇷', description: 'Fall in love with art, cuisine, and the Eiffel Tower.' },
-  { name: 'Japan', flag: '🇯🇵', description: 'Blend tradition and modernity in the Land of the Rising Sun.' },
-  { name: 'UAE', flag: '🇦🇪', description: 'Experience luxury and ambition in the desert oasis.' },
+  { name: 'Canada', flag: 'ca', description: 'Experience the vast landscapes and multicultural cities of Canada.' },
+  { name: 'United States', flag: 'us', description: 'Explore the land of opportunity from coast to coast.' },
+  { name: 'United Kingdom', flag: 'gb', description: 'Discover historic Britain from London to the Scottish Highlands.' },
+  { name: 'Australia', flag: 'au', description: 'Adventure awaits across the sunburnt country Down Under.' },
+  { name: 'Germany', flag: 'de', description: 'Experience innovation, culture, and history in the heart of Europe.' },
+  { name: 'France', flag: 'fr', description: 'Fall in love with art, cuisine, and the Eiffel Tower.' },
+  { name: 'Japan', flag: 'jp', description: 'Blend tradition and modernity in the Land of the Rising Sun.' },
+  { name: 'UAE', flag: 'ae', description: 'Experience luxury and ambition in the desert oasis.' },
 ];
 
 async function seed() {

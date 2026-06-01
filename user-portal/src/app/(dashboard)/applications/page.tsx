@@ -64,7 +64,7 @@ export default function ApplicationsPage() {
                 className="grid grid-cols-1 sm:grid-cols-6 gap-2 sm:gap-4 px-6 py-4 hover:bg-slate-50 transition-colors"
               >
                 <div className="sm:col-span-2 flex items-center gap-3">
-                  <span className="text-2xl">{app.country?.flag}</span>
+                  <img src={`https://flagcdn.com/w40/${app.country?.flag}.png`} alt={app.country?.name} className="w-8 h-5 object-cover rounded flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-slate-900 text-sm">{app.visaType?.name}</p>
                     <p className="text-xs text-slate-400">{app.country?.name}</p>

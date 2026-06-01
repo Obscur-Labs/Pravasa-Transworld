@@ -83,7 +83,7 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-4 py-3 text-slate-700">{app.visaType?.name}</td>
                   <td className="px-4 py-3">
-                    <span>{app.country?.flag} {app.country?.name}</span>
+                    <span className="flex items-center gap-1.5"><img src={`https://flagcdn.com/w20/${app.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />{app.country?.name}</span>
                   </td>
                   <td className="px-4 py-3 text-slate-500">{formatDate(app.createdAt)}</td>
                   <td className="px-4 py-3">

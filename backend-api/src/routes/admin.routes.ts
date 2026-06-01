@@ -26,6 +26,10 @@ router.put('/applications/:id/status', apps.updateStatus);
 router.put('/applications/:id/document-review', apps.reviewDocument);
 router.put('/applications/:id/approve-documents', apps.approveAllDocuments);
 router.post('/applications/:id/visa-file', upload.single('file'), apps.uploadVisaFile);
+router.put('/applications/:id/manual-payment', apps.manualPaymentOverride);
+
+// Payments
+router.get('/payments', apps.getAdminPayments);
 
 // Users
 router.get('/users', apps.getUsers);

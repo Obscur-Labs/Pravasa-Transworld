@@ -81,8 +81,8 @@ export default function CountriesPage() {
                 <Input className="mt-1" placeholder="e.g. Canada" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div>
-                <Label>Flag Emoji</Label>
-                <Input className="mt-1" placeholder="e.g. 🇨🇦" value={form.flag} onChange={(e) => setForm({ ...form, flag: e.target.value })} required />
+                <Label>Flag Code (ISO 2-letter)</Label>
+                <Input className="mt-1" placeholder="e.g. ca, us, gb" value={form.flag} onChange={(e) => setForm({ ...form, flag: e.target.value.toLowerCase() })} required />
               </div>
               <div>
                 <Label>Description</Label>
@@ -104,7 +104,7 @@ export default function CountriesPage() {
           <Card key={c._id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-2">
-                <span className="text-3xl">{c.flag}</span>
+                <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-10 h-7 object-cover rounded" />
                 <div className="flex gap-1">
                   <button onClick={() => startEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5" />

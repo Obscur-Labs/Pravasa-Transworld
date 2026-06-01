@@ -98,7 +98,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="text-2xl">{app.country?.flag}</div>
+                    <img src={`https://flagcdn.com/w40/${app.country?.flag}.png`} alt={app.country?.name} className="w-8 h-5 object-cover rounded" />
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{app.visaType?.name}</p>
                       <p className="text-xs text-slate-400">{app.referenceId} · {formatDate(app.createdAt)}</p>

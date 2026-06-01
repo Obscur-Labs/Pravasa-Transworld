@@ -126,14 +126,19 @@ export default function ApplyPage() {
               {countries.map((c) => (
                 <button
                   key={c._id}
-                  onClick={() => setSelectedCountry(c)}
+                  onClick={() => handleCountrySelect(c)}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
                     selectedCountry?._id === c._id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{c.flag}</div>
+                  <img
+                    src={`https://flagcdn.com/w40/${c.flag}.png`}
+                    alt={c.name}
+                    className="w-8 h-5 object-cover rounded mb-2"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
                   <p className="text-sm font-semibold text-slate-900">{c.name}</p>
                 </button>
               ))}
@@ -145,7 +150,11 @@ export default function ApplyPage() {
         {step === 2 && (
           <div>
             <h2 className="text-lg font-semibold text-slate-900 mb-1">Select Visa Type</h2>
-            <p className="text-slate-500 text-sm mb-4">Visas available for {selectedCountry?.flag} {selectedCountry?.name}</p>
+            <p className="text-slate-500 text-sm mb-4 flex items-center gap-2">
+              Visas available for
+              {selectedCountry && <img src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
+              {selectedCountry?.name}
+            </p>
             {loading ? (
               <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" /></div>
             ) : visaTypes.length === 0 ? (

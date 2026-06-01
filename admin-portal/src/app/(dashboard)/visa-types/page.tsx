@@ -251,7 +251,7 @@ export default function VisaTypesPage() {
                     <p className="font-semibold text-slate-900">{vt.name}</p>
                     {vt.description && <p className="text-xs text-slate-400">{vt.description}</p>}
                   </td>
-                  <td className="px-4 py-3">{vt.country?.flag} {vt.country?.name}</td>
+                  <td className="px-4 py-3"><span className="flex items-center gap-1.5"><img src={`https://flagcdn.com/w20/${vt.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />{vt.country?.name}</span></td>
                   <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(vt.price)}</td>
                   <td className="px-4 py-3 text-slate-500">{vt.processingDays} days</td>
                   <td className="px-4 py-3">
