@@ -68,5 +68,31 @@ export const processPayment = async (req: AuthRequest, res: Response): Promise<v
   application.status = 'payment_completed';
   await application.save();
 
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  const Notification = (await import('../../models/Notification')).default;
+  const { getIO } = await import('../../utils/socket');
+  
+  const adminNotif = await AdminNotification.create({
+    title: 'Payment Received',
+    message: `Payment of $${payment.amount} received for application ${application.referenceId}.`,
+    type: 'payment_received',
+    application: application._id,
+  });
+
+  const userNotif = await Notification.create({
+    user: req.user!._id,
+    title: 'Payment Successful',
+    message: `Your payment of $${payment.amount} for application ${application.referenceId} was successful.`,
+    type: 'status_update',
+    application: application._id,
+  });
+
+  try {
+    getIO().to('admin_room').emit('admin_notification', adminNotif);
+    getIO().to(`user_${req.user!._id}`).emit('notification', userNotif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
   sendSuccess(res, { payment, application }, 'Payment successful');
 };

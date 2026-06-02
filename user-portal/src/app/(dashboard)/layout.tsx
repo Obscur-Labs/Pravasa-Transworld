@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useAuthStore } from '@/store/auth.store';
 
+import { SocketProvider } from '@/components/providers/SocketProvider';
+import NotificationDropdown from '@/components/layout/NotificationDropdown';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
   const router = useRouter();
@@ -12,7 +15,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (_hasHydrated && !isAuthenticated) router.push('/login');
   }, [isAuthenticated, _hasHydrated, router]);
 
-  // Show loading skeleton while store is rehydrating from localStorage
   if (!_hasHydrated) {
     return (
       <div className="flex min-h-screen bg-slate-50 items-center justify-center">
@@ -24,9 +26,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <DashboardSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
+    <SocketProvider>
+      <div className="flex min-h-screen bg-slate-50">
+        <DashboardSidebar />
+        <main className="flex-1 overflow-auto flex flex-col">
+          <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-end px-6 sticky top-0 z-10 shrink-0">
+            <NotificationDropdown />
+          </header>
+          <div className="flex-1 overflow-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+    </SocketProvider>
   );
 }

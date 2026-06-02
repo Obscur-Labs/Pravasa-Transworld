@@ -113,6 +113,18 @@ export interface Notification {
   createdAt: string;
 }
 
+export type AdminNotificationType = 'new_application' | 'new_lead' | 'payment_received' | 'status_update' | 'general';
+
+export interface AdminNotification {
+  _id: string;
+  title: string;
+  message: string;
+  type: AdminNotificationType;
+  application: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface User {
   _id: string;
   name: string;

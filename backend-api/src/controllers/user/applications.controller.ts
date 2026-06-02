@@ -55,6 +55,22 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     .populate('visaType', 'name price processingDays')
     .populate('country', 'name flag');
 
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  const { getIO } = await import('../../utils/socket');
+  
+  const notif = await AdminNotification.create({
+    title: 'New Application Submitted',
+    message: `A new application (${application.referenceId}) was submitted for ${visaType.name}.`,
+    type: 'new_application',
+    application: application._id,
+  });
+
+  try {
+    getIO().to('admin_room').emit('admin_notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
   sendSuccess(res, populated, 'Application submitted successfully', 201);
 };
 

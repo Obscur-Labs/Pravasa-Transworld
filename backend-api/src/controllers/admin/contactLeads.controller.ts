@@ -10,6 +10,22 @@ export const submitContactLead = async (req: Request, res: Response): Promise<vo
     return;
   }
   const lead = await ContactLead.create({ name, email, phone, message });
+
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  const { getIO } = await import('../../utils/socket');
+  
+  const notif = await AdminNotification.create({
+    title: 'New Lead Submission',
+    message: `${name} has submitted a new contact request.`,
+    type: 'new_lead',
+  });
+
+  try {
+    getIO().to('admin_room').emit('admin_notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
   sendSuccess(res, lead, 'Message sent successfully', 201);
 };
 

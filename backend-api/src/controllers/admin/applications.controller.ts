@@ -66,6 +66,35 @@ export const reviewDocument = async (req: AdminRequest, res: Response): Promise<
   doc.reviewedAt = new Date();
   await doc.save();
 
+  const application = await Application.findById(req.params.id);
+  if (application) {
+    const notif = await Notification.create({
+      user: application.user,
+      title: status === 'rejected' ? 'Document Rejected' : 'Document Reviewed',
+      message: status === 'rejected' 
+        ? `Your document "${doc.requirementName}" was rejected: ${rejectionReason}`
+        : `Your document "${doc.requirementName}" has been reviewed.`,
+      type: status === 'rejected' ? 'document_rejected' : 'general',
+      application: application._id,
+    });
+
+    try {
+      const { getIO } = await import('../../utils/socket');
+      getIO().to(`user_${application.user}`).emit('notification', notif);
+    } catch (err) {
+      console.error('Socket emission failed', err);
+    }
+
+    if (status === 'rejected') {
+      const user = await User.findById(application.user);
+      if (user) {
+        try {
+          await sendDocumentStatusEmail(user.email, user.name, 'rejected', rejectionReason, application.referenceId);
+        } catch (err) { console.error(err); }
+      }
+    }
+  }
+
   sendSuccess(res, doc, 'Document reviewed');
 };
 
@@ -81,13 +110,20 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };
-  await Notification.create({
+  const notif = await Notification.create({
     user: application.user,
     title: 'Documents Approved',
     message: `Your documents for application ${application.referenceId} have been approved. Please proceed with payment.`,
     type: 'document_approved',
     application: application._id,
   });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
 
   try {
     await sendDocumentStatusEmail(user.email, user.name, 'approved', undefined, application.referenceId);
@@ -111,13 +147,20 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   const user = application.user as unknown as { name: string; email: string };
   const label = STATUS_LABELS[status as ApplicationStatus] || status;
 
-  await Notification.create({
+  const notif = await Notification.create({
     user: application.user,
     title: 'Application Status Updated',
     message: `Your application ${application.referenceId} status: ${label}`,
     type: 'status_update',
     application: application._id,
   });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
 
   try {
     await sendStatusUpdateEmail(user.email, user.name, label, application.referenceId);
@@ -144,13 +187,20 @@ export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };
-  await Notification.create({
+  const notif = await Notification.create({
     user: application.user,
     title: 'Visa Delivered',
     message: `Your visa for application ${application.referenceId} is ready for download!`,
     type: 'visa_delivered',
     application: application._id,
   });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
 
   try {
     await sendVisaDeliveredEmail(user.email, user.name, application.referenceId, url);
@@ -186,13 +236,20 @@ export const manualPaymentOverride = async (req: AdminRequest, res: Response): P
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };
-  await Notification.create({
+  const notif = await Notification.create({
     user: application.user,
     title: 'Payment Confirmed',
     message: `Your cash payment for application ${application.referenceId} has been confirmed by our team.`,
     type: 'status_update',
     application: application._id,
   });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
 
   try {
     await sendStatusUpdateEmail(user.email, user.name, 'Payment Confirmed (Cash)', application.referenceId);

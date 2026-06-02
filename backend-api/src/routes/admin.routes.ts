@@ -5,6 +5,7 @@ import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
+import * as notifications from '../controllers/admin/notifications.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -41,5 +42,10 @@ router.get('/users/:userId/applications', apps.getUserApplications);
 // Contact Leads
 router.get('/leads', leads.getLeads);
 router.patch('/leads/:id/read', leads.markLeadRead);
+
+// Notifications
+router.get('/notifications', notifications.getNotifications);
+router.put('/notifications/read-all', notifications.markAllAsRead);
+router.put('/notifications/:id/read', notifications.markAsRead);
 
 export default router;
