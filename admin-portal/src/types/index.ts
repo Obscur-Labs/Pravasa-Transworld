@@ -107,3 +107,13 @@ export interface VisaFile {
   _id: string;
   url: string;
 }
+
+export interface ContactLead {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}

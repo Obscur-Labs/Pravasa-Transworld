@@ -67,3 +67,7 @@ export const getAdminPayments = () => api.get('/admin/payments');
 // Users
 export const getUsers = () => api.get('/admin/users');
 export const getUserApplications = (userId: string) => api.get(`/admin/users/${userId}/applications`);
+
+// Contact Leads
+export const getLeads = () => api.get('/admin/leads');
+export const markLeadRead = (id: string) => api.patch(`/admin/leads/${id}/read`);

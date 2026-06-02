@@ -1,0 +1,25 @@
+import { Request, Response } from 'express';
+import { AdminRequest } from '../../middleware/adminAuth.middleware';
+import ContactLead from '../../models/ContactLead';
+import { sendSuccess, sendError } from '../../utils/response';
+
+export const submitContactLead = async (req: Request, res: Response): Promise<void> => {
+  const { name, email, phone, message } = req.body;
+  if (!name || !email || !message) {
+    sendError(res, 'Name, email, and message are required');
+    return;
+  }
+  const lead = await ContactLead.create({ name, email, phone, message });
+  sendSuccess(res, lead, 'Message sent successfully', 201);
+};
+
+export const getLeads = async (_req: AdminRequest, res: Response): Promise<void> => {
+  const leads = await ContactLead.find().sort({ createdAt: -1 }).limit(100);
+  sendSuccess(res, leads);
+};
+
+export const markLeadRead = async (req: AdminRequest, res: Response): Promise<void> => {
+  const lead = await ContactLead.findByIdAndUpdate(req.params.id, { read: true }, { new: true });
+  if (!lead) { sendError(res, 'Lead not found', 404); return; }
+  sendSuccess(res, lead, 'Lead marked as read');
+};

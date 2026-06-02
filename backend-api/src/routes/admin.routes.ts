@@ -4,6 +4,7 @@ import { upload } from '../middleware/upload.middleware';
 import * as countries from '../controllers/admin/countries.controller';
 import * as visaTypes from '../controllers/admin/visaTypes.controller';
 import * as apps from '../controllers/admin/applications.controller';
+import * as leads from '../controllers/admin/contactLeads.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -36,5 +37,9 @@ router.get('/payments', apps.getAdminPayments);
 // Users
 router.get('/users', apps.getUsers);
 router.get('/users/:userId/applications', apps.getUserApplications);
+
+// Contact Leads
+router.get('/leads', leads.getLeads);
+router.patch('/leads/:id/read', leads.markLeadRead);
 
 export default router;

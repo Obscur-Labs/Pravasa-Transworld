@@ -18,13 +18,17 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-        checked ? 'bg-green-500' : 'bg-slate-300'
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+        checked 
+          ? 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.25)]' 
+          : 'bg-slate-200 hover:bg-slate-300'
       }`}
     >
-      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-        checked ? 'translate-x-4.5' : 'translate-x-0.5'
-      }`} />
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 transition duration-300 ease-in-out ${
+          checked ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
     </button>
   );
 }
@@ -147,10 +151,18 @@ export default function CountriesPage() {
               </div>
               <p className="font-semibold text-slate-900">{c.name}</p>
               {c.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{c.description}</p>}
-              <div className="mt-3 flex items-center justify-between">
-                <span className={`text-xs font-medium ${c.isActive ? 'text-green-700' : 'text-slate-500'}`}>
-                  {c.isActive ? 'Active' : 'Inactive'}
-                </span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    {c.isActive && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${c.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                  </span>
+                  <span className={`text-xs font-semibold ${c.isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
+                    {c.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
                 <Toggle
                   checked={c.isActive}
                   onChange={() => handleToggle(c._id, c.isActive)}

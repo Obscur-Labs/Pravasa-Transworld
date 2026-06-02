@@ -37,6 +37,8 @@ export const verifyOTP = (data: { email: string; otp: string }) =>
 export const getPublicCountries = () => api.get('/public/countries');
 export const getPublicVisaTypes = (countryId?: string) =>
   api.get('/public/visa-types', { params: { country: countryId } });
+export const submitContactLead = (data: { name: string; email: string; phone?: string; message: string }) =>
+  api.post('/public/contact', data);
 
 // User — Applications
 export const getDashboard = () => api.get('/user/dashboard');

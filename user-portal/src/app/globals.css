@@ -33,3 +33,65 @@
 }
 
 html { scroll-behavior: smooth; }
+
+@layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl;
+  }
+  .glass-light {
+    @apply bg-white/70 backdrop-blur-md border border-white/80 shadow-lg;
+  }
+  .glass-strong {
+    @apply bg-white/15 backdrop-blur-2xl border border-white/25 shadow-2xl;
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent;
+  }
+  .bg-mesh {
+    background-image:
+      radial-gradient(at 40% 20%, rgba(59,130,246,0.3) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, rgba(99,102,241,0.2) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, rgba(37,99,235,0.25) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, rgba(59,130,246,0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(79,70,229,0.2) 0px, transparent 50%);
+  }
+
+  /* Premium Keyframe Animations for Glassmorphism (Extremely Gentle & Slow) */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-3px) rotate(0.5deg); }
+  }
+  @keyframes float-reverse {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(3px) rotate(-0.5deg); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.12; transform: scale(1); }
+    50% { opacity: 0.18; transform: scale(1.03); }
+  }
+  @keyframes spin-slow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .animate-float {
+    animation: float 14s ease-in-out infinite;
+  }
+  .animate-float-reverse {
+    animation: float-reverse 16s ease-in-out infinite;
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 18s ease-in-out infinite;
+  }
+  .animate-spin-slow {
+    animation: spin-slow 40s linear infinite;
+  }
+
+  /* Glass hover transition (Very clean & professional) */
+  .glass-interactive {
+    @apply transition-all duration-300 ease-out hover:bg-white/15 hover:border-white/35 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-blue-500/5 cursor-pointer;
+  }
+  .glass-light-interactive {
+    @apply transition-all duration-300 ease-out hover:bg-white/90 hover:border-white/90 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-blue-600/5 cursor-pointer;
+  }
+}
