@@ -29,3 +29,11 @@ export const deleteCountry = async (req: AdminRequest, res: Response): Promise<v
   if (!country) { sendError(res, 'Country not found', 404); return; }
   sendSuccess(res, null, 'Country deleted');
 };
+
+export const toggleCountryStatus = async (req: AdminRequest, res: Response): Promise<void> => {
+  const country = await Country.findById(req.params.id);
+  if (!country) { sendError(res, 'Country not found', 404); return; }
+  country.isActive = !country.isActive;
+  await country.save();
+  sendSuccess(res, country, `Country ${country.isActive ? 'activated' : 'deactivated'}`);
+};

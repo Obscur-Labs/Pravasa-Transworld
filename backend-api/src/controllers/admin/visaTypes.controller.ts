@@ -38,3 +38,11 @@ export const deleteVisaType = async (req: AdminRequest, res: Response): Promise<
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
   sendSuccess(res, null, 'Visa type deleted');
 };
+
+export const toggleVisaTypeStatus = async (req: AdminRequest, res: Response): Promise<void> => {
+  const visaType = await VisaType.findById(req.params.id).populate('country', 'name flag');
+  if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
+  visaType.isActive = !visaType.isActive;
+  await visaType.save();
+  sendSuccess(res, visaType, `Visa type ${visaType.isActive ? 'activated' : 'deactivated'}`);
+};

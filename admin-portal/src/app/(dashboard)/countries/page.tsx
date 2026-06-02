@@ -6,11 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { getCountries, createCountry, updateCountry, deleteCountry } from '@/lib/api';
+import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry } from '@/lib/api';
 import type { Country } from '@/types';
 
 interface CountryForm { name: string; flag: string; description: string; }
 const emptyForm: CountryForm = { name: '', flag: '', description: '' };
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+        checked ? 'bg-green-500' : 'bg-slate-300'
+      }`}
+    >
+      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+        checked ? 'translate-x-4.5' : 'translate-x-0.5'
+      }`} />
+    </button>
+  );
+}
 
 export default function CountriesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -18,6 +35,7 @@ export default function CountriesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<CountryForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const fetchCountries = () =>
     getCountries().then((r) => setCountries(r.data.data));
@@ -51,6 +69,19 @@ export default function CountriesPage() {
     await deleteCountry(id);
     toast({ title: 'Country deleted' });
     fetchCountries();
+  };
+
+  const handleToggle = async (id: string, current: boolean) => {
+    setToggling(id);
+    try {
+      const res = await toggleCountry(id);
+      setCountries((prev) => prev.map((c) => c._id === id ? { ...c, isActive: res.data.data.isActive } : c));
+      toast({ title: res.data.data.isActive ? 'Country activated' : 'Country deactivated', variant: 'success' });
+    } catch {
+      toast({ title: 'Failed to toggle status', variant: 'destructive' });
+    } finally {
+      setToggling(null);
+    }
   };
 
   const startEdit = (c: Country) => {
@@ -101,11 +132,11 @@ export default function CountriesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {countries.map((c) => (
-          <Card key={c._id} className="hover:shadow-md transition-shadow">
+          <Card key={c._id} className={`hover:shadow-md transition-shadow ${!c.isActive ? 'opacity-60' : ''}`}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-2">
                 <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-10 h-7 object-cover rounded" />
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
                   <button onClick={() => startEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -116,8 +147,15 @@ export default function CountriesPage() {
               </div>
               <p className="font-semibold text-slate-900">{c.name}</p>
               {c.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{c.description}</p>}
-              <div className={`mt-2 inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                {c.isActive ? 'Active' : 'Inactive'}
+              <div className="mt-3 flex items-center justify-between">
+                <span className={`text-xs font-medium ${c.isActive ? 'text-green-700' : 'text-slate-500'}`}>
+                  {c.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <Toggle
+                  checked={c.isActive}
+                  onChange={() => handleToggle(c._id, c.isActive)}
+                  disabled={toggling === c._id}
+                />
               </div>
             </CardContent>
           </Card>

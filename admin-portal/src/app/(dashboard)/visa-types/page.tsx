@@ -1,19 +1,36 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Loader2, GripVertical, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType } from '@/lib/api';
+import { getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import type { Country, VisaType, FormField, DocumentRequirement, FieldType } from '@/types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0 });
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true });
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+        checked ? 'bg-green-500' : 'bg-slate-300'
+      }`}
+    >
+      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+        checked ? 'translate-x-4.5' : 'translate-x-0.5'
+      }`} />
+    </button>
+  );
+}
 
 export default function VisaTypesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -22,6 +39,7 @@ export default function VisaTypesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
   const [form, setForm] = useState({
     country: '', name: '', description: '', price: '', processingDays: '',
     formFields: [] as FormField[],
@@ -70,6 +88,19 @@ export default function VisaTypesPage() {
     getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
   };
 
+  const handleToggle = async (id: string) => {
+    setToggling(id);
+    try {
+      const res = await toggleVisaType(id);
+      setVisaTypes((prev) => prev.map((vt) => vt._id === id ? { ...vt, isActive: res.data.data.isActive } : vt));
+      toast({ title: res.data.data.isActive ? 'Visa type activated' : 'Visa type deactivated', variant: 'success' });
+    } catch {
+      toast({ title: 'Failed to toggle status', variant: 'destructive' });
+    } finally {
+      setToggling(null);
+    }
+  };
+
   const addField = () => setForm((f) => ({ ...f, formFields: [...f.formFields, emptyField()] }));
   const removeField = (i: number) => setForm((f) => ({ ...f, formFields: f.formFields.filter((_, idx) => idx !== i) }));
   const updateField = (i: number, key: keyof FormField, value: any) =>
@@ -112,7 +143,6 @@ export default function VisaTypesPage() {
           <CardContent className="p-6">
             <h3 className="font-semibold text-slate-900 mb-5">{editId ? 'Edit Visa Type' : 'Create Visa Type'}</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Country</Label>
@@ -139,7 +169,6 @@ export default function VisaTypesPage() {
                 </div>
               </div>
 
-              {/* Form Fields Builder */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-slate-900 text-sm">Application Form Fields</h4>
@@ -187,7 +216,6 @@ export default function VisaTypesPage() {
                 </div>
               </div>
 
-              {/* Document Requirements */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-slate-900 text-sm">Document Requirements</h4>
@@ -223,7 +251,6 @@ export default function VisaTypesPage() {
         </Card>
       )}
 
-      {/* Filter */}
       <div className="flex items-center gap-3 mb-4">
         <label className="text-sm text-slate-500">Filter by country:</label>
         <select value={selectedCountry} onChange={(e) => setSelectedCountry(e.target.value)} className="h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -236,29 +263,42 @@ export default function VisaTypesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {['Visa Type', 'Country', 'Price', 'Processing', 'Fields', 'Documents', ''].map((h) => (
+              {['Visa Type', 'Country', 'Price', 'Processing', 'Fields', 'Documents', 'Status', ''].map((h) => (
                 <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {visaTypes.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">No visa types. Create one above.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">No visa types. Create one above.</td></tr>
             ) : (
               visaTypes.map((vt) => (
-                <tr key={vt._id} className="hover:bg-slate-50">
+                <tr key={vt._id} className={`hover:bg-slate-50 ${!vt.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-900">{vt.name}</p>
                     {vt.description && <p className="text-xs text-slate-400">{vt.description}</p>}
                   </td>
-                  <td className="px-4 py-3"><span className="flex items-center gap-1.5"><img src={`https://flagcdn.com/w20/${vt.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />{vt.country?.name}</span></td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-1.5">
+                      <img src={`https://flagcdn.com/w20/${vt.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
+                      {vt.country?.name}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(vt.price)}</td>
                   <td className="px-4 py-3 text-slate-500">{vt.processingDays} days</td>
+                  <td className="px-4 py-3"><Badge variant="secondary">{vt.formFields?.length || 0} fields</Badge></td>
+                  <td className="px-4 py-3"><Badge variant="secondary">{vt.documentRequirements?.length || 0} docs</Badge></td>
                   <td className="px-4 py-3">
-                    <Badge variant="secondary">{vt.formFields?.length || 0} fields</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="secondary">{vt.documentRequirements?.length || 0} docs</Badge>
+                    <div className="flex items-center gap-2">
+                      <Toggle
+                        checked={vt.isActive}
+                        onChange={() => handleToggle(vt._id)}
+                        disabled={toggling === vt._id}
+                      />
+                      <span className={`text-xs font-medium ${vt.isActive ? 'text-green-700' : 'text-slate-400'}`}>
+                        {vt.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">

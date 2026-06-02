@@ -37,6 +37,7 @@ export const getCountries = () => api.get('/admin/countries');
 export const createCountry = (data: object) => api.post('/admin/countries', data);
 export const updateCountry = (id: string, data: object) => api.put(`/admin/countries/${id}`, data);
 export const deleteCountry = (id: string) => api.delete(`/admin/countries/${id}`);
+export const toggleCountry = (id: string) => api.patch(`/admin/countries/${id}/toggle`);
 
 // Visa Types
 export const getVisaTypes = (countryId?: string) =>
@@ -45,6 +46,7 @@ export const getVisaType = (id: string) => api.get(`/admin/visa-types/${id}`);
 export const createVisaType = (data: object) => api.post('/admin/visa-types', data);
 export const updateVisaType = (id: string, data: object) => api.put(`/admin/visa-types/${id}`, data);
 export const deleteVisaType = (id: string) => api.delete(`/admin/visa-types/${id}`);
+export const toggleVisaType = (id: string) => api.patch(`/admin/visa-types/${id}/toggle`);
 
 // Applications
 export const getApplications = (params?: object) => api.get('/admin/applications', { params });

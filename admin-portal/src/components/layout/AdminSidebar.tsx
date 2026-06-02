@@ -10,7 +10,7 @@ const navItems = [
   { href: '/processing', label: 'Processing Board', icon: Kanban },
   { href: '/countries', label: 'Countries', icon: Globe2 },
   { href: '/visa-types', label: 'Visa Types', icon: CreditCard },
-  { href: '/users', label: 'Users', icon: Users },
+  { href: '/users', label: 'Customers', icon: Users },
 ];
 
 export default function AdminSidebar() {

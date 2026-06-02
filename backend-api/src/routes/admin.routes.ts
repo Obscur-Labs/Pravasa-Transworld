@@ -14,10 +14,12 @@ router.get('/dashboard', apps.getDashboardStats);
 // Countries
 router.route('/countries').get(countries.getCountries).post(countries.createCountry);
 router.route('/countries/:id').put(countries.updateCountry).delete(countries.deleteCountry);
+router.patch('/countries/:id/toggle', countries.toggleCountryStatus);
 
 // Visa Types
 router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVisaType);
 router.route('/visa-types/:id').get(visaTypes.getVisaType).put(visaTypes.updateVisaType).delete(visaTypes.deleteVisaType);
+router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 
 // Applications
 router.get('/applications', apps.getApplications);
