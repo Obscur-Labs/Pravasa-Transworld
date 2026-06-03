@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
-
+import { encryptionPlugin } from '../plugins/encryptionPlugin';
 export type ApplicationStatus =
   | 'submitted'
   | 'documents_under_review'
@@ -70,6 +70,8 @@ const ApplicationSchema = new Schema<IApplication>(
   },
   { timestamps: true }
 );
+
+ApplicationSchema.plugin(encryptionPlugin, { fields: ['formResponses'] });
 
 ApplicationSchema.pre('save', function (next) {
   if (!this.referenceId) {

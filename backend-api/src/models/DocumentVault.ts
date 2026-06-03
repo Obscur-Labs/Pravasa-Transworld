@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
-
+import { encryptionPlugin } from '../plugins/encryptionPlugin';
 export type VaultDocumentType = 'passport' | 'aadhar' | 'pan' | 'photograph' | 'bank_statement' | 'degree' | 'other';
 
 export interface IDocumentVault extends Document {
@@ -27,5 +27,7 @@ const DocumentVaultSchema = new Schema<IDocumentVault>(
   },
   { timestamps: true }
 );
+
+DocumentVaultSchema.plugin(encryptionPlugin, { fields: ['extractedData'] });
 
 export default mongoose.model<IDocumentVault>('DocumentVault', DocumentVaultSchema);
