@@ -37,8 +37,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (data.success) {
-        setNotifications(data.data);
+      if (data.success && data.data) {
+        setNotifications(data.data.notifications || []);
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);
@@ -97,7 +97,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, token]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.filter((n) => !n.read).length
+    : 0;
 
   return (
     <SocketContext.Provider value={{ socket, notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead }}>

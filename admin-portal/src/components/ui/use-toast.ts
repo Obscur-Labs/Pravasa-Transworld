@@ -61,5 +61,5 @@ export function useToast() {
       if (idx > -1) listeners.splice(idx, 1);
     };
   }, []);
-  return { toasts: state.toasts };
+  return { toasts: state.toasts, toast };
 }
