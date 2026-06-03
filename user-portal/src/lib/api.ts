@@ -65,3 +65,5 @@ export const downloadReceipt = (id: string) =>
 export const getNotifications = () => api.get('/user/notifications');
 export const markNotificationRead = (id: string) => api.put(`/user/notifications/${id}/read`);
 export const markAllNotificationsRead = () => api.put('/user/notifications/read-all');
+export const deleteNotification = (id: string) => api.delete(`/user/notifications/${id}`);
+export const deleteAllNotifications = () => api.delete('/user/notifications/all');

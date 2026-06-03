@@ -71,3 +71,10 @@ export const getUserApplications = (userId: string) => api.get(`/admin/users/${u
 // Contact Leads
 export const getLeads = () => api.get('/admin/leads');
 export const markLeadRead = (id: string) => api.patch(`/admin/leads/${id}/read`);
+
+// Notifications
+export const getAdminNotifications = () => api.get('/admin/notifications');
+export const markAdminNotificationRead = (id: string) => api.put(`/admin/notifications/${id}/read`);
+export const markAllAdminNotificationsRead = () => api.put('/admin/notifications/read-all');
+export const deleteAdminNotification = (id: string) => api.delete(`/admin/notifications/${id}`);
+export const deleteAllAdminNotifications = () => api.delete('/admin/notifications/all');

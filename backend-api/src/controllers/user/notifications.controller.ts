@@ -20,3 +20,13 @@ export const markAllRead = async (req: AuthRequest, res: Response): Promise<void
   await Notification.updateMany({ user: req.user!._id, read: false }, { read: true });
   sendSuccess(res, null, 'All notifications marked as read');
 };
+
+export const deleteNotification = async (req: AuthRequest, res: Response): Promise<void> => {
+  await Notification.findOneAndDelete({ _id: req.params.id, user: req.user!._id });
+  sendSuccess(res, null, 'Notification deleted');
+};
+
+export const deleteAllNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
+  await Notification.deleteMany({ user: req.user!._id });
+  sendSuccess(res, null, 'All notifications deleted');
+};

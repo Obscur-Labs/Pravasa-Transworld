@@ -30,7 +30,9 @@ router.get('/payments/:id/receipt', payments.downloadReceipt);
 
 // Notifications
 router.get('/notifications', notifs.getNotifications);
-router.put('/notifications/:id/read', notifs.markAsRead);
 router.put('/notifications/read-all', notifs.markAllRead);
+router.put('/notifications/:id/read', notifs.markAsRead);
+router.delete('/notifications/all', notifs.deleteAllNotifications);
+router.delete('/notifications/:id', notifs.deleteNotification);
 
 export default router;

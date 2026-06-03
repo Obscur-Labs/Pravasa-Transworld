@@ -10,6 +10,8 @@ interface SocketContextType {
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
   notifications: any[];
 }
 
@@ -19,6 +21,8 @@ const SocketContext = createContext<SocketContextType>({
   fetchNotifications: async () => {},
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  deleteNotification: async () => {},
+  deleteAllNotifications: async () => {},
   notifications: [],
 });
 
@@ -52,9 +56,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
-      setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, read: true } : n))
-      );
+      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, read: true } : n)));
     } catch (err) {}
   };
 
@@ -69,31 +71,48 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {}
   };
 
+  const deleteNotification = async (id: string) => {
+    if (!token) return;
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/notifications/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+    } catch (err) {}
+  };
+
+  const deleteAllNotifications = async () => {
+    if (!token) return;
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/notifications/all`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications([]);
+    } catch (err) {}
+  };
+
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchNotifications();
 
-      const socketInstance = io(process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000', {
-        auth: { token },
-      });
-
-      socketInstance.on('connect', () => {
-        console.log('Socket connected');
-      });
+      const socketInstance = io(
+        process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000',
+        { auth: { token } }
+      );
 
       socketInstance.on('notification', (newNotif) => {
         setNotifications((prev) => [newNotif, ...prev]);
         toast({
-          title: newNotif.title,
+          title: `🔔 ${newNotif.title}`,
           description: newNotif.message,
+          variant: 'default',
         });
       });
 
       setSocket(socketInstance);
-
-      return () => {
-        socketInstance.disconnect();
-      };
+      return () => { socketInstance.disconnect(); };
     }
   }, [isAuthenticated, token]);
 
@@ -102,7 +121,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     : 0;
 
   return (
-    <SocketContext.Provider value={{ socket, notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead }}>
+    <SocketContext.Provider
+      value={{ socket, notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications }}
+    >
       {children}
     </SocketContext.Provider>
   );

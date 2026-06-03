@@ -47,5 +47,7 @@ router.patch('/leads/:id/read', leads.markLeadRead);
 router.get('/notifications', notifications.getNotifications);
 router.put('/notifications/read-all', notifications.markAllAsRead);
 router.put('/notifications/:id/read', notifications.markAsRead);
+router.delete('/notifications/all', notifications.deleteAllNotifications);
+router.delete('/notifications/:id', notifications.deleteNotification);
 
 export default router;
