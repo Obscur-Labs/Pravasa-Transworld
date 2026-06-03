@@ -6,6 +6,7 @@ import userRoutes from './routes/user.routes';
 import publicRoutes from './routes/public.routes';
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for secure rate limiting
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
