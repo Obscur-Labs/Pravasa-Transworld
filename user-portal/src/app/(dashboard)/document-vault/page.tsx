@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Upload, Trash2, Loader2, Scan, CheckCircle2,
   RotateCcw, ExternalLink, X, Fingerprint,
-  CreditCard, BookOpen, GraduationCap, FileText, Image, File,
+  CreditCard, BookOpen, GraduationCap, FileText, Image, File, RefreshCw,
 } from 'lucide-react';
-import { getVaultDocuments, uploadVaultDocument, deleteVaultDocument } from '@/lib/api';
+import { getVaultDocuments, getVaultDocumentUrl, uploadVaultDocument, deleteVaultDocument } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate } from '@/lib/utils';
 
@@ -24,6 +24,30 @@ const CFG: Record<DocType, { label: string; sublabel: string; icon: React.Elemen
   other:          { label: 'Other Document',     sublabel: 'Any supporting file', icon: File,        accept: 'image/*,.pdf,.doc,.docx'                          },
 };
 const ALL: DocType[] = ['aadhar', 'pan', 'passport', 'photograph', 'bank_statement', 'degree', 'other'];
+
+/* PDF if URL ends with .pdf or comes from Cloudinary raw resource */
+const isPdf = (url: string) => /\.pdf($|\?|#)/i.test(url) || url.includes('/raw/upload/');
+
+/* Open-doc button — fetches a backend-signed URL first so the browser
+   never needs to send auth headers to Cloudinary directly.            */
+function OpenDocBtn({ id, className }: { id: string; className?: string }) {
+  const [loading, setLoading] = useState(false);
+  const open = async () => {
+    setLoading(true);
+    try {
+      const r = await getVaultDocumentUrl(id);
+      window.open(r.data.data.url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast({ title: 'Could not open document', variant: 'destructive' });
+    } finally { setLoading(false); }
+  };
+  return (
+    <button onClick={open} disabled={loading} title="Open"
+      className={`p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${className ?? ''}`}>
+      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
 
 /* ─────────────────────────── shared helpers ─────────────────────────────── */
 const SaveBtn = ({ onClick, disabled, loading, label = 'Save to Vault' }: { onClick: () => void; disabled: boolean; loading: boolean; label?: string }) => (
@@ -436,6 +460,119 @@ function A4Uploader({ type, existing, onDone }: { type: DocType; existing: Vault
   );
 }
 
+/* ─────────────────────────── Other Doc Uploader (multi + custom label) ──── */
+function OtherDocUploader({ onRefresh }: { onRefresh: () => void }) {
+  const [label, setLabel]       = useState('');
+  const [file, setFile]         = useState<File | null>(null);
+  const [preview, setPreview]   = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const reset = () => {
+    setLabel(''); setFile(null); setPreview(null);
+    if (ref.current) ref.current.value = '';
+  };
+
+  const save = async () => {
+    if (!file || !label.trim()) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file); fd.append('type', 'other'); fd.append('label', label.trim());
+      await uploadVaultDocument(fd);
+      toast({ title: `"${label.trim()}" saved to vault!`, variant: 'success' });
+      setSavedCount(c => c + 1);
+      onRefresh();   // refresh gallery, keep panel open
+      reset();       // clear for next upload
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e.response?.data?.message, variant: 'destructive' });
+    } finally { setUploading(false); }
+  };
+
+  const isPDF = file?.type === 'application/pdf';
+  const isDoc = file && !file.type.startsWith('image/') && !isPDF;
+
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <input ref={ref} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx"
+        onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setPreview(f.type.startsWith('image/') ? URL.createObjectURL(f) : null); } }} />
+
+      {/* Label input */}
+      <div className="w-full max-w-sm">
+        <label className="text-xs font-bold text-slate-700 block mb-1.5">
+          Document Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          placeholder="e.g. Offer Letter, NOC, Bank Statement Mar 2024…"
+          className="w-full px-3.5 py-2.5 text-sm border-2 rounded-xl outline-none transition-all placeholder:text-slate-300"
+          style={{ borderColor: label.trim() ? '#3b82f6' : '#e2e8f0', boxShadow: label.trim() ? '0 0 0 3px rgba(59,130,246,.1)' : 'none' }}
+        />
+        {!label.trim() && file && (
+          <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">⚠ Please enter a document name before saving.</p>
+        )}
+      </div>
+
+      {/* A4 model — neutral grey */}
+      <div style={{ perspective: '1200px' }}>
+        <div onClick={() => ref.current?.click()}
+          className="relative overflow-hidden cursor-pointer group transition-transform duration-300"
+          style={{ width: 270, height: 380, borderRadius: 4, background: '#f8fafc', border: '1px solid #e2e8f0', boxShadow: '4px 6px 0 #e2e8f0, 8px 10px 0 #cbd5e1, 0 20px 40px rgba(0,0,0,.1)', transform: 'rotateX(5deg) rotateY(4deg)' }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'rotateX(2deg) rotateY(1deg) translateY(-10px)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'rotateX(5deg) rotateY(4deg)')}>
+
+          {/* header */}
+          <div className="bg-gradient-to-r from-slate-500 to-slate-700 px-4 py-3 flex items-center gap-2">
+            <span className="text-xl">📄</span>
+            <span className="text-white text-[10px] font-bold tracking-widest truncate">{label.trim() || 'OTHER DOCUMENT'}</span>
+          </div>
+
+          {preview ? (
+            <img src={preview} className="w-full object-cover" style={{ height: 340 }} alt="preview" />
+          ) : isPDF ? (
+            <div className="flex flex-col items-center justify-center gap-3" style={{ height: 340 }}>
+              <div className="w-14 h-16 bg-red-500 rounded-lg flex items-center justify-center shadow-md relative">
+                <FileText className="w-7 h-7 text-white" />
+                <div className="absolute -top-1 -right-1 bg-white border-2 border-red-400 text-red-500 text-[7px] font-bold px-1 rounded">PDF</div>
+              </div>
+              <p className="text-slate-700 text-sm font-semibold">PDF Ready</p>
+              <p className="text-slate-400 text-[10px] px-4 text-center max-w-full truncate">{file!.name}</p>
+            </div>
+          ) : isDoc ? (
+            <div className="flex flex-col items-center justify-center gap-3" style={{ height: 340 }}>
+              <File className="w-12 h-12 text-slate-400" />
+              <p className="text-slate-700 text-sm font-semibold">Document Ready</p>
+              <p className="text-slate-400 text-[10px] px-4 text-center max-w-full truncate">{file!.name}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-4 px-5" style={{ height: 340 }}>
+              <div className="w-full space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-px bg-slate-200" style={{ width: `${75 + (i % 3) * 8}%` }} />)}</div>
+              <div className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:scale-110 group-hover:border-slate-400 transition-all duration-300">
+                <Upload className="w-6 h-6 text-slate-400" />
+              </div>
+              <p className="text-slate-400 text-[11px] text-center leading-relaxed">Click to pick a file<br/><span className="text-slate-300">PDF · Image · Word (.doc/.docx)</span></p>
+              <div className="w-full space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-px bg-slate-200" style={{ width: `${60 + (i % 2) * 18}%` }} />)}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* session counter */}
+      {savedCount > 0 && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-4 py-2 rounded-xl">
+          <CheckCircle2 className="w-4 h-4" />
+          {savedCount} document{savedCount > 1 ? 's' : ''} added this session
+        </div>
+      )}
+
+      <SaveBtn onClick={save} disabled={!file || !label.trim()} loading={uploading} label="Save to Vault" />
+    </div>
+  );
+}
+
 /* ─────────────────────────── Mini tile preview ───────────────────────────── */
 function MiniModel({ type, status }: { type: DocType; status: 'done' | 'partial' | 'empty' }) {
   const tick = status === 'done';
@@ -508,12 +645,192 @@ function MiniModel({ type, status }: { type: DocType; status: 'done' | 'partial'
   }
 }
 
+/* ─────────────────────────── PDF Thumbnail ──────────────────────────────── */
+function DocThumb({ url, label }: { url: string; label: string }) {
+  if (isPdf(url)) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-red-50 to-orange-50">
+        <div className="relative">
+          <div className="w-12 h-14 bg-red-500 rounded-lg flex items-center justify-center shadow-md">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div className="absolute -top-1 -right-1 bg-white border-2 border-red-500 text-red-500 text-[8px] font-bold px-1 rounded">PDF</div>
+        </div>
+        <p className="text-[10px] text-slate-500 font-medium max-w-[110px] truncate text-center">{label}</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <img src={url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt={label}
+        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+    </>
+  );
+}
+
+/* ─────────────────────────── Regular gallery card ───────────────────────── */
+function GalleryCard({ doc, onReplace, onDelete, replacing, deleting }: {
+  doc: VaultDoc; replacing: string | null; deleting: string | null;
+  onReplace: (doc: VaultDoc, file: File) => void;
+  onDelete:  (id: string) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
+      <input ref={ref} type="file" className="hidden" accept={CFG[doc.type]?.accept ?? 'image/*'}
+        onChange={e => { const f = e.target.files?.[0]; if (f) { onReplace(doc, f); e.target.value = ''; } }} />
+
+      <div className="h-36 bg-slate-100 relative overflow-hidden">
+        <DocThumb url={doc.url} label={doc.label} />
+        <span className="absolute top-2 left-2 bg-white/90 backdrop-blur text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-10">
+          {CFG[doc.type]?.label ?? doc.type}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">{doc.label}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{formatDate(doc.createdAt)}</p>
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <OpenDocBtn id={doc._id} />
+            <button onClick={() => ref.current?.click()} disabled={replacing === doc._id}
+              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Replace">
+              {replacing === doc._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            </button>
+            <button onClick={() => onDelete(doc._id)} disabled={deleting === doc._id}
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+              {deleting === doc._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+        {Object.keys(doc.extractedData ?? {}).length > 0 && (
+          <div className="bg-slate-50 rounded-lg p-2.5">
+            <p className="text-[10px] font-bold text-blue-700 flex items-center gap-1 mb-1.5"><Scan className="w-3 h-3" />OCR Extracted</p>
+            {Object.entries(doc.extractedData).slice(0, 3).map(([k, v]) => (
+              <div key={k} className="flex justify-between text-[10px]">
+                <span className="text-slate-400 capitalize">{k}</span>
+                <span className="text-slate-700 font-medium truncate ml-2 max-w-[100px]">{String(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Aadhaar single gallery card ────────────────── */
+function AadhaarGalleryCard({ front, back, onReplace, onDelete, replacing, deleting }: {
+  front: VaultDoc | null; back: VaultDoc | null;
+  replacing: string | null; deleting: string | null;
+  onReplace: (doc: VaultDoc, file: File) => void;
+  onDelete:  (id: string) => void;
+}) {
+  const [showBack, setShowBack] = useState(false);
+  const fRef = useRef<HTMLInputElement>(null);
+  const bRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+      <input ref={fRef} type="file" className="hidden" accept="image/*"
+        onChange={e => { const f = e.target.files?.[0]; if (f && front) { onReplace(front, f); e.target.value = ''; } }} />
+      <input ref={bRef} type="file" className="hidden" accept="image/*"
+        onChange={e => { const f = e.target.files?.[0]; if (f && back) { onReplace(back, f); e.target.value = ''; } }} />
+
+      {/* flip-card thumbnail */}
+      <div className="relative overflow-hidden" style={{ height: 160, perspective: '900px' }}>
+        <div style={{
+          transformStyle: 'preserve-3d',
+          transform: showBack ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          transition: 'transform 0.55s cubic-bezier(0.4,0.2,0.2,1)',
+          width: '100%', height: '100%', position: 'relative',
+        }}>
+          {/* front face */}
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
+            {front
+              ? <img src={front.url} className="w-full h-full object-cover" alt="Aadhaar Front" />
+              : <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#FF9933 0%,#FF9933 30%,#fff 44%,#fff 56%,#138808 70%,#138808 100%)' }}>
+                  <p className="text-xs font-semibold text-slate-700 bg-white/70 px-2 py-0.5 rounded">Front not uploaded</p>
+                </div>}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </div>
+          {/* back face */}
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+            {back
+              ? <img src={back.url} className="w-full h-full object-cover" alt="Aadhaar Back" />
+              : <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#1a237e,#1565c0,#0288d1)' }}>
+                  <p className="text-xs font-semibold text-white">Back not uploaded</p>
+                </div>}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </div>
+        </div>
+
+        <span className="absolute top-2 left-2 bg-white/90 backdrop-blur text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-10">
+          Aadhaar · {showBack ? 'Back' : 'Front'}
+        </span>
+        <button onClick={() => setShowBack(s => !s)}
+          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 bg-black/50 hover:bg-black/70 text-white text-[10px] font-semibold px-2 py-1 rounded-full backdrop-blur transition-colors">
+          <RotateCcw className="w-3 h-3" />{showBack ? 'See Front' : 'Flip'}
+        </button>
+      </div>
+
+      {/* side action rows */}
+      <div className="p-4">
+        <p className="text-sm font-semibold text-slate-900 mb-3">Aadhaar Card</p>
+        <div className="grid grid-cols-2 gap-2">
+          {/* front */}
+          <div className="bg-orange-50 border border-orange-100 rounded-xl p-2.5">
+            <p className="text-[10px] font-bold text-orange-700 mb-1.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" />Front
+            </p>
+            {front ? (
+              <div className="flex gap-1">
+                <button onClick={() => fRef.current?.click()} disabled={replacing === front._id}
+                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
+                  {replacing === front._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}Replace
+                </button>
+                <button onClick={() => onDelete(front._id)} disabled={deleting === front._id}
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  {deleting === front._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                </button>
+              </div>
+            ) : <p className="text-[10px] text-slate-400 italic">Not uploaded</p>}
+          </div>
+
+          {/* back */}
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5">
+            <p className="text-[10px] font-bold text-blue-700 mb-1.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />Back
+            </p>
+            {back ? (
+              <div className="flex gap-1">
+                <button onClick={() => bRef.current?.click()} disabled={replacing === back._id}
+                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  {replacing === back._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}Replace
+                </button>
+                <button onClick={() => onDelete(back._id)} disabled={deleting === back._id}
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  {deleting === back._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                </button>
+              </div>
+            ) : <p className="text-[10px] text-slate-400 italic">Not uploaded</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────── Page ───────────────────────────────────────── */
 export default function DocumentVaultPage() {
   const [docs, setDocs]           = useState<VaultDoc[]>([]);
   const [loading, setLoading]     = useState(true);
   const [active, setActive]       = useState<DocType | null>(null);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
 
   const fetch = async () => { try { const r = await getVaultDocuments(); setDocs(r.data.data); } finally { setLoading(false); } };
   useEffect(() => { fetch(); }, []);
@@ -535,6 +852,20 @@ export default function DocumentVaultPage() {
     finally { setDeleting(null); }
   };
 
+  const handleReplace = async (doc: VaultDoc, file: File) => {
+    setReplacing(doc._id);
+    try {
+      await deleteVaultDocument(doc._id);
+      const fd = new FormData();
+      fd.append('file', file); fd.append('type', doc.type); fd.append('label', doc.label);
+      await uploadVaultDocument(fd);
+      toast({ title: 'Document replaced!', variant: 'success' });
+      fetch();
+    } catch (e: any) {
+      toast({ title: 'Replace failed', description: e.response?.data?.message, variant: 'destructive' });
+    } finally { setReplacing(null); }
+  };
+
   const renderUploader = (t: DocType) => {
     const first = byType(t)[0] ?? null;
     const done  = () => { fetch(); setActive(null); };
@@ -545,7 +876,8 @@ export default function DocumentVaultPage() {
       case 'photograph':     return <PolaroidUploader  existing={first} onDone={done} />;
       case 'bank_statement': return <A4Uploader type={t} existing={first} onDone={done} />;
       case 'degree':         return <A4Uploader type={t} existing={first} onDone={done} />;
-      default:               return <A4Uploader type={t} existing={first} onDone={done} />;
+      // 'other' stays open so user can keep adding more docs
+      default:               return <OtherDocUploader onRefresh={fetch} />;
     }
   };
 
@@ -594,9 +926,10 @@ export default function DocumentVaultPage() {
             <X className="w-4 h-4" />
           </button>
           <h3 className="font-bold text-slate-900 text-base mb-0.5">{CFG[active].label}</h3>
-          <p className="text-slate-400 text-xs mb-7">
-            {CFG[active].sublabel}
-            {CFG[active].ocr && <span className="ml-2 inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
+          <p className="text-slate-400 text-xs mb-7 flex items-center flex-wrap gap-2">
+            {active === 'other' ? 'Add as many documents as you need — each gets its own name.' : CFG[active].sublabel}
+            {CFG[active].ocr && <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
+            {active === 'other' && <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Unlimited uploads</span>}
           </p>
           {renderUploader(active)}
         </div>
@@ -611,57 +944,41 @@ export default function DocumentVaultPage() {
           <h3 className="font-semibold text-slate-700 mb-1">Vault is empty</h3>
           <p className="text-slate-400 text-sm">Select a document type above to upload.</p>
         </div>
-      ) : docs.length > 0 && (
-        <div>
-          <h2 className="text-base font-bold text-slate-900 mb-4">Your Vault <span className="text-slate-400 font-normal text-sm">({docs.length} {docs.length === 1 ? 'document' : 'documents'})</span></h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {docs.map(doc => (
-              <div key={doc._id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
-                {/* thumbnail */}
-                <div className="h-36 bg-slate-100 relative overflow-hidden">
-                  <img src={doc.url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt={doc.label}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                  <span className="absolute top-2 left-2 bg-white/90 backdrop-blur text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize">
-                    {CFG[doc.type as DocType]?.label ?? doc.type}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{doc.label}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{formatDate(doc.createdAt)}</p>
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <button onClick={() => handleDelete(doc._id)} disabled={deleting === doc._id}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        {deleting === doc._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                  {Object.keys(doc.extractedData ?? {}).length > 0 && (
-                    <div className="bg-slate-50 rounded-lg p-2.5">
-                      <p className="text-[10px] font-bold text-blue-700 flex items-center gap-1 mb-1.5">
-                        <Scan className="w-3 h-3" />OCR Extracted
-                      </p>
-                      {Object.entries(doc.extractedData).slice(0, 3).map(([k, v]) => (
-                        <div key={k} className="flex justify-between text-[10px]">
-                          <span className="text-slate-400 capitalize">{k}</span>
-                          <span className="text-slate-700 font-medium truncate ml-2 max-w-[100px]">{String(v)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+      ) : docs.length > 0 && (() => {
+        /* separate aadhar docs from everything else */
+        const nonAadhar = docs.filter(d => d.type !== 'aadhar');
+        const hasAadhar = !!(aadharF || aadharB);
+        const total = nonAadhar.length + (hasAadhar ? 1 : 0);
+        return (
+          <div>
+            <h2 className="text-base font-bold text-slate-900 mb-4">
+              Your Vault <span className="text-slate-400 font-normal text-sm">({total} {total === 1 ? 'document' : 'documents'})</span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {/* single Aadhaar card grouping both sides */}
+              {hasAadhar && (
+                <AadhaarGalleryCard
+                  front={aadharF} back={aadharB}
+                  replacing={replacing} deleting={deleting}
+                  onReplace={handleReplace}
+                  onDelete={handleDelete}
+                />
+              )}
+              {/* all other types */}
+              {nonAadhar.map(doc => (
+                <GalleryCard
+                  key={doc._id}
+                  doc={doc}
+                  replacing={replacing}
+                  deleting={deleting}
+                  onReplace={handleReplace}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

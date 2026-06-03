@@ -52,6 +52,7 @@ export const makePayment = (id: string) => api.put(`/user/applications/${id}/pay
 
 // User — Document Vault
 export const getVaultDocuments = () => api.get('/user/vault');
+export const getVaultDocumentUrl = (id: string) => api.get(`/user/vault/${id}/url`);
 export const uploadVaultDocument = (formData: FormData) =>
   api.post('/user/vault', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const deleteVaultDocument = (id: string) => api.delete(`/user/vault/${id}`);

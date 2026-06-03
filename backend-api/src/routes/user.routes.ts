@@ -21,6 +21,7 @@ router.put('/applications/:id/payment', payments.processPayment);
 
 // Document Vault
 router.get('/vault', vault.getVaultDocuments);
+router.get('/vault/:id/url', vault.getVaultDocumentUrl);   // signed view URL
 router.post('/vault', upload.single('file'), vault.uploadVaultDocument);
 router.delete('/vault/:id', vault.deleteVaultDocument);
 

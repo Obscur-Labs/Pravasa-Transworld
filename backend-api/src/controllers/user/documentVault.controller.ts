@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import DocumentVault, { VaultDocumentType } from '../../models/DocumentVault';
-import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary.service';
+import { uploadToCloudinary, deleteFromCloudinary, getSignedUrl } from '../../services/cloudinary.service';
 import { extractFromDocument } from '../../services/ocr.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
@@ -46,6 +46,18 @@ export const uploadVaultDocument = async (req: AuthRequest, res: Response): Prom
   });
 
   sendSuccess(res, doc, 'Document saved to vault', 201);
+};
+
+/**
+ * Returns a 1-hour signed Cloudinary URL for a vault document.
+ * The browser can open this URL directly without any Authorization header,
+ * even if the Cloudinary account enforces authenticated delivery.
+ */
+export const getVaultDocumentUrl = async (req: AuthRequest, res: Response): Promise<void> => {
+  const doc = await DocumentVault.findOne({ _id: req.params.id, user: req.user!._id });
+  if (!doc) { sendError(res, 'Document not found', 404); return; }
+  const viewUrl = getSignedUrl(doc.url, doc.publicId);
+  sendSuccess(res, { url: viewUrl });
 };
 
 export const deleteVaultDocument = async (req: AuthRequest, res: Response): Promise<void> => {
