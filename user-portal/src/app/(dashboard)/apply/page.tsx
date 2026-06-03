@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,7 @@ import type { Country, VisaType, FormField, DocumentRequirement } from '@/types'
 type Step = 1 | 2 | 3 | 4 | 5;
 
 const STEPS = ['Country', 'Visa Type', 'Application Form', 'Documents', 'Review'];
+const DRAFT_KEY = 'visa_app_draft';
 const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
 
 function formatBytes(bytes: number) {
@@ -31,13 +32,49 @@ export default function ApplyPage() {
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [docFiles, setDocFiles] = useState<Record<string, File>>({});
+  const [countrySearch, setCountrySearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
 
+  // Restore draft on mount, then load countries
   useEffect(() => {
     getPublicCountries().then((r) => setCountries(r.data.data));
+
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      try {
+        const d = JSON.parse(raw);
+        if (d.selectedCountry) setSelectedCountry(d.selectedCountry);
+        if (d.selectedVisa) setSelectedVisa(d.selectedVisa);
+        if (d.visaTypes) setVisaTypes(d.visaTypes);
+        if (d.formData) setFormData(d.formData);
+        if (d.step) setStep(d.step as Step);
+      } catch {
+        localStorage.removeItem(DRAFT_KEY);
+      }
+    }
+    setDraftRestored(true);
   }, []);
+
+  // Auto-save draft whenever key state changes (skip until restore is done)
+  useEffect(() => {
+    if (!draftRestored || !selectedCountry) return;
+    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes]);
+
+  const startOver = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setStep(1);
+    setSelectedCountry(null);
+    setSelectedVisa(null);
+    setFormData({});
+    setDocFiles({});
+    setVisaTypes([]);
+    setCountrySearch('');
+  };
 
   const handleCountrySelect = async (country: Country) => {
     setSelectedCountry(country);
@@ -91,6 +128,7 @@ export default function ApplyPage() {
         await uploadDocument(appId, fd);
       }
 
+      localStorage.removeItem(DRAFT_KEY);
       toast({ title: 'Application submitted!', description: 'Your documents have been uploaded.', variant: 'success' });
       router.push(`/applications/${appId}`);
     } catch (err: any) {
@@ -217,8 +255,22 @@ export default function ApplyPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-900 mb-1">Apply for Visa</h1>
-      <p className="text-slate-500 text-sm mb-8">Complete the steps below to submit your application.</p>
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-2xl font-bold text-slate-900">Apply for Visa</h1>
+        {(step > 1 || !!selectedCountry) && (
+          <button
+            onClick={startOver}
+            className="text-xs text-slate-400 hover:text-red-500 transition-colors mt-1.5 flex-shrink-0"
+          >
+            Start over
+          </button>
+        )}
+      </div>
+      <p className="text-slate-500 text-sm mb-8">
+        {step > 1 || selectedCountry
+          ? 'Your progress has been saved — continue where you left off.'
+          : 'Complete the steps below to submit your application.'}
+      </p>
 
       {/* Step Indicator */}
       <div className="flex items-center mb-8">
@@ -252,20 +304,34 @@ export default function ApplyPage() {
         {step === 1 && (
           <div>
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Destination Country</h2>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                className="pl-9"
+                placeholder="Search countries..."
+                value={countrySearch}
+                onChange={(e) => setCountrySearch(e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {countries.map((c) => (
-                <button
-                  key={c._id}
-                  onClick={() => handleCountrySelect(c)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    selectedCountry?._id === c._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-8 h-5 object-cover rounded mb-2"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-                </button>
-              ))}
+              {countries
+                .filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
+                .map((c) => (
+                  <button
+                    key={c._id}
+                    onClick={() => handleCountrySelect(c)}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      selectedCountry?._id === c._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-8 h-5 object-cover rounded mb-2"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <p className="text-sm font-semibold text-slate-900">{c.name}</p>
+                  </button>
+                ))}
+              {countries.filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase())).length === 0 && (
+                <p className="col-span-3 text-center text-slate-400 py-6 text-sm">No countries match "{countrySearch}".</p>
+              )}
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 
 export default function CountriesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
+  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<CountryForm>(emptyForm);
@@ -94,6 +95,10 @@ export default function CountriesPage() {
     setShowForm(true);
   };
 
+  const filtered = countries.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -101,9 +106,20 @@ export default function CountriesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Countries</h1>
           <p className="text-slate-500 text-sm mt-1">Manage available destination countries.</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(!showForm); }}>
-          <Plus className="w-4 h-4 mr-2" /> Add Country
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              className="pl-9 w-56"
+              placeholder="Search countries..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(!showForm); }}>
+            <Plus className="w-4 h-4 mr-2" /> Add Country
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -135,7 +151,7 @@ export default function CountriesPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {countries.map((c) => (
+        {filtered.map((c) => (
           <Card key={c._id} className={`hover:shadow-md transition-shadow ${!c.isActive ? 'opacity-60' : ''}`}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-2">
@@ -172,8 +188,10 @@ export default function CountriesPage() {
             </CardContent>
           </Card>
         ))}
-        {countries.length === 0 && (
-          <p className="col-span-4 text-center text-slate-400 py-8">No countries yet. Add one above.</p>
+        {filtered.length === 0 && (
+          <p className="col-span-4 text-center text-slate-400 py-8">
+            {search ? `No countries match "${search}".` : 'No countries yet. Add one above.'}
+          </p>
         )}
       </div>
     </div>
