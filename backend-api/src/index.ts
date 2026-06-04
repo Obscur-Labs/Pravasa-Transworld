@@ -11,6 +11,13 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server);
 
+const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'EMAIL_USER', 'EMAIL_PASS'];
+const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missing.length) {
+  console.error(`[STARTUP] Missing required env vars: ${missing.join(', ')}`);
+  if (process.env.NODE_ENV === 'production') process.exit(1);
+}
+
 (async () => {
   try {
     await connectDB();

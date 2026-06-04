@@ -1,4 +1,4 @@
-import { resend, EMAIL_FROM } from '../config/email';
+import { createTransporter, EMAIL_FROM } from '../config/email';
 
 const adminUrl = process.env.ADMIN_URL || 'http://localhost:3001';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -30,7 +30,7 @@ const footer = () => `
 `;
 
 export async function sendOTPEmail(email: string, name: string, otp: string): Promise<void> {
-  await resend.emails.send({
+  await createTransporter().sendMail({
     from: EMAIL_FROM,
     to: email,
     subject: 'Your Pravasa Transworld Login OTP',
@@ -63,7 +63,7 @@ export async function sendDocumentStatusEmail(
   referenceId?: string
 ): Promise<void> {
   const isApproved = status === 'approved';
-  await resend.emails.send({
+  await createTransporter().sendMail({
     from: EMAIL_FROM,
     to: email,
     subject: isApproved ? 'Documents Approved - Proceed to Payment' : 'Document Revision Required',
@@ -106,7 +106,7 @@ export async function sendStatusUpdateEmail(
   statusLabel: string,
   referenceId: string
 ): Promise<void> {
-  await resend.emails.send({
+  await createTransporter().sendMail({
     from: EMAIL_FROM,
     to: email,
     subject: `Application Update: ${statusLabel}`,
@@ -137,7 +137,7 @@ export async function sendVisaDeliveredEmail(
   referenceId: string,
   downloadUrl: string
 ): Promise<void> {
-  await resend.emails.send({
+  await createTransporter().sendMail({
     from: EMAIL_FROM,
     to: email,
     subject: 'Your Visa is Ready for Download!',

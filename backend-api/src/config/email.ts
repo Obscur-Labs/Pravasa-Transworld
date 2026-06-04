@@ -1,4 +1,14 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-export const resend = new Resend(process.env.RESEND_API_KEY);
-export const EMAIL_FROM = process.env.EMAIL_FROM || 'Pravasa Transworld <onboarding@resend.dev>';
+export const createTransporter = () =>
+  nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+export const EMAIL_FROM = process.env.EMAIL_FROM || `Pravasa Transworld <${process.env.EMAIL_USER}>`;
