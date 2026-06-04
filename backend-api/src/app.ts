@@ -13,13 +13,18 @@ app.set('trust proxy', 1);
 
 // ── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
-  process.env.ADMIN_URL || 'http://localhost:3001',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...(process.env.ADMIN_URL ? [process.env.ADMIN_URL] : []),
 ];
+
+const isAllowedOrigin = (origin: string) =>
+  allowedOrigins.includes(origin) || /^https:\/\/[\w-]+(\.vercel\.app)$/.test(origin);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    if (!origin || isAllowedOrigin(origin)) callback(null, true);
     else callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
