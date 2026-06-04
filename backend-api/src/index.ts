@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server);
 
-const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'EMAIL_USER', 'EMAIL_PASS'];
+const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI', 'RESEND_API_KEY'];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length) {
   console.error(`[STARTUP] Missing required env vars: ${missing.join(', ')}`);
