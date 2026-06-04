@@ -39,10 +39,14 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
 
   try {
     await sendOTPEmail(email, name, otp);
-  } catch (err) {
-    console.error('Email send failed:', err);
-    // In dev, still proceed — log OTP to console
-    console.log(`[DEV] OTP for ${email}: ${otp}`);
+  } catch (err: any) {
+    console.error('[EMAIL ERROR] Failed to send OTP to', email, '—', err?.message ?? err);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[DEV] OTP for ${email}: ${otp}`);
+    } else {
+      sendError(res, 'Failed to send OTP email. Please try again.', 500);
+      return;
+    }
   }
 
   sendSuccess(res, { email }, 'OTP sent to your email');
