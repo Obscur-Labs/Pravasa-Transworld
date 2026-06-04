@@ -1,4 +1,4 @@
-import { resend, EMAIL_FROM } from '../config/email';
+import { transporter, MAIL_FROM } from '../config/email';
 
 const adminUrl = process.env.ADMIN_URL || 'http://localhost:3001';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -29,12 +29,28 @@ const footer = () => `
   </div>
 `;
 
+async function sendMail(to: string, subject: string, html: string, label: string): Promise<void> {
+  console.log(`[EMAIL:${label}] Preparing to send → ${to} | Subject: "${subject}"`);
+  try {
+    const info = await transporter.sendMail({ from: MAIL_FROM, to, subject, html });
+    console.log(`[EMAIL:${label}] Sent successfully → messageId: ${info.messageId} | accepted: [${info.accepted}] | rejected: [${info.rejected}]`);
+    if (info.rejected?.length) {
+      console.warn(`[EMAIL:${label}] Address rejected by server: ${info.rejected.join(', ')}`);
+    }
+  } catch (err: any) {
+    console.error(`[EMAIL:${label}] FAILED for ${to}`);
+    console.error(`[EMAIL:${label}] Error code: ${err?.code} | Response: ${err?.response}`);
+    console.error(`[EMAIL:${label}] Full error:`, err?.message ?? err);
+    throw err;
+  }
+}
+
 export async function sendOTPEmail(email: string, name: string, otp: string): Promise<void> {
-  await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: 'Your Pravasa Transworld Login OTP',
-    html: `
+  console.log(`[OTP] Generating OTP email for ${email} (name: ${name})`);
+  await sendMail(
+    email,
+    'Your Pravasa Transworld Login OTP',
+    `
       <div style="${baseStyle}">
         ${header('Secure Login')}
         <div style="padding: 40px 32px;">
@@ -52,7 +68,8 @@ export async function sendOTPEmail(email: string, name: string, otp: string): Pr
         ${footer()}
       </div>
     `,
-  });
+    'OTP'
+  );
 }
 
 export async function sendDocumentStatusEmail(
@@ -63,11 +80,11 @@ export async function sendDocumentStatusEmail(
   referenceId?: string
 ): Promise<void> {
   const isApproved = status === 'approved';
-  await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: isApproved ? 'Documents Approved - Proceed to Payment' : 'Document Revision Required',
-    html: `
+  console.log(`[DOC_STATUS] Sending document ${status} email → ${email} | ref: ${referenceId}`);
+  await sendMail(
+    email,
+    isApproved ? 'Documents Approved - Proceed to Payment' : 'Document Revision Required',
+    `
       <div style="${baseStyle}">
         ${header(isApproved ? 'Documents Approved' : 'Document Revision Required')}
         <div style="padding: 40px 32px;">
@@ -97,7 +114,8 @@ export async function sendDocumentStatusEmail(
         ${footer()}
       </div>
     `,
-  });
+    'DOC_STATUS'
+  );
 }
 
 export async function sendStatusUpdateEmail(
@@ -106,11 +124,11 @@ export async function sendStatusUpdateEmail(
   statusLabel: string,
   referenceId: string
 ): Promise<void> {
-  await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: `Application Update: ${statusLabel}`,
-    html: `
+  console.log(`[APP_STATUS] Sending status update "${statusLabel}" → ${email} | ref: ${referenceId}`);
+  await sendMail(
+    email,
+    `Application Update: ${statusLabel}`,
+    `
       <div style="${baseStyle}">
         ${header('Application Status Update')}
         <div style="padding: 40px 32px;">
@@ -128,7 +146,8 @@ export async function sendStatusUpdateEmail(
         ${footer()}
       </div>
     `,
-  });
+    'APP_STATUS'
+  );
 }
 
 export async function sendVisaDeliveredEmail(
@@ -137,11 +156,11 @@ export async function sendVisaDeliveredEmail(
   referenceId: string,
   downloadUrl: string
 ): Promise<void> {
-  await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: 'Your Visa is Ready for Download!',
-    html: `
+  console.log(`[VISA_DELIVERED] Sending visa ready email → ${email} | ref: ${referenceId}`);
+  await sendMail(
+    email,
+    'Your Visa is Ready for Download!',
+    `
       <div style="${baseStyle}">
         ${header('Visa Delivered')}
         <div style="padding: 40px 32px;">
@@ -159,5 +178,6 @@ export async function sendVisaDeliveredEmail(
         ${footer()}
       </div>
     `,
-  });
+    'VISA_DELIVERED'
+  );
 }
