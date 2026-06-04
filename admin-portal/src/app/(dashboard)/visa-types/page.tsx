@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Plus, Pencil, Trash2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,60 @@ import type { Country, VisaType, FormField, DocumentRequirement, FieldType } fro
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0 });
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true });
+
+function OptionListEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
+  const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const add = () => {
+    const val = draft.trim();
+    if (!val || options.includes(val)) return;
+    onChange([...options, val]);
+    setDraft('');
+    inputRef.current?.focus();
+  };
+
+  const remove = (idx: number) => onChange(options.filter((_, i) => i !== idx));
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); add(); }
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {options.map((opt, idx) => (
+            <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800 font-medium">
+              {opt}
+              <button type="button" onClick={() => remove(idx)} className="text-blue-400 hover:text-blue-700 ml-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1">
+        <Input
+          ref={inputRef}
+          className="h-7 text-xs flex-1"
+          placeholder="Add option…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKey}
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!draft.trim()}
+          className="h-7 px-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
@@ -211,15 +265,19 @@ export default function VisaTypesPage() {
                           <input type="checkbox" checked={field.required} onChange={(e) => updateField(i, 'required', e.target.checked)} className="rounded" />
                           Required
                         </label>
-                        {(field.type === 'select' || field.type === 'radio') && (
-                          <div className="flex-1 mx-3">
-                            <Input className="h-7 text-xs" placeholder="Options (comma-separated)" value={field.options.join(', ')} onChange={(e) => updateField(i, 'options', e.target.value.split(',').map((o) => o.trim()).filter(Boolean))} />
-                          </div>
-                        )}
-                        <button type="button" onClick={() => removeField(i)} className="text-red-400 hover:text-red-600">
+                        <button type="button" onClick={() => removeField(i)} className="text-red-400 hover:text-red-600 ml-auto">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
+                      {(field.type === 'select' || field.type === 'radio') && (
+                        <div className="mt-2 pt-2 border-t border-slate-200">
+                          <p className="text-xs text-slate-500 font-medium mb-1">Selection Options</p>
+                          <OptionListEditor
+                            options={field.options}
+                            onChange={(opts) => updateField(i, 'options', opts)}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
