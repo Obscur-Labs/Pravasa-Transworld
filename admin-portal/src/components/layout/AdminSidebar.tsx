@@ -1,7 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, Globe2, CreditCard, Users, LogOut, Shield, Kanban, Bell } from 'lucide-react';
+import { LayoutDashboard, FileText, Globe2, CreditCard, Users, LogOut, Shield, Kanban, Bell, MessageSquare } from 'lucide-react';
 import { useAdminAuthStore } from '@/store/auth.store';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/countries', label: 'Countries', icon: Globe2 },
   { href: '/visa-types', label: 'Visa Types', icon: CreditCard },
   { href: '/users', label: 'Customers', icon: Users },
+  { href: '/leads', label: 'Contact Leads', icon: MessageSquare },
   { href: '/notifications', label: 'Notifications', icon: Bell },
 ];
 

@@ -39,3 +39,9 @@ export const markLeadRead = async (req: AdminRequest, res: Response): Promise<vo
   if (!lead) { sendError(res, 'Lead not found', 404); return; }
   sendSuccess(res, lead, 'Lead marked as read');
 };
+
+export const deleteLead = async (req: AdminRequest, res: Response): Promise<void> => {
+  const lead = await ContactLead.findByIdAndDelete(req.params.id);
+  if (!lead) { sendError(res, 'Lead not found', 404); return; }
+  sendSuccess(res, null, 'Lead deleted');
+};

@@ -47,6 +47,7 @@ router.get('/users/:userId/vault/zip', users.downloadUserVaultZip);
 // Contact Leads
 router.get('/leads', leads.getLeads);
 router.patch('/leads/:id/read', leads.markLeadRead);
+router.delete('/leads/:id', leads.deleteLead);
 
 // Notifications
 router.get('/notifications', notifications.getNotifications);

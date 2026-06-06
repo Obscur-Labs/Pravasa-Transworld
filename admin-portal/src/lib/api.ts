@@ -78,6 +78,7 @@ export const downloadUserVaultZip = (userId: string) =>
 // Contact Leads
 export const getLeads = () => api.get('/admin/leads');
 export const markLeadRead = (id: string) => api.patch(`/admin/leads/${id}/read`);
+export const deleteLead = (id: string) => api.delete(`/admin/leads/${id}`);
 
 // Notifications
 export const getAdminNotifications = () => api.get('/admin/notifications');
