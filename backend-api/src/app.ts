@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import userRoutes from './routes/user.routes';
 import publicRoutes from './routes/public.routes';
+import docsRoutes from './routes/docs.routes';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -71,6 +72,9 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'Pravasa Transworld API' }));
+
+// ── API Docs ──────────────────────────────────────────────────────────────────
+app.use('/', docsRoutes);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
