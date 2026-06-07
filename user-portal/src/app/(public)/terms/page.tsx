@@ -1,5 +1,20 @@
-﻿import Navbar from '@/components/layout/Navbar';
+﻿import type { Metadata } from 'next';
+import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description:
+    'Read the terms and conditions governing use of Pravasa Transworld\'s visa application and immigration services platform.',
+  alternates: { canonical: `${BASE_URL}/terms` },
+  openGraph: {
+    title: 'Terms of Service | Pravasa Transworld',
+    description: 'Terms and conditions governing use of Pravasa Transworld\'s visa services platform.',
+    url: `${BASE_URL}/terms`,
+  },
+};
 
 export default function TermsPage() {
   return (

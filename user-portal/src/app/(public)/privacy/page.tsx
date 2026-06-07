@@ -1,5 +1,20 @@
-﻿import Navbar from '@/components/layout/Navbar';
+﻿import type { Metadata } from 'next';
+import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description:
+    'Learn how Pravasa Transworld collects, uses, and protects your personal data. Your privacy is our priority — read our full policy here.',
+  alternates: { canonical: `${BASE_URL}/privacy` },
+  openGraph: {
+    title: 'Privacy Policy | Pravasa Transworld',
+    description: 'Learn how Pravasa Transworld collects, uses, and protects your personal data.',
+    url: `${BASE_URL}/privacy`,
+  },
+};
 
 export default function PrivacyPage() {
   return (
