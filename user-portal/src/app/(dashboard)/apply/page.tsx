@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen } from 'lucide-react';
+import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,8 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
 
 /** Map a requirement name to a vault document type for auto-matching */
 function getVaultType(reqName: string): string | null {
@@ -167,18 +170,43 @@ export default function ApplyPage() {
       const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: formData });
       const appId = r.data.data._id;
 
-      // 2. Upload / link each document
-      const entries = Object.entries(docSources);
-      for (let i = 0; i < entries.length; i++) {
-        const [requirementName, source] = entries[i];
-        setSubmitStatus(`Uploading documents (${i + 1}/${entries.length})…`);
-        if (source.type === 'vault') {
-          await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName });
+      // 2. Upload / link each document (passport gets split into front + back)
+      const reqs = selectedVisa.documentRequirements;
+      let uploadIdx = 0;
+
+      for (const req of reqs) {
+        if (isPassportReq(req.name)) {
+          const frontSrc = docSources[`${req.name}__front`];
+          const backSrc  = docSources[`${req.name}__back`];
+          if (frontSrc?.type === 'file') {
+            uploadIdx++;
+            setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+            const fd = new FormData();
+            fd.append('file', frontSrc.file);
+            fd.append('requirementName', `${req.name} (Front)`);
+            await uploadDocument(appId, fd);
+          }
+          if (backSrc?.type === 'file') {
+            uploadIdx++;
+            setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+            const fd = new FormData();
+            fd.append('file', backSrc.file);
+            fd.append('requirementName', `${req.name} (Back)`);
+            await uploadDocument(appId, fd);
+          }
         } else {
-          const fd = new FormData();
-          fd.append('file', source.file);
-          fd.append('requirementName', requirementName);
-          await uploadDocument(appId, fd);
+          const source = docSources[req.name];
+          if (!source) continue;
+          uploadIdx++;
+          setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+          if (source.type === 'vault') {
+            await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: req.name });
+          } else {
+            const fd = new FormData();
+            fd.append('file', source.file);
+            fd.append('requirementName', req.name);
+            await uploadDocument(appId, fd);
+          }
         }
       }
 
@@ -219,10 +247,14 @@ export default function ApplyPage() {
     if (step === 1) return !!selectedCountry;
     if (step === 2) return !!selectedVisa && !loading;
     if (step === 4 && selectedVisa) {
-      // All required documents must have a source (vault or file)
       return selectedVisa.documentRequirements
         .filter((r) => r.required)
-        .every((r) => !!docSources[r.name]);
+        .every((r) => {
+          if (isPassportReq(r.name)) {
+            return !!docSources[`${r.name}__front`] && !!docSources[`${r.name}__back`];
+          }
+          return !!docSources[r.name];
+        });
     }
     return true;
   };
@@ -308,7 +340,15 @@ export default function ApplyPage() {
   };
 
   const requirements: DocumentRequirement[] = selectedVisa?.documentRequirements || [];
-  const requiredMissing = requirements.filter((r) => r.required && !docSources[r.name]);
+  const requiredMissing = requirements.filter((r) => {
+    if (!r.required) return false;
+    if (isPassportReq(r.name)) return !docSources[`${r.name}__front`] || !docSources[`${r.name}__back`];
+    return !docSources[r.name];
+  });
+  const readyCount = requirements.filter((r) => {
+    if (isPassportReq(r.name)) return !!docSources[`${r.name}__front`] && !!docSources[`${r.name}__back`];
+    return !!docSources[r.name];
+  }).length;
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -480,7 +520,7 @@ export default function ApplyPage() {
                 </p>
               </div>
               <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full font-medium flex-shrink-0">
-                {Object.keys(docSources).length}/{requirements.length} ready
+                {readyCount}/{requirements.length} ready
               </span>
             </div>
 
@@ -492,6 +532,29 @@ export default function ApplyPage() {
             ) : (
               <div className="space-y-3">
                 {requirements.map((req) => {
+                  // ── Passport: dedicated 3D front/back uploader ──
+                  if (isPassportReq(req.name)) {
+                    const frontSrc = docSources[`${req.name}__front`];
+                    const backSrc  = docSources[`${req.name}__back`];
+                    return (
+                      <PassportUploadCard
+                        key={req._id || req.name}
+                        requirementName={req.name}
+                        frontFile={frontSrc?.type === 'file' ? frontSrc.file : null}
+                        backFile={backSrc?.type === 'file' ? backSrc.file : null}
+                        onFrontChange={(file) => {
+                          if (file) setDocSources((p) => ({ ...p, [`${req.name}__front`]: { type: 'file', file } }));
+                          else setDocSources((p) => { const n = { ...p }; delete n[`${req.name}__front`]; return n; });
+                        }}
+                        onBackChange={(file) => {
+                          if (file) setDocSources((p) => ({ ...p, [`${req.name}__back`]: { type: 'file', file } }));
+                          else setDocSources((p) => { const n = { ...p }; delete n[`${req.name}__back`]; return n; });
+                        }}
+                      />
+                    );
+                  }
+
+                  // ── All other documents: standard card ──
                   const source = docSources[req.name];
                   const vaultType = getVaultType(req.name);
                   const vaultMatches = vaultType ? vaultDocs.filter((v) => v.type === vaultType) : [];
@@ -502,9 +565,7 @@ export default function ApplyPage() {
                       key={req._id || req.name}
                       className={`rounded-xl border-2 p-4 transition-all ${
                         source
-                          ? source.type === 'vault'
-                            ? 'border-green-200 bg-green-50'
-                            : 'border-green-200 bg-green-50'
+                          ? 'border-green-200 bg-green-50'
                           : req.required
                           ? 'border-slate-200 bg-white hover:border-blue-200'
                           : 'border-dashed border-slate-200 bg-slate-50/50'
@@ -512,12 +573,8 @@ export default function ApplyPage() {
                     >
                       {/* Requirement header */}
                       <div className="flex items-start gap-3 mb-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                          source ? 'bg-green-100' : 'bg-slate-100'
-                        }`}>
-                          {source
-                            ? <Check className="w-4 h-4 text-green-600" />
-                            : <FileText className="w-4 h-4 text-slate-400" />}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${source ? 'bg-green-100' : 'bg-slate-100'}`}>
+                          {source ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4 text-slate-400" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-900">
@@ -525,9 +582,7 @@ export default function ApplyPage() {
                             {req.required && <span className="text-red-500 ml-1">*</span>}
                             {!req.required && <span className="text-slate-400 ml-1.5 text-xs font-normal">(optional)</span>}
                           </p>
-                          {req.description && (
-                            <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>
-                          )}
+                          {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
                         </div>
                         {isAutoFilled && (
                           <span className="text-xs bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
@@ -549,16 +604,13 @@ export default function ApplyPage() {
                               <span className="text-slate-400 ml-1">· {formatBytes(source.file.size)}</span>
                             </span>
                           )}
-                          <button
-                            onClick={() => clearDocSource(req.name)}
-                            className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                          >
+                          <button onClick={() => clearDocSource(req.name)} className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
 
-                      {/* Vault suggestion chips */}
+                      {/* Vault chips */}
                       {vaultMatches.length > 0 && (
                         <div className="flex flex-wrap gap-2 ml-11 mb-2">
                           {vaultMatches.map((vd) => {
@@ -568,9 +620,7 @@ export default function ApplyPage() {
                                 key={vd._id}
                                 onClick={() => isSelected ? clearDocSource(req.name) : selectVaultDoc(req.name, vd)}
                                 className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${
-                                  isSelected
-                                    ? 'bg-green-100 border-green-300 text-green-700'
-                                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'
+                                  isSelected ? 'bg-green-100 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'
                                 }`}
                               >
                                 <Vault className="w-3 h-3" />
@@ -581,7 +631,7 @@ export default function ApplyPage() {
                         </div>
                       )}
 
-                      {/* Upload new file button */}
+                      {/* Upload button */}
                       <div className="ml-11">
                         <button
                           onClick={() => pickFile(req.name)}
@@ -668,6 +718,30 @@ export default function ApplyPage() {
                   <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Documents</p>
                   <div className="space-y-2">
                     {requirements.map((req) => {
+                      if (isPassportReq(req.name)) {
+                        const fSrc = docSources[`${req.name}__front`];
+                        const bSrc = docSources[`${req.name}__back`];
+                        return (
+                          <div key={req._id || req.name} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-700 flex items-center gap-1">
+                                <BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Front
+                              </span>
+                              {fSrc?.type === 'file'
+                                ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {fSrc.file.name}</span>
+                                : <span className="text-slate-400 italic text-xs">Not provided</span>}
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-700 flex items-center gap-1">
+                                <BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Back
+                              </span>
+                              {bSrc?.type === 'file'
+                                ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {bSrc.file.name}</span>
+                                : <span className="text-slate-400 italic text-xs">Not provided</span>}
+                            </div>
+                          </div>
+                        );
+                      }
                       const source = docSources[req.name];
                       return (
                         <div key={req._id || req.name} className="flex items-center justify-between text-sm">
