@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Copy } from 'lucide-react';
 import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,249 @@ function getVaultType(reqName: string): string | null {
   return null;
 }
 
+function DocumentRequirementsModal({
+  visa,
+  isCorporate,
+  effectivePrice,
+  onClose,
+  onContinue,
+}: {
+  visa: VisaType;
+  isCorporate: boolean;
+  effectivePrice: (v: VisaType) => number;
+  onClose: () => void;
+  onContinue: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const requiredDocs = visa.documentRequirements.filter((r) => r.required);
+  const optionalDocs = visa.documentRequirements.filter((r) => !r.required);
+  const docsText =
+    `Required Documents for ${visa.name}:\n` +
+    visa.documentRequirements.map((r) => `- ${r.name}${r.required ? ' (required)' : ' (optional)'}`).join('\n');
+
+  // Trigger enter animation on mount
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(onClose, 300);
+  };
+
+  const handleContinue = () => {
+    setVisible(false);
+    setTimeout(onContinue, 300);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(docsText);
+      setCopied(true);
+      toast({ title: 'Copied!', description: 'Document list copied to clipboard.', variant: 'success' });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to copy to clipboard.', variant: 'destructive' });
+    }
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
+      {/* Backdrop — fades in/out */}
+      <div
+        onClick={handleClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+        style={{ opacity: visible ? 1 : 0 }}
+      />
+
+      {/* Modal panel:
+          Mobile  → slides up from bottom
+          Desktop → scales + fades in from center           */}
+      <div
+        className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl z-10
+                   flex flex-col overflow-hidden
+                   max-h-[92dvh] sm:max-h-[85vh]
+                   transition-all duration-300 ease-out"
+        style={{
+          transform: visible
+            ? 'translateY(0) scale(1)'
+            : 'translateY(40px) scale(0.97)',
+          opacity: visible ? 1 : 0,
+        }}
+      >
+        {/* Mobile drag handle */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+
+        {/* ── Header ── */}
+        <div className="px-4 sm:px-6 pt-3 sm:pt-5 pb-4 border-b border-slate-100 flex-shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-blue-600 font-bold uppercase tracking-widest mb-0.5">
+                Selected Visa
+              </p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{visa.name}</h3>
+              {visa.description && (
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5 line-clamp-2">{visa.description}</p>
+              )}
+            </div>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center flex-shrink-0 transition-all duration-200 active:scale-95"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Visa meta chips */}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full border border-blue-100">
+              <CreditCard className="w-3 h-3" />
+              {isCorporate && visa.corporatePrice
+                ? `${formatCurrency(effectivePrice(visa))} (Corporate)`
+                : formatCurrency(effectivePrice(visa))}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+              <Loader2 className="w-3 h-3" />
+              {visa.processingDays} days
+            </span>
+            {visa.validity && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full border border-green-100">
+                <Check className="w-3 h-3" />
+                Valid: {visa.validity}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Documents list (scrollable) ── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4">
+          {/* Section title + copy button */}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold text-slate-800">
+              Documents Required
+              <span className="ml-1.5 text-xs font-normal text-slate-400">
+                ({visa.documentRequirements.length} total)
+              </span>
+            </p>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900
+                         bg-slate-100 hover:bg-slate-200 active:scale-95
+                         px-2.5 py-1.5 rounded-lg transition-all duration-150"
+            >
+              {copied ? (
+                <><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>
+              ) : (
+                <><Copy className="w-3.5 h-3.5" />Copy List</>
+              )}
+            </button>
+          </div>
+
+          {/* Required docs — staggered fade-in */}
+          {requiredDocs.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Required</p>
+              <ul className="space-y-2">
+                {requiredDocs.map((req, i) => (
+                  <li
+                    key={req._id || req.name}
+                    className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100
+                               transition-all duration-200 hover:bg-red-50 hover:border-red-200 hover:shadow-sm"
+                    style={{
+                      transitionDelay: `${i * 40}ms`,
+                      opacity: visible ? 1 : 0,
+                      transform: visible ? 'translateY(0)' : 'translateY(8px)',
+                    }}
+                  >
+                    <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
+                      {req.description && (
+                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{req.description}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0 self-start">
+                      Required
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Optional docs */}
+          {optionalDocs.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Optional</p>
+              <ul className="space-y-2">
+                {optionalDocs.map((req, i) => (
+                  <li
+                    key={req._id || req.name}
+                    className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100
+                               transition-all duration-200 hover:bg-slate-100 hover:border-slate-200 hover:shadow-sm"
+                    style={{
+                      transitionDelay: `${(requiredDocs.length + i) * 40}ms`,
+                      opacity: visible ? 1 : 0,
+                      transform: visible ? 'translateY(0)' : 'translateY(8px)',
+                    }}
+                  >
+                    <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
+                      {req.description && (
+                        <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{req.description}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0 self-start">
+                      Optional
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer CTA ── */}
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
+          <button
+            onClick={handleContinue}
+            className="w-full py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+                       text-white font-semibold text-sm sm:text-base rounded-xl
+                       flex items-center justify-center gap-2
+                       transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
+          >
+            Continue with {visa.name}
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150"
+          >
+            Choose a different visa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ApplyPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -53,6 +296,7 @@ export default function ApplyPage() {
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
+  const [docModalVisa, setDocModalVisa] = useState<VisaType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [docSources, setDocSources] = useState<Record<string, DocSource>>({});
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
@@ -449,10 +693,29 @@ export default function ApplyPage() {
             ) : (
               <div className="space-y-3">
                 {visaTypes.map((v) => (
-                  <button
+                  <div
                     key={v._id}
-                    onClick={() => { setSelectedVisa(v); setDocSources({}); }}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                    onClick={() => {
+                      setSelectedVisa(v);
+                      setDocSources({});
+                      if (v.documentRequirements.length > 0) {
+                        setDocModalVisa(v);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedVisa(v);
+                        setDocSources({});
+                        if (v.documentRequirements.length > 0) {
+                          setDocModalVisa(v);
+                        }
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={selectedVisa?._id === v._id}
+                    className={`w-full p-4 rounded-xl border-2 text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       selectedVisa?._id === v._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200'
                     }`}
                   >
@@ -478,11 +741,25 @@ export default function ApplyPage() {
                         {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
+        )}
+
+        {/* ── Document Requirements Modal ── */}
+        {docModalVisa && (
+          <DocumentRequirementsModal
+            visa={docModalVisa}
+            isCorporate={isCorporate}
+            effectivePrice={effectivePrice}
+            onClose={() => setDocModalVisa(null)}
+            onContinue={() => {
+              setDocModalVisa(null);
+              goNext();
+            }}
+          />
         )}
 
         {/* ── Step 3: Application Form ── */}
