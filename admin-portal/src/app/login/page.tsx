@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Loader2, ArrowLeft, Mail, Phone, KeyRound } from 'lucide-react';
+import { Shield, Loader2, ArrowLeft, Mail, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,20 +18,19 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<Step>('credentials');
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await sendAdminOtp({ email: email.trim(), phone: phone.trim() });
+      await sendAdminOtp({ email: email.trim() });
       toast({ title: 'OTP sent', description: `A 6-digit code was sent to ${email}`, variant: 'success' });
       setStep('otp');
     } catch (err: any) {
       toast({
         title: 'Failed to send OTP',
-        description: err.response?.data?.message || 'Check your email and phone number.',
+        description: err.response?.data?.message || 'Check your email address.',
         variant: 'destructive',
       });
     } finally {
@@ -88,21 +87,7 @@ export default function AdminLoginPage() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="phone" className="text-slate-300 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Phone number
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  className="mt-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
-              </div>
+
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send OTP'}
               </Button>

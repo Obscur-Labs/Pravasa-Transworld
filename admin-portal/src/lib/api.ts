@@ -26,7 +26,7 @@ api.interceptors.response.use(
 export default api;
 
 // Auth
-export const sendAdminOtp = (data: { email: string; phone: string }) =>
+export const sendAdminOtp = (data: { email: string }) =>
   api.post('/auth/admin/send-otp', data);
 export const verifyAdminOtp = (data: { email: string; otp: string }) =>
   api.post('/auth/admin/verify-otp', data);

@@ -61,16 +61,16 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const sendLoginOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email, phone } = req.body;
+  const { email } = req.body;
 
-  if (!email || !phone) {
-    sendError(res, 'Email and phone are required');
+  if (!email) {
+    sendError(res, 'Email is required');
     return;
   }
 
-  const user = await User.findOne({ email: email.toLowerCase(), phone });
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
-    sendError(res, 'No account found with this email and phone combination', 404);
+    sendError(res, 'No account found with this email', 404);
     return;
   }
 
@@ -129,17 +129,17 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const sendAdminOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email, phone } = req.body;
+  const { email } = req.body;
 
-  if (!email || !phone) {
-    sendError(res, 'Email and phone are required');
+  if (!email) {
+    sendError(res, 'Email is required');
     return;
   }
 
   const Admin = (await import('../models/Admin')).default;
-  const admin = await Admin.findOne({ email: email.toLowerCase(), phone });
+  const admin = await Admin.findOne({ email: email.toLowerCase() });
   if (!admin) {
-    sendError(res, 'No admin account found with this email and phone', 404);
+    sendError(res, 'No admin account found with this email', 404);
     return;
   }
 

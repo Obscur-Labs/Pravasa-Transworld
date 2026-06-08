@@ -30,7 +30,7 @@ export default api;
 // Auth
 export const sendOTP = (data: { name: string; email: string; phone: string; accountType: 'individual' | 'corporate'; gstNumber?: string }) =>
   api.post('/auth/send-otp', data);
-export const sendLoginOTP = (data: { email: string; phone: string }) =>
+export const sendLoginOTP = (data: { email: string }) =>
   api.post('/auth/send-login-otp', data);
 export const verifyOTP = (data: { email: string; otp: string }) =>
   api.post('/auth/verify-otp', data);

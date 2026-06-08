@@ -98,7 +98,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [form, setForm] = useState({ email: '', phone: '' });
+  const [form, setForm] = useState({ email: '' });
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const { seconds, start: startTimer } = useResendTimer();
 
@@ -106,7 +106,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await sendLoginOTP({ email: form.email, phone: form.phone });
+      await sendLoginOTP({ email: form.email });
       setStep('otp');
       startTimer();
       toast({ title: 'OTP Sent', description: 'Check your email for the 6-digit code.', variant: 'success' });
@@ -120,7 +120,7 @@ export default function LoginPage() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await sendLoginOTP({ email: form.email, phone: form.phone });
+      await sendLoginOTP({ email: form.email });
       setOtpDigits(Array(OTP_LENGTH).fill(''));
       startTimer();
       toast({ title: 'OTP Resent', description: 'A new code has been sent to your email.', variant: 'success' });
@@ -167,7 +167,7 @@ export default function LoginPage() {
           </h1>
           <p className="text-slate-500 text-sm mt-2">
             {step === 'form'
-              ? 'Enter your email and phone to receive a login code.'
+              ? 'Enter your email to receive a login code.'
               : `We sent a 6-digit code to ${form.email}`}
           </p>
         </div>
@@ -187,18 +187,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  className="mt-1"
-                  placeholder="+1 234 567 890"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  required
-                />
-              </div>
+
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send OTP'}
               </Button>
