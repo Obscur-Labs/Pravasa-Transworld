@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy } from 'lucide-react';
 import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,39 +93,141 @@ function TravelDateModal({ country, onConfirm }: { country: Country; onConfirm: 
   );
 }
 
-/* ── Visa Overview Modal ── */
-function VisaOverviewModal({ country, visa, onClose }: { country: Country; visa: VisaType; onClose: () => void }) {
-  const entryLabel = (e: string) => e.charAt(0).toUpperCase() + e.slice(1);
+/* ── Visa Overview Modal (visa info + document requirements + price confirmation) ── */
+function VisaOverviewModal({
+  country,
+  visa,
+  isCorporate,
+  effectivePrice,
+  onClose,
+  onContinue,
+}: {
+  country: Country;
+  visa: VisaType;
+  isCorporate: boolean;
+  effectivePrice: (v: VisaType) => number;
+  onClose: () => void;
+  onContinue: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  const requiredDocs = visa.documentRequirements.filter((r) => r.required);
+  const optionalDocs = visa.documentRequirements.filter((r) => !r.required);
+  const docsText =
+    `Documents for ${visa.name}:\n` +
+    visa.documentRequirements.map((r) => `- ${r.name}${r.required ? ' (required)' : ' (optional)'}`).join('\n');
+
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(onClose, 300);
+  };
+
+  const handleContinue = () => {
+    setVisible(false);
+    setTimeout(onContinue, 300);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(docsText);
+      setCopied(true);
+      toast({ title: 'Copied!', description: 'Document list copied to clipboard.', variant: 'success' });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to copy to clipboard.', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex-shrink-0" style={{ background: 'linear-gradient(135deg,#0f2d6b 0%,#1a3a8f 60%,#1e40af 100%)' }}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt={country.name}
-                className="w-10 h-7 object-cover rounded shadow"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <div>
-                <p className="text-blue-200 text-xs font-medium">{country.name}</p>
-                <h2 className="text-white font-bold text-base leading-tight">{visa.name}</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
+      {/* Backdrop */}
+      <div
+        onClick={handleClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+        style={{ opacity: visible ? 1 : 0 }}
+      />
+
+      {/* Panel — slides up from bottom on mobile, scales in on desktop */}
+      <div
+        className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl z-10 flex flex-col overflow-hidden max-h-[92dvh] sm:max-h-[88vh] transition-all duration-300 ease-out"
+        style={{
+          transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.97)',
+          opacity: visible ? 1 : 0,
+        }}
+      >
+        {/* Mobile drag handle */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+
+        {/* ── Header: country + visa name + price chips ── */}
+        <div className="px-4 sm:px-6 pt-3 sm:pt-0 flex-shrink-0">
+          {/* Gradient banner */}
+          <div className="rounded-2xl px-4 py-4 mb-3" style={{ background: 'linear-gradient(135deg,#0f2d6b 0%,#1a3a8f 60%,#1e40af 100%)' }}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={`https://flagcdn.com/w40/${country.flag}.png`}
+                  alt={country.name}
+                  className="w-10 h-7 object-cover rounded shadow"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div>
+                  <p className="text-blue-200 text-xs font-medium">{country.name}</p>
+                  <h2 className="text-white font-bold text-base leading-tight">{visa.name}</h2>
+                  {visa.description && (
+                    <p className="text-blue-200/80 text-xs mt-0.5 line-clamp-1">{visa.description}</p>
+                  )}
+                </div>
               </div>
+              <button onClick={handleClose} className="text-white/60 hover:text-white transition-colors -mt-0.5 ml-2 flex-shrink-0">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button onClick={onClose} className="text-white/60 hover:text-white transition-colors mt-0.5">
-              <X className="w-5 h-5" />
-            </button>
+
+            {/* Price + meta chips */}
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full">
+                <CreditCard className="w-3 h-3" />
+                {isCorporate && visa.corporatePrice
+                  ? `${formatCurrency(effectivePrice(visa))} (Corporate)`
+                  : formatCurrency(effectivePrice(visa))}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
+                <Loader2 className="w-3 h-3" />
+                {visa.processingDays} days
+              </span>
+              {visa.validity && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
+                  <Check className="w-3 h-3" />
+                  Valid: {visa.validity}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-          {/* Visa details grid */}
-          <div className="grid grid-cols-2 gap-3">
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 pb-2 space-y-4">
+
+          {/* Visa metadata grid */}
+          <div className="grid grid-cols-2 gap-2.5">
             {visa.visaSubType && (
               <div className="bg-indigo-50 rounded-xl p-3">
                 <p className="text-xs text-indigo-500 font-medium mb-0.5">Visa Type</p>
-                <p className="text-sm font-semibold text-indigo-900 capitalize">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
+                <p className="text-sm font-semibold text-indigo-900">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
               </div>
             )}
             {visa.visaCategory && (
@@ -153,12 +255,6 @@ function VisaOverviewModal({ country, visa, onClose }: { country: Country; visa:
                   <p className="text-xs text-slate-500 font-medium">Stay Duration</p>
                 </div>
                 <p className="text-sm font-semibold text-slate-800">{visa.stayDuration} days</p>
-              </div>
-            )}
-            {visa.validity && (
-              <div className="bg-slate-50 rounded-xl p-3">
-                <p className="text-xs text-slate-500 font-medium mb-0.5">Validity</p>
-                <p className="text-sm font-semibold text-slate-800">{visa.validity}</p>
               </div>
             )}
             {visa.jurisdiction && (
@@ -194,39 +290,93 @@ function VisaOverviewModal({ country, visa, onClose }: { country: Country; visa:
             </div>
           )}
 
-          {/* Document requirements */}
+          {/* ── Document Requirements Section ── */}
           {visa.documentRequirements.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                Required Documents ({visa.documentRequirements.length})
-              </p>
-              <div className="space-y-2">
-                {visa.documentRequirements.map((doc) => (
-                  <div key={doc._id || doc.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {doc.name}
-                        {doc.required && <span className="text-red-500 ml-1">*</span>}
-                        {!doc.required && <span className="text-slate-400 ml-1 text-xs font-normal">(optional)</span>}
-                      </p>
-                      {doc.description && <p className="text-xs text-slate-400 mt-0.5">{doc.description}</p>}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-slate-800">
+                  Documents Required
+                  <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
+                </p>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150"
+                >
+                  {copied ? (
+                    <><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" />Copy List</>
+                  )}
+                </button>
               </div>
+
+              {/* Required docs */}
+              {requiredDocs.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Required</p>
+                  <ul className="space-y-2">
+                    {requiredDocs.map((req, i) => (
+                      <li
+                        key={req._id || req.name}
+                        className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100 transition-all duration-200 hover:bg-red-50 hover:border-red-200 hover:shadow-sm"
+                        style={{ transitionDelay: `${i * 40}ms`, opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
+                      >
+                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <FileText className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
+                          {req.description && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{req.description}</p>}
+                        </div>
+                        <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0 self-start">Required</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Optional docs */}
+              {optionalDocs.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Optional</p>
+                  <ul className="space-y-2">
+                    {optionalDocs.map((req, i) => (
+                      <li
+                        key={req._id || req.name}
+                        className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100 transition-all duration-200 hover:bg-slate-100 hover:border-slate-200 hover:shadow-sm"
+                        style={{ transitionDelay: `${(requiredDocs.length + i) * 40}ms`, opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
+                      >
+                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <FileText className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
+                          {req.description && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{req.description}</p>}
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0 self-start">Optional</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+        {/* ── Footer CTA ── */}
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
           <button
-            onClick={onClose}
-            className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all"
-            style={{ background: 'linear-gradient(135deg,#0f2d6b,#2563eb)', boxShadow: '0 4px 15px rgba(37,99,235,0.3)' }}
+            onClick={handleContinue}
+            className="w-full py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm sm:text-base rounded-xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
           >
-            <Check className="w-4 h-4" /> Got it, continue
+            Continue with {visa.name}
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150"
+          >
+            Choose a different visa
           </button>
         </div>
       </div>
@@ -240,6 +390,7 @@ export default function ApplyPage() {
   const isCorporate = user?.accountType === 'corporate';
   const effectivePrice = (v: VisaType) =>
     isCorporate && v.corporatePrice ? v.corporatePrice : v.price;
+
   const [step, setStep] = useState<Step>(1);
   const [countries, setCountries] = useState<Country[]>([]);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
@@ -255,7 +406,7 @@ export default function ApplyPage() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [travelDate, setTravelDate] = useState('');
 
-  // Modal states
+  // Modal visibility
   const [showTravelDateModal, setShowTravelDateModal] = useState(false);
   const [pendingCountry, setPendingCountry] = useState<Country | null>(null);
   const [showVisaOverview, setShowVisaOverview] = useState(false);
@@ -319,7 +470,8 @@ export default function ApplyPage() {
     setTravelDate('');
   };
 
-  const handleCountrySelect = async (country: Country) => {
+  // Country click → travel date modal
+  const handleCountrySelect = (country: Country) => {
     setPendingCountry(country);
     setShowTravelDateModal(true);
   };
@@ -557,17 +709,23 @@ export default function ApplyPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      {/* Travel Date Modal */}
+      {/* Travel Date Modal — shown when user clicks a country */}
       {showTravelDateModal && pendingCountry && (
         <TravelDateModal country={pendingCountry} onConfirm={confirmTravelDate} />
       )}
 
-      {/* Visa Overview Modal */}
+      {/* Visa Overview Modal — shown when user clicks a visa card (info + docs + price) */}
       {showVisaOverview && selectedVisa && selectedCountry && (
         <VisaOverviewModal
           country={selectedCountry}
           visa={selectedVisa}
+          isCorporate={isCorporate}
+          effectivePrice={effectivePrice}
           onClose={() => setShowVisaOverview(false)}
+          onContinue={() => {
+            setShowVisaOverview(false);
+            goNext();
+          }}
         />
       )}
 
@@ -639,8 +797,12 @@ export default function ApplyPage() {
                       selectedCountry?._id === c._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
                     }`}
                   >
-                    <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-8 h-5 object-cover rounded mb-2"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <img
+                      src={`https://flagcdn.com/w40/${c.flag}.png`}
+                      alt={c.name}
+                      className="w-8 h-5 object-cover rounded mb-2"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
                     <p className="text-sm font-semibold text-slate-900">{c.name}</p>
                   </button>
                 ))}
@@ -696,7 +858,7 @@ export default function ApplyPage() {
                           )}
                         </div>
                         {v.visaCategory && (
-                          <p className="text-xs text-slate-500 mt-0.5 capitalize">{CATEGORY_LABELS[v.visaCategory] || v.visaCategory}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{CATEGORY_LABELS[v.visaCategory] || v.visaCategory}</p>
                         )}
                         {v.entry && v.entry.length > 0 && (
                           <div className="flex gap-1 mt-1 flex-wrap">
@@ -721,6 +883,7 @@ export default function ApplyPage() {
                         )}
                         <p className="text-xs text-slate-400">{v.processingDays} days</p>
                         {v.stayDuration > 0 && <p className="text-xs text-slate-400">Stay: {v.stayDuration}d</p>}
+                        {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
                       </div>
                     </div>
                   </button>
@@ -907,6 +1070,7 @@ export default function ApplyPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Review &amp; Pay</h2>
             <div className="space-y-4">
+              {/* Visa details */}
               <div className="bg-slate-50 rounded-xl p-4">
                 <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Visa Details</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -946,6 +1110,7 @@ export default function ApplyPage() {
                 </div>
               </div>
 
+              {/* Form responses */}
               {Object.keys(formData).filter((k) => k !== 'travelDate').length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Your Responses</p>
@@ -960,6 +1125,7 @@ export default function ApplyPage() {
                 </div>
               )}
 
+              {/* Documents summary */}
               {requirements.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Documents</p>
