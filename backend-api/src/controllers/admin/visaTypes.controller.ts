@@ -16,13 +16,13 @@ export const getVisaType = async (req: AdminRequest, res: Response): Promise<voi
 };
 
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { country, name, description, visaCharges, serviceFee, processingDays, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity } = req.body;
-  if (!country || !name || visaCharges === undefined || !processingDays) {
-    sendError(res, 'Country, name, visaCharges, and processingDays are required');
+  const { country, name, description, visaCharges, serviceFee, processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity } = req.body;
+  if (!country || !name || visaCharges === undefined || !processingTime) {
+    sendError(res, 'Country, name, visaCharges, and processingTime are required');
     return;
   }
   const price = Number(visaCharges) + Number(serviceFee || 0);
-  const visaType = await VisaType.create({ country, name, description, price, visaCharges: Number(visaCharges), serviceFee: Number(serviceFee || 0), processingDays, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity });
+  const visaType = await VisaType.create({ country, name, description, price, visaCharges: Number(visaCharges), serviceFee: Number(serviceFee || 0), processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
   sendSuccess(res, populated, 'Visa type created', 201);
 };

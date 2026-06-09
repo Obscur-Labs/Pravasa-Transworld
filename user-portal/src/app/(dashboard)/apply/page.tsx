@@ -207,7 +207,7 @@ function VisaOverviewModal({
               </span>
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
                 <Loader2 className="w-3 h-3" />
-                {visa.processingDays} days
+                {visa.processingTime}
               </span>
               {visa.validity && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
@@ -239,13 +239,13 @@ function VisaOverviewModal({
                 <p className="text-sm font-semibold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
               </div>
             )}
-            {visa.processingDays > 0 && (
+            {visa.processingTime && (
               <div className="bg-slate-50 rounded-xl p-3">
                 <div className="flex items-center gap-1 mb-0.5">
                   <Clock className="w-3 h-3 text-slate-400" />
                   <p className="text-xs text-slate-500 font-medium">Processing Time</p>
                 </div>
-                <p className="text-sm font-semibold text-slate-800">{visa.processingDays} business days</p>
+                <p className="text-sm font-semibold text-slate-800">{visa.processingTime}</p>
               </div>
             )}
             {visa.stayDuration > 0 && (
@@ -881,7 +881,7 @@ export default function ApplyPage() {
                             <p className="text-[11px] text-slate-400 line-through">{formatCurrency(v.price)}</p>
                           </>
                         )}
-                        <p className="text-xs text-slate-400">{v.processingDays} days</p>
+                        <p className="text-xs text-slate-400">{v.processingTime}</p>
                         {v.stayDuration > 0 && <p className="text-xs text-slate-400">Stay: {v.stayDuration}d</p>}
                         {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
                       </div>
@@ -1087,7 +1087,7 @@ export default function ApplyPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Processing Time</p>
-                    <p className="font-medium mt-0.5">{selectedVisa.processingDays} business days</p>
+                    <p className="font-medium mt-0.5">{selectedVisa.processingTime}</p>
                   </div>
                   {travelDate && (
                     <div>

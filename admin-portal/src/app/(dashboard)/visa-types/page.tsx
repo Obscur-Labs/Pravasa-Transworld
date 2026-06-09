@@ -116,7 +116,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 
 const emptyForm = () => ({
   country: '', name: '', description: '', visaCharges: '', serviceFee: '',
-  processingDays: '', validity: '',
+  processingTime: '', validity: '',
   entry: [] as EntryType[],
   visaSubType: 'e-visa' as string,
   stayDuration: '',
@@ -164,7 +164,7 @@ export default function VisaTypesPage() {
         ...form,
         visaCharges: Number(form.visaCharges),
         serviceFee: Number(form.serviceFee),
-        processingDays: Number(form.processingDays),
+        processingTime: form.processingTime,
         stayDuration: Number(form.stayDuration) || 0,
         formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
       };
@@ -237,7 +237,7 @@ export default function VisaTypesPage() {
       description: vt.description,
       visaCharges: String(vt.visaCharges ?? vt.price),
       serviceFee: String(vt.serviceFee ?? 0),
-      processingDays: String(vt.processingDays),
+      processingTime: vt.processingTime || '',
       validity: vt.validity || '',
       entry: vt.entry || [],
       visaSubType: vt.visaSubType || 'e-visa',
@@ -317,8 +317,8 @@ export default function VisaTypesPage() {
               {/* ── Visa Details ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <Label>Business Days</Label>
-                  <Input className="mt-1" type="number" min="1" placeholder="e.g. 15" value={form.processingDays} onChange={(e) => setForm({ ...form, processingDays: e.target.value })} required />
+                  <Label>Processing Time</Label>
+                  <Input className="mt-1" type="text" placeholder="e.g. 10-15 business days" value={form.processingTime} onChange={(e) => setForm({ ...form, processingTime: e.target.value })} required />
                 </div>
                 <div>
                   <Label>Validity</Label>
@@ -560,7 +560,7 @@ export default function VisaTypesPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{vt.processingDays}d</td>
+                  <td className="px-4 py-3 text-slate-500">{vt.processingTime}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {(vt.entry || []).map((e) => (

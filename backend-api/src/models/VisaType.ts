@@ -33,7 +33,7 @@ export interface IVisaType extends Document {
   visaCharges: number;
   serviceFee: number;
   corporatePrice?: number;
-  processingDays: number;
+  processingTime: string;
   validity: string;
   entry: EntryType[];
   visaSubType: VisaSubType;
@@ -70,7 +70,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     visaCharges: { type: Number, default: 0, min: 0 },
     serviceFee: { type: Number, default: 0, min: 0 },
     corporatePrice: { type: Number, min: 0 },
-    processingDays: { type: Number, required: true, min: 1 },
+    processingTime: { type: String, required: true, default: '' },
     validity: { type: String, default: '' },
     entry: [{ type: String, enum: ['single', 'multiple', 'double'] }],
     visaSubType: { type: String, enum: ['e-visa', 'sticker'], default: 'e-visa' },

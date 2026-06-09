@@ -29,7 +29,7 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
 
 export const getApplications = async (req: AuthRequest, res: Response): Promise<void> => {
   const applications = await Application.find({ user: req.user!._id })
-    .populate('visaType', 'name price processingDays')
+    .populate('visaType', 'name price processingTime')
     .populate('country', 'name flag')
     .sort({ createdAt: -1 });
   sendSuccess(res, applications);
@@ -72,7 +72,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   });
 
   const populated = await Application.findById(application._id)
-    .populate('visaType', 'name price processingDays')
+    .populate('visaType', 'name price processingTime')
     .populate('country', 'name flag');
 
   const AdminNotification = (await import('../../models/AdminNotification')).default;

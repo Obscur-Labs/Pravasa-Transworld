@@ -71,7 +71,7 @@ export interface VisaType {
   visaCharges: number;
   serviceFee: number;
   corporatePrice?: number;
-  processingDays: number;
+  processingTime: string;
   validity: string;
   entry: EntryType[];
   visaSubType: VisaSubType;
