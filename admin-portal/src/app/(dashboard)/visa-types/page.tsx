@@ -9,11 +9,35 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, updateCorporatePrice } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import type { Country, VisaType, FormField, DocumentRequirement, FieldType } from '@/types';
+import type { Country, VisaType, FormField, DocumentRequirement, FieldType, EntryType } from '@/types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0 });
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true });
+
+const ENTRY_OPTIONS: { value: EntryType; label: string }[] = [
+  { value: 'single', label: 'Single' },
+  { value: 'multiple', label: 'Multiple' },
+  { value: 'double', label: 'Double' },
+];
+
+const VISA_SUB_TYPES = [
+  { value: 'e-visa', label: 'E-Visa' },
+  { value: 'sticker', label: 'Sticker Visa' },
+];
+
+const JURISDICTIONS = [
+  { value: 'pan-india', label: 'Pan India' },
+  { value: 'mumbai', label: 'Mumbai' },
+  { value: 'delhi', label: 'Delhi' },
+];
+
+const VISA_CATEGORIES = [
+  { value: 'tourist', label: 'Tourist' },
+  { value: 'business', label: 'Business' },
+  { value: 'transit', label: 'Transit Visa' },
+  { value: 'student', label: 'Student Visa' },
+];
 
 function OptionListEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
   const [draft, setDraft] = useState('');
@@ -76,8 +100,8 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       onClick={onChange}
       disabled={disabled}
       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-        checked 
-          ? 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.25)]' 
+        checked
+          ? 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
           : 'bg-slate-200 hover:bg-slate-300'
       }`}
     >
@@ -90,6 +114,18 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
+const emptyForm = () => ({
+  country: '', name: '', description: '', visaCharges: '', serviceFee: '',
+  processingDays: '', validity: '',
+  entry: [] as EntryType[],
+  visaSubType: 'e-visa' as string,
+  stayDuration: '',
+  jurisdiction: 'pan-india' as string,
+  visaCategory: 'tourist' as string,
+  formFields: [] as FormField[],
+  documentRequirements: [] as DocumentRequirement[],
+});
+
 export default function VisaTypesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
@@ -101,11 +137,7 @@ export default function VisaTypesPage() {
   const [corpPriceEdit, setCorpPriceEdit] = useState<string | null>(null);
   const [corpPriceDraft, setCorpPriceDraft] = useState('');
   const [savingCorpPrice, setSavingCorpPrice] = useState(false);
-  const [form, setForm] = useState({
-    country: '', name: '', description: '', price: '', processingDays: '', validity: '',
-    formFields: [] as FormField[],
-    documentRequirements: [] as DocumentRequirement[],
-  });
+  const [form, setForm] = useState(emptyForm());
 
   useEffect(() => {
     getCountries().then((r) => setCountries(r.data.data));
@@ -115,14 +147,25 @@ export default function VisaTypesPage() {
     getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
   }, [selectedCountry]);
 
+  const totalPrice = (Number(form.visaCharges) || 0) + (Number(form.serviceFee) || 0);
+
+  const toggleEntry = (val: EntryType) => {
+    setForm((f) => ({
+      ...f,
+      entry: f.entry.includes(val) ? f.entry.filter((e) => e !== val) : [...f.entry, val],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       const payload = {
         ...form,
-        price: Number(form.price),
+        visaCharges: Number(form.visaCharges),
+        serviceFee: Number(form.serviceFee),
         processingDays: Number(form.processingDays),
+        stayDuration: Number(form.stayDuration) || 0,
         formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
       };
       if (editId) {
@@ -192,9 +235,15 @@ export default function VisaTypesPage() {
       country: String(vt.country?._id || vt.country),
       name: vt.name,
       description: vt.description,
-      price: String(vt.price),
+      visaCharges: String(vt.visaCharges ?? vt.price),
+      serviceFee: String(vt.serviceFee ?? 0),
       processingDays: String(vt.processingDays),
       validity: vt.validity || '',
+      entry: vt.entry || [],
+      visaSubType: vt.visaSubType || 'e-visa',
+      stayDuration: String(vt.stayDuration || ''),
+      jurisdiction: vt.jurisdiction || 'pan-india',
+      visaCategory: vt.visaCategory || 'tourist',
       formFields: vt.formFields || [],
       documentRequirements: vt.documentRequirements || [],
     });
@@ -210,7 +259,7 @@ export default function VisaTypesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Visa Types</h1>
           <p className="text-slate-500 text-sm mt-1">Manage visa types and their dynamic form fields.</p>
         </div>
-        <Button onClick={() => { setForm({ country: '', name: '', description: '', price: '', processingDays: '', validity: '', formFields: [], documentRequirements: [] }); setEditId(null); setShowForm(!showForm); }}>
+        <Button onClick={() => { setForm(emptyForm()); setEditId(null); setShowForm(!showForm); }}>
           <Plus className="w-4 h-4 mr-2" /> Add Visa Type
         </Button>
       </div>
@@ -220,6 +269,8 @@ export default function VisaTypesPage() {
           <CardContent className="p-6">
             <h3 className="font-semibold text-slate-900 mb-5">{editId ? 'Edit Visa Type' : 'Create Visa Type'}</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
+
+              {/* ── Basic Info ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Country</Label>
@@ -233,13 +284,38 @@ export default function VisaTypesPage() {
                   <Input className="mt-1" placeholder="e.g. Tourist Visa" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
                 <div>
-                  <Label>Visa Category</Label>
-                  <Input className="mt-1" placeholder="e.g. Tourist, Business" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <Label>Description</Label>
+                  <Input className="mt-1" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
-                <div>
-                  <Label>Price (USD)</Label>
-                  <Input className="mt-1" type="number" min="0" placeholder="e.g. 150" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              </div>
+
+              {/* ── Pricing ── */}
+              <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 space-y-3">
+                <p className="text-sm font-semibold text-blue-900">Pricing</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Visa Charges (₹)</Label>
+                    <Input className="mt-1" type="number" min="0" placeholder="e.g. 3000" value={form.visaCharges}
+                      onChange={(e) => setForm({ ...form, visaCharges: e.target.value })} required />
+                  </div>
+                  <div>
+                    <Label>Service Fee (₹)</Label>
+                    <Input className="mt-1" type="number" min="0" placeholder="e.g. 500" value={form.serviceFee}
+                      onChange={(e) => setForm({ ...form, serviceFee: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-slate-500">Total Price (shown to users)</Label>
+                    <div className="mt-1 h-10 px-3 rounded-lg border border-slate-200 bg-white flex items-center">
+                      <span className="text-base font-bold text-blue-700">
+                        {totalPrice > 0 ? `₹${totalPrice.toLocaleString('en-IN')}` : '—'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              {/* ── Visa Details ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Business Days</Label>
                   <Input className="mt-1" type="number" min="1" placeholder="e.g. 15" value={form.processingDays} onChange={(e) => setForm({ ...form, processingDays: e.target.value })} required />
@@ -248,8 +324,72 @@ export default function VisaTypesPage() {
                   <Label>Validity</Label>
                   <Input className="mt-1" placeholder="e.g. 30 days, 1 year" value={form.validity} onChange={(e) => setForm({ ...form, validity: e.target.value })} />
                 </div>
+                <div>
+                  <Label>Stay Duration (days)</Label>
+                  <Input className="mt-1" type="number" min="0" placeholder="e.g. 30" value={form.stayDuration} onChange={(e) => setForm({ ...form, stayDuration: e.target.value })} />
+                </div>
+
+                <div>
+                  <Label>Visa Type</Label>
+                  <div className="mt-1 flex gap-3">
+                    {VISA_SUB_TYPES.map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="visaSubType"
+                          value={opt.value}
+                          checked={form.visaSubType === opt.value}
+                          onChange={() => setForm({ ...form, visaSubType: opt.value })}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-slate-700">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Jurisdiction</Label>
+                  <select value={form.jurisdiction} onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
+                    className="mt-1 w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {JURISDICTIONS.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <Label>Visa Category</Label>
+                  <select value={form.visaCategory} onChange={(e) => setForm({ ...form, visaCategory: e.target.value })}
+                    className="mt-1 w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {VISA_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
               </div>
 
+              {/* ── Entry Type (multi-select) ── */}
+              <div>
+                <Label>Entry</Label>
+                <p className="text-xs text-slate-400 mb-2">Select all applicable entry types</p>
+                <div className="flex flex-wrap gap-3">
+                  {ENTRY_OPTIONS.map((opt) => {
+                    const checked = form.entry.includes(opt.value);
+                    return (
+                      <label key={opt.value} className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition-all ${
+                        checked ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-slate-200 text-slate-600 hover:border-blue-200'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleEntry(opt.value)}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium">{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Application Form Fields ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-slate-900 text-sm">Application Form Fields</h4>
@@ -301,6 +441,7 @@ export default function VisaTypesPage() {
                 </div>
               </div>
 
+              {/* ── Document Requirements ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-slate-900 text-sm">Document Requirements</h4>
@@ -348,26 +489,37 @@ export default function VisaTypesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {['Visa Type', 'Country', 'Price', 'Corporate Price', 'Business Days', 'Validity', 'Fields', 'Documents', 'Status', ''].map((h) => (
+              {['Visa Type', 'Country', 'Charges', 'Service Fee', 'Total Price', 'Corporate', 'Days', 'Entry', 'Category', 'Status', ''].map((h) => (
                 <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {visaTypes.length === 0 ? (
-              <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-400">No visa types. Create one above.</td></tr>
+              <tr><td colSpan={11} className="px-4 py-10 text-center text-slate-400">No visa types. Create one above.</td></tr>
             ) : (
               visaTypes.map((vt) => (
                 <tr key={vt._id} className={`hover:bg-slate-50 ${!vt.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-900">{vt.name}</p>
                     {vt.description && <p className="text-xs text-slate-400">{vt.description}</p>}
+                    {vt.visaSubType && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                        {vt.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-1.5">
                       <img src={`https://flagcdn.com/w20/${vt.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
                       {vt.country?.name}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 text-xs">
+                    {vt.visaCharges != null ? formatCurrency(vt.visaCharges) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 text-xs">
+                    {vt.serviceFee != null ? formatCurrency(vt.serviceFee) : '—'}
                   </td>
                   <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(vt.price)}</td>
                   <td className="px-4 py-3">
@@ -408,10 +560,18 @@ export default function VisaTypesPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{vt.processingDays} days</td>
-                  <td className="px-4 py-3 text-slate-500">{vt.validity || '—'}</td>
-                  <td className="px-4 py-3"><Badge variant="secondary">{vt.formFields?.length || 0} fields</Badge></td>
-                  <td className="px-4 py-3"><Badge variant="secondary">{vt.documentRequirements?.length || 0} docs</Badge></td>
+                  <td className="px-4 py-3 text-slate-500">{vt.processingDays}d</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(vt.entry || []).map((e) => (
+                        <span key={e} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium capitalize">{e}</span>
+                      ))}
+                      {(!vt.entry || vt.entry.length === 0) && <span className="text-slate-300 text-xs">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs capitalize text-slate-600">{vt.visaCategory || '—'}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <Toggle

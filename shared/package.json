@@ -1,6 +1,0 @@
-﻿{
-  "name": "@pravasa-transworld/shared",
-  "version": "1.0.0",
-  "main": "src/types/index.ts",
-  "types": "src/types/index.ts"
-}

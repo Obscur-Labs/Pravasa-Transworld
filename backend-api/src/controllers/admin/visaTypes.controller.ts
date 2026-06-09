@@ -16,18 +16,28 @@ export const getVisaType = async (req: AdminRequest, res: Response): Promise<voi
 };
 
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { country, name, description, price, processingDays, formFields, documentRequirements } = req.body;
-  if (!country || !name || price === undefined || !processingDays) {
-    sendError(res, 'Country, name, price, and processingDays are required');
+  const { country, name, description, visaCharges, serviceFee, processingDays, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity } = req.body;
+  if (!country || !name || visaCharges === undefined || !processingDays) {
+    sendError(res, 'Country, name, visaCharges, and processingDays are required');
     return;
   }
-  const visaType = await VisaType.create({ country, name, description, price, processingDays, formFields, documentRequirements });
+  const price = Number(visaCharges) + Number(serviceFee || 0);
+  const visaType = await VisaType.create({ country, name, description, price, visaCharges: Number(visaCharges), serviceFee: Number(serviceFee || 0), processingDays, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
   sendSuccess(res, populated, 'Visa type created', 201);
 };
 
 export const updateVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
-  const visaType = await VisaType.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const body = { ...req.body };
+  if (body.visaCharges !== undefined || body.serviceFee !== undefined) {
+    const existing = await VisaType.findById(req.params.id);
+    const charges = body.visaCharges !== undefined ? Number(body.visaCharges) : (existing?.visaCharges || 0);
+    const fee = body.serviceFee !== undefined ? Number(body.serviceFee) : (existing?.serviceFee || 0);
+    body.price = charges + fee;
+    body.visaCharges = charges;
+    body.serviceFee = fee;
+  }
+  const visaType = await VisaType.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('country', 'name flag');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
   sendSuccess(res, visaType, 'Visa type updated');

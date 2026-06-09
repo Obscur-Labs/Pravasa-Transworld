@@ -57,15 +57,27 @@ export interface Country {
   isActive: boolean;
 }
 
+export type EntryType = 'single' | 'multiple' | 'double';
+export type VisaSubType = 'e-visa' | 'sticker';
+export type JurisdictionType = 'pan-india' | 'mumbai' | 'delhi';
+export type VisaCategoryType = 'tourist' | 'business' | 'transit' | 'student';
+
 export interface VisaType {
   _id: string;
   country: Country;
   name: string;
   description: string;
   price: number;
+  visaCharges: number;
+  serviceFee: number;
   corporatePrice?: number;
   processingDays: number;
   validity: string;
+  entry: EntryType[];
+  visaSubType: VisaSubType;
+  stayDuration: number;
+  jurisdiction: JurisdictionType;
+  visaCategory: VisaCategoryType;
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
   isActive: boolean;

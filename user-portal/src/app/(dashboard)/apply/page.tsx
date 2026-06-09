@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag } from 'lucide-react';
 import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,6 @@ function formatBytes(bytes: number) {
 
 const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
 
-/** Map a requirement name to a vault document type for auto-matching */
 function getVaultType(reqName: string): string | null {
   const lower = reqName.toLowerCase();
   if (lower.includes('passport')) return 'passport';
@@ -40,6 +39,199 @@ function getVaultType(reqName: string): string | null {
   if (lower.includes('bank')) return 'bank_statement';
   if (lower.includes('degree') || lower.includes('diploma')) return 'degree';
   return null;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  tourist: 'Tourist', business: 'Business', transit: 'Transit Visa', student: 'Student Visa',
+};
+const JURISDICTION_LABELS: Record<string, string> = {
+  'pan-india': 'Pan India', mumbai: 'Mumbai', delhi: 'Delhi',
+};
+
+/* ── Travel Date Modal ── */
+function TravelDateModal({ country, onConfirm }: { country: Country; onConfirm: (date: string) => void }) {
+  const [date, setDate] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)' }}>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-base leading-tight">When are you travelling?</h2>
+              <p className="text-blue-200 text-xs mt-0.5 flex items-center gap-1">
+                <Globe className="w-3 h-3" /> {country.name}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-5">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Expected Travel Date</label>
+          <input
+            type="date"
+            min={today}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full h-11 px-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          <p className="text-xs text-slate-400 mt-2">This helps us process your application faster.</p>
+          <button
+            onClick={() => date && onConfirm(date)}
+            disabled={!date}
+            className="mt-4 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={date ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}
+          >
+            <ChevronRight className="w-4 h-4" /> Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Visa Overview Modal ── */
+function VisaOverviewModal({ country, visa, onClose }: { country: Country; visa: VisaType; onClose: () => void }) {
+  const entryLabel = (e: string) => e.charAt(0).toUpperCase() + e.slice(1);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex-shrink-0" style={{ background: 'linear-gradient(135deg,#0f2d6b 0%,#1a3a8f 60%,#1e40af 100%)' }}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt={country.name}
+                className="w-10 h-7 object-cover rounded shadow"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <div>
+                <p className="text-blue-200 text-xs font-medium">{country.name}</p>
+                <h2 className="text-white font-bold text-base leading-tight">{visa.name}</h2>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-white/60 hover:text-white transition-colors mt-0.5">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {/* Visa details grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {visa.visaSubType && (
+              <div className="bg-indigo-50 rounded-xl p-3">
+                <p className="text-xs text-indigo-500 font-medium mb-0.5">Visa Type</p>
+                <p className="text-sm font-semibold text-indigo-900 capitalize">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
+              </div>
+            )}
+            {visa.visaCategory && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Tag className="w-3 h-3 text-slate-400" />
+                  <p className="text-xs text-slate-500 font-medium">Category</p>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
+              </div>
+            )}
+            {visa.processingDays > 0 && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  <p className="text-xs text-slate-500 font-medium">Processing Time</p>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{visa.processingDays} business days</p>
+              </div>
+            )}
+            {visa.stayDuration > 0 && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  <p className="text-xs text-slate-500 font-medium">Stay Duration</p>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{visa.stayDuration} days</p>
+              </div>
+            )}
+            {visa.validity && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-500 font-medium mb-0.5">Validity</p>
+                <p className="text-sm font-semibold text-slate-800">{visa.validity}</p>
+              </div>
+            )}
+            {visa.jurisdiction && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <MapPin className="w-3 h-3 text-slate-400" />
+                  <p className="text-xs text-slate-500 font-medium">Jurisdiction</p>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{JURISDICTION_LABELS[visa.jurisdiction] || visa.jurisdiction}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Entry types */}
+          {visa.entry && visa.entry.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Entry</p>
+              <div className="flex flex-wrap gap-2">
+                {visa.entry.map((e) => (
+                  <span key={e} className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">
+                    {e} Entry
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Description */}
+          {visa.description && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">About</p>
+              <p className="text-sm text-slate-600 leading-relaxed">{visa.description}</p>
+            </div>
+          )}
+
+          {/* Document requirements */}
+          {visa.documentRequirements.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Required Documents ({visa.documentRequirements.length})
+              </p>
+              <div className="space-y-2">
+                {visa.documentRequirements.map((doc) => (
+                  <div key={doc._id || doc.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800">
+                        {doc.name}
+                        {doc.required && <span className="text-red-500 ml-1">*</span>}
+                        {!doc.required && <span className="text-slate-400 ml-1 text-xs font-normal">(optional)</span>}
+                      </p>
+                      {doc.description && <p className="text-xs text-slate-400 mt-0.5">{doc.description}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all"
+            style={{ background: 'linear-gradient(135deg,#0f2d6b,#2563eb)', boxShadow: '0 4px 15px rgba(37,99,235,0.3)' }}
+          >
+            <Check className="w-4 h-4" /> Got it, continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ApplyPage() {
@@ -61,8 +253,13 @@ export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
+  const [travelDate, setTravelDate] = useState('');
 
-  // Load vault docs on mount, restore draft
+  // Modal states
+  const [showTravelDateModal, setShowTravelDateModal] = useState(false);
+  const [pendingCountry, setPendingCountry] = useState<Country | null>(null);
+  const [showVisaOverview, setShowVisaOverview] = useState(false);
+
   useEffect(() => {
     getPublicCountries().then((r) => setCountries(r.data.data));
     getVaultDocuments()
@@ -78,6 +275,7 @@ export default function ApplyPage() {
         if (d.visaTypes) setVisaTypes(d.visaTypes);
         if (d.formData) setFormData(d.formData);
         if (d.step) setStep(d.step as Step);
+        if (d.travelDate) setTravelDate(d.travelDate);
       } catch {
         localStorage.removeItem(DRAFT_KEY);
       }
@@ -85,21 +283,19 @@ export default function ApplyPage() {
     setDraftRestored(true);
   }, []);
 
-  // Auto-save draft (no docSources — Files can't be serialised)
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes };
+    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelDate };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelDate]);
 
-  // Auto-suggest vault docs when user reaches step 4
   useEffect(() => {
     if (step !== 4 || !selectedVisa || vaultDocs.length === 0) return;
     const requirements = selectedVisa.documentRequirements;
     setDocSources((prev) => {
       const next = { ...prev };
       for (const req of requirements) {
-        if (next[req.name]) continue; // already set by user
+        if (next[req.name]) continue;
         const vaultType = getVaultType(req.name);
         if (!vaultType) continue;
         const matches = vaultDocs.filter((v) => v.type === vaultType);
@@ -120,9 +316,20 @@ export default function ApplyPage() {
     setDocSources({});
     setVisaTypes([]);
     setCountrySearch('');
+    setTravelDate('');
   };
 
   const handleCountrySelect = async (country: Country) => {
+    setPendingCountry(country);
+    setShowTravelDateModal(true);
+  };
+
+  const confirmTravelDate = async (date: string) => {
+    setTravelDate(date);
+    setShowTravelDateModal(false);
+    if (!pendingCountry) return;
+    const country = pendingCountry;
+    setPendingCountry(null);
     setSelectedCountry(country);
     setSelectedVisa(null);
     setDocSources({});
@@ -133,6 +340,7 @@ export default function ApplyPage() {
     } finally {
       setLoading(false);
     }
+    setStep(2);
   };
 
   const pickFile = (requirementName: string) => {
@@ -165,12 +373,12 @@ export default function ApplyPage() {
     if (!selectedVisa) return;
     setSubmitting(true);
     try {
-      // 1. Create the application
       setSubmitStatus('Creating application…');
-      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: formData });
+      const responses = { ...formData };
+      if (travelDate) responses['travelDate'] = travelDate;
+      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses });
       const appId = r.data.data._id;
 
-      // 2. Upload / link each document (passport gets split into front + back)
       const reqs = selectedVisa.documentRequirements;
       let uploadIdx = 0;
 
@@ -210,7 +418,6 @@ export default function ApplyPage() {
         }
       }
 
-      // 3. Process payment
       setSubmitStatus('Processing payment…');
       await makePayment(appId);
 
@@ -225,7 +432,6 @@ export default function ApplyPage() {
     }
   };
 
-  // Navigate forward — skip step 4 if visa has no document requirements
   const goNext = () => {
     if (step === 3 && selectedVisa?.documentRequirements.length === 0) {
       setStep(5);
@@ -234,7 +440,6 @@ export default function ApplyPage() {
     }
   };
 
-  // Navigate back — skip step 4 if visa has no document requirements
   const goBack = () => {
     if (step === 5 && selectedVisa?.documentRequirements.length === 0) {
       setStep(3);
@@ -352,6 +557,20 @@ export default function ApplyPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
+      {/* Travel Date Modal */}
+      {showTravelDateModal && pendingCountry && (
+        <TravelDateModal country={pendingCountry} onConfirm={confirmTravelDate} />
+      )}
+
+      {/* Visa Overview Modal */}
+      {showVisaOverview && selectedVisa && selectedCountry && (
+        <VisaOverviewModal
+          country={selectedCountry}
+          visa={selectedVisa}
+          onClose={() => setShowVisaOverview(false)}
+        />
+      )}
+
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-2xl font-bold text-slate-900">Apply for Visa</h1>
         {(step > 1 || !!selectedCountry) && (
@@ -373,7 +592,6 @@ export default function ApplyPage() {
       <div className="flex items-center mb-8">
         {STEPS.map((label, i) => {
           const n = (i + 1) as Step;
-          // If no doc requirements, visually hide step 4 from indicator
           if (n === 4 && selectedVisa && requirements.length === 0) return null;
           const done = step > n;
           const active = step === n;
@@ -436,7 +654,14 @@ export default function ApplyPage() {
         {/* ── Step 2: Visa Type ── */}
         {step === 2 && (
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-1">Select Visa Type</h2>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-semibold text-slate-900">Select Visa Type</h2>
+              {travelDate && (
+                <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
+                  <Calendar className="w-3 h-3" /> Travel: {new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
             <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
               Visas available for
               {selectedCountry && <img src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
@@ -451,15 +676,35 @@ export default function ApplyPage() {
                 {visaTypes.map((v) => (
                   <button
                     key={v._id}
-                    onClick={() => { setSelectedVisa(v); setDocSources({}); }}
+                    onClick={() => {
+                      setSelectedVisa(v);
+                      setDocSources({});
+                      setShowVisaOverview(true);
+                    }}
                     className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                       selectedVisa?._id === v._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-900">{v.name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{v.description}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-slate-900">{v.name}</p>
+                          {v.visaSubType && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {v.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
+                            </span>
+                          )}
+                        </div>
+                        {v.visaCategory && (
+                          <p className="text-xs text-slate-500 mt-0.5 capitalize">{CATEGORY_LABELS[v.visaCategory] || v.visaCategory}</p>
+                        )}
+                        {v.entry && v.entry.length > 0 && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {v.entry.map((e) => (
+                              <span key={e} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize font-medium">{e}</span>
+                            ))}
+                          </div>
+                        )}
                         {v.documentRequirements.length > 0 && (
                           <p className="text-xs text-blue-600 mt-1 font-medium">
                             {v.documentRequirements.length} document{v.documentRequirements.length > 1 ? 's' : ''} required
@@ -475,7 +720,7 @@ export default function ApplyPage() {
                           </>
                         )}
                         <p className="text-xs text-slate-400">{v.processingDays} days</p>
-                        {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
+                        {v.stayDuration > 0 && <p className="text-xs text-slate-400">Stay: {v.stayDuration}d</p>}
                       </div>
                     </div>
                   </button>
@@ -509,7 +754,7 @@ export default function ApplyPage() {
           </div>
         )}
 
-        {/* ── Step 4: Documents (with vault) ── */}
+        {/* ── Step 4: Documents ── */}
         {step === 4 && selectedVisa && (
           <div>
             <div className="flex items-start justify-between mb-5">
@@ -532,7 +777,6 @@ export default function ApplyPage() {
             ) : (
               <div className="space-y-3">
                 {requirements.map((req) => {
-                  // ── Passport: dedicated 3D front/back uploader ──
                   if (isPassportReq(req.name)) {
                     const frontSrc = docSources[`${req.name}__front`];
                     const backSrc  = docSources[`${req.name}__back`];
@@ -554,7 +798,6 @@ export default function ApplyPage() {
                     );
                   }
 
-                  // ── All other documents: standard card ──
                   const source = docSources[req.name];
                   const vaultType = getVaultType(req.name);
                   const vaultMatches = vaultType ? vaultDocs.filter((v) => v.type === vaultType) : [];
@@ -571,7 +814,6 @@ export default function ApplyPage() {
                           : 'border-dashed border-slate-200 bg-slate-50/50'
                       }`}
                     >
-                      {/* Requirement header */}
                       <div className="flex items-start gap-3 mb-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${source ? 'bg-green-100' : 'bg-slate-100'}`}>
                           {source ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4 text-slate-400" />}
@@ -591,7 +833,6 @@ export default function ApplyPage() {
                         )}
                       </div>
 
-                      {/* Current selection */}
                       {source && (
                         <div className="flex items-center gap-2 mb-3 ml-11">
                           {source.type === 'vault' ? (
@@ -610,7 +851,6 @@ export default function ApplyPage() {
                         </div>
                       )}
 
-                      {/* Vault chips */}
                       {vaultMatches.length > 0 && (
                         <div className="flex flex-wrap gap-2 ml-11 mb-2">
                           {vaultMatches.map((vd) => {
@@ -631,7 +871,6 @@ export default function ApplyPage() {
                         </div>
                       )}
 
-                      {/* Upload button */}
                       <div className="ml-11">
                         <button
                           onClick={() => pickFile(req.name)}
@@ -647,7 +886,6 @@ export default function ApplyPage() {
               </div>
             )}
 
-            {/* Missing required docs warning */}
             {requiredMissing.length > 0 && (
               <div className="mt-4 flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                 <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -669,7 +907,6 @@ export default function ApplyPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Review &amp; Pay</h2>
             <div className="space-y-4">
-              {/* Visa details */}
               <div className="bg-slate-50 rounded-xl p-4">
                 <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Visa Details</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -688,21 +925,32 @@ export default function ApplyPage() {
                     <p className="text-xs text-slate-400">Processing Time</p>
                     <p className="font-medium mt-0.5">{selectedVisa.processingDays} business days</p>
                   </div>
+                  {travelDate && (
+                    <div>
+                      <p className="text-xs text-slate-400">Travel Date</p>
+                      <p className="font-medium mt-0.5">{new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  )}
                   {selectedVisa.validity && (
                     <div>
                       <p className="text-xs text-slate-400">Validity</p>
                       <p className="font-medium mt-0.5">{selectedVisa.validity}</p>
                     </div>
                   )}
+                  {selectedVisa.entry && selectedVisa.entry.length > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-400">Entry</p>
+                      <p className="font-medium mt-0.5 capitalize">{selectedVisa.entry.join(', ')}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Form responses */}
-              {Object.keys(formData).length > 0 && (
+              {Object.keys(formData).filter((k) => k !== 'travelDate').length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Your Responses</p>
                   <div className="space-y-2 text-sm">
-                    {Object.entries(formData).map(([k, v]) => (
+                    {Object.entries(formData).filter(([k]) => k !== 'travelDate').map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-4">
                         <span className="text-slate-500 capitalize shrink-0">{k.replace(/([A-Z])/g, ' $1')}</span>
                         <span className="font-medium text-slate-900 text-right truncate">{v}</span>
@@ -712,7 +960,6 @@ export default function ApplyPage() {
                 </div>
               )}
 
-              {/* Documents summary */}
               {requirements.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Documents</p>
@@ -766,28 +1013,43 @@ export default function ApplyPage() {
                 </div>
               )}
 
-              {/* Payment summary */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Total Fee</p>
-                    {isCorporate && selectedVisa.corporatePrice && (
-                      <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                        Corporate
-                      </span>
-                    )}
+              {/* Pricing breakdown */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Payment Summary</p>
+                <div className="space-y-2">
+                  {selectedVisa.visaCharges > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Visa Charges</span>
+                      <span className="font-medium text-slate-800">{formatCurrency(selectedVisa.visaCharges)}</span>
+                    </div>
+                  )}
+                  {selectedVisa.serviceFee > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Service Fee</span>
+                      <span className="font-medium text-slate-800">{formatCurrency(selectedVisa.serviceFee)}</span>
+                    </div>
+                  )}
+                  {(selectedVisa.visaCharges > 0 || selectedVisa.serviceFee > 0) && (
+                    <div className="border-t border-blue-200 pt-2" />
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-blue-800">Total</p>
+                      {isCorporate && selectedVisa.corporatePrice && (
+                        <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Corporate</span>
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(effectivePrice(selectedVisa))}</p>
                   </div>
-                  <p className="text-3xl font-bold text-blue-900">{formatCurrency(effectivePrice(selectedVisa))}</p>
                   {isCorporate && selectedVisa.corporatePrice && (
-                    <p className="text-xs text-slate-400 line-through mt-0.5">
-                      Regular: {formatCurrency(selectedVisa.price)}
-                    </p>
+                    <p className="text-xs text-slate-400 line-through text-right">Regular: {formatCurrency(selectedVisa.price)}</p>
                   )}
                 </div>
-                <CreditCard className="w-10 h-10 text-blue-400" />
+                <div className="flex items-center justify-end mt-3">
+                  <CreditCard className="w-6 h-6 text-blue-400" />
+                </div>
               </div>
 
-              {/* Disclaimer */}
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                 <p className="text-sm text-amber-700">
                   <strong>Simulated payment</strong> — in production this connects to a payment gateway. Your application will be submitted and payment confirmed immediately.

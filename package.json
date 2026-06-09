@@ -4,8 +4,7 @@
   "workspaces": [
     "backend-api",
     "user-portal",
-    "admin-portal",
-    "shared"
+    "admin-portal"
   ],
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend-api",
