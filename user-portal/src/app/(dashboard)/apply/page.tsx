@@ -248,13 +248,13 @@ function VisaOverviewModal({
                 <p className="text-sm font-semibold text-slate-800">{visa.processingTime}</p>
               </div>
             )}
-            {visa.stayDuration > 0 && (
+            {visa.stayDuration && (
               <div className="bg-slate-50 rounded-xl p-3">
                 <div className="flex items-center gap-1 mb-0.5">
                   <Calendar className="w-3 h-3 text-slate-400" />
                   <p className="text-xs text-slate-500 font-medium">Stay Duration</p>
                 </div>
-                <p className="text-sm font-semibold text-slate-800">{visa.stayDuration} days</p>
+                <p className="text-sm font-semibold text-slate-800">{visa.stayDuration}</p>
               </div>
             )}
             {visa.jurisdiction && (
@@ -882,7 +882,7 @@ export default function ApplyPage() {
                           </>
                         )}
                         <p className="text-xs text-slate-400">{v.processingTime}</p>
-                        {v.stayDuration > 0 && <p className="text-xs text-slate-400">Stay: {v.stayDuration}d</p>}
+                        {v.stayDuration && <p className="text-xs text-slate-400">Stay: {v.stayDuration}</p>}
                         {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
                       </div>
                     </div>

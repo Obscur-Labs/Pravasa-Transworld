@@ -48,7 +48,7 @@ export interface VisaType {
   validity?: string;
   entry: EntryType[];
   visaSubType: VisaSubType;
-  stayDuration: number;
+  stayDuration: string;
   jurisdiction: JurisdictionType;
   visaCategory: VisaCategoryType;
   formFields: FormField[];

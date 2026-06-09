@@ -37,7 +37,7 @@ export interface IVisaType extends Document {
   validity: string;
   entry: EntryType[];
   visaSubType: VisaSubType;
-  stayDuration: number;
+  stayDuration: string;
   jurisdiction: JurisdictionType;
   visaCategory: VisaCategoryType;
   formFields: IFormField[];
@@ -74,7 +74,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     validity: { type: String, default: '' },
     entry: [{ type: String, enum: ['single', 'multiple', 'double'] }],
     visaSubType: { type: String, enum: ['e-visa', 'sticker'], default: 'e-visa' },
-    stayDuration: { type: Number, default: 0, min: 0 },
+    stayDuration: { type: String, default: '' },
     jurisdiction: { type: String, enum: ['pan-india', 'mumbai', 'delhi'], default: 'pan-india' },
     visaCategory: { type: String, enum: ['tourist', 'business', 'transit', 'student'], default: 'tourist' },
     formFields: [FormFieldSchema],

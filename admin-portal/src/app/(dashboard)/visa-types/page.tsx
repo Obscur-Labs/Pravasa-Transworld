@@ -165,7 +165,7 @@ export default function VisaTypesPage() {
         visaCharges: Number(form.visaCharges),
         serviceFee: Number(form.serviceFee),
         processingTime: form.processingTime,
-        stayDuration: Number(form.stayDuration) || 0,
+        stayDuration: form.stayDuration,
         formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
       };
       if (editId) {
@@ -326,7 +326,7 @@ export default function VisaTypesPage() {
                 </div>
                 <div>
                   <Label>Stay Duration (days)</Label>
-                  <Input className="mt-1" type="number" min="0" placeholder="e.g. 30" value={form.stayDuration} onChange={(e) => setForm({ ...form, stayDuration: e.target.value })} />
+                  <Input className="mt-1" type="text" placeholder="e.g. 30 days" value={form.stayDuration} onChange={(e) => setForm({ ...form, stayDuration: e.target.value })} />
                 </div>
 
                 <div>
