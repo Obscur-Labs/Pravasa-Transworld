@@ -24,7 +24,8 @@ router.post('/applications', apps.createApplication);
 router.get('/applications/:id', apps.getApplication);
 router.post('/applications/:id/documents', upload.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);
-router.put('/applications/:id/payment', payments.processPayment);
+router.post('/applications/:id/payment/order', payments.createPaymentOrder);
+router.post('/applications/:id/payment/verify', payments.verifyPayment);
 
 // Document Vault
 router.get('/vault', vault.getVaultDocuments);

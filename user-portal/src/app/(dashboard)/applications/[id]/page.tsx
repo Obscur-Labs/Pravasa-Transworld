@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getApplication, uploadDocument, makePayment,
+  getApplication, uploadDocument, createPaymentOrder, verifyPayment,
   getVaultDocuments, addDocumentFromVault,
 } from '@/lib/api';
+import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
 import type { Application, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
@@ -129,11 +130,19 @@ export default function ApplicationDetailPage() {
   const handlePayment = async () => {
     setPaying(true);
     try {
-      await makePayment(id);
+      const orderRes = await createPaymentOrder(id);
+      const order = orderRes.data.data;
+      await loadRazorpayScript();
+      const checkout = await openRazorpayCheckout(order);
+      await verifyPayment(id, checkout);
       toast({ title: 'Payment successful!', description: 'Your application is now being processed.', variant: 'success' });
       fetchData();
     } catch (err: any) {
-      toast({ title: 'Payment failed', description: err.response?.data?.message || 'Try again', variant: 'destructive' });
+      if (err instanceof PaymentCancelledError) {
+        toast({ title: 'Payment cancelled', description: 'You can complete the payment anytime from this page.' });
+      } else {
+        toast({ title: 'Payment failed', description: err.response?.data?.message || 'Try again', variant: 'destructive' });
+      }
     } finally {
       setPaying(false);
     }
@@ -200,14 +209,14 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Legacy payment_pending */}
-          {application.status === 'payment_pending' && (
+          {/* Awaiting payment (fresh submission or admin-requested) */}
+          {['submitted', 'payment_pending'].includes(application.status) && (
             <Card className="border-blue-200 bg-blue-50">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-blue-900 mb-1">Payment Required</h3>
-                    <p className="text-blue-700 text-sm">Your documents are approved. Complete payment to proceed.</p>
+                    <p className="text-blue-700 text-sm">Complete the payment securely via Razorpay to start processing your application.</p>
                     <p className="text-2xl font-bold text-blue-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
                   </div>
                   <Button onClick={handlePayment} disabled={paying} className="ml-4">

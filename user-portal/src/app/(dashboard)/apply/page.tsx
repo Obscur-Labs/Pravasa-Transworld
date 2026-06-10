@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { getPublicCountries, getPublicVisaTypes, createApplication, uploadDocument, addDocumentFromVault, makePayment, getVaultDocuments } from '@/lib/api';
+import { getPublicCountries, getPublicVisaTypes, createApplication, uploadDocument, addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments } from '@/lib/api';
+import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import type { Country, VisaType, FormField, DocumentRequirement, VaultDocument } from '@/types';
@@ -570,10 +571,27 @@ export default function ApplyPage() {
         }
       }
 
-      setSubmitStatus('Processing payment…');
-      await makePayment(appId);
-
+      setSubmitStatus('Initializing secure payment…');
       localStorage.removeItem(DRAFT_KEY);
+      const orderRes = await createPaymentOrder(appId);
+      const order = orderRes.data.data;
+      await loadRazorpayScript();
+
+      let checkout;
+      try {
+        checkout = await openRazorpayCheckout(order);
+      } catch (err) {
+        if (err instanceof PaymentCancelledError) {
+          toast({ title: 'Payment pending', description: 'Your application was saved. You can complete payment from the application page.' });
+          router.push(`/applications/${appId}`);
+          return;
+        }
+        throw err;
+      }
+
+      setSubmitStatus('Verifying payment…');
+      await verifyPayment(appId, checkout);
+
       toast({ title: 'Application submitted!', description: 'Payment received. Our team will review your documents shortly.', variant: 'success' });
       router.push(`/applications/${appId}`);
     } catch (err: any) {
@@ -1216,9 +1234,9 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                <p className="text-sm text-amber-700">
-                  <strong>Simulated payment</strong> — in production this connects to a payment gateway. Your application will be submitted and payment confirmed immediately.
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                <p className="text-sm text-emerald-700">
+                  <strong>Secure payment via Razorpay</strong> — you&apos;ll be redirected to a secure checkout to pay with UPI, card, or netbanking. Currently in test mode: use card <span className="font-mono">4111 1111 1111 1111</span>, any future expiry and any CVV.
                 </p>
               </div>
             </div>

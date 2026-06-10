@@ -11,6 +11,10 @@ export interface IPayment extends Document {
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId: string;
+  gateway: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
   markedByAdmin: boolean;
   adminNote: string;
   receiptUrl: string;
@@ -27,6 +31,10 @@ const PaymentSchema = new Schema<IPayment>(
     method: { type: String, enum: ['online', 'cash', 'manual_override'], default: 'online' },
     status: { type: String, enum: ['pending', 'completed', 'failed', 'refunded'], default: 'pending' },
     transactionId: { type: String, default: '' },
+    gateway: { type: String, default: '' },
+    razorpayOrderId: { type: String, default: '', index: true },
+    razorpayPaymentId: { type: String, default: '' },
+    razorpaySignature: { type: String, default: '' },
     markedByAdmin: { type: Boolean, default: false },
     adminNote: { type: String, default: '' },
     receiptUrl: { type: String, default: '' },

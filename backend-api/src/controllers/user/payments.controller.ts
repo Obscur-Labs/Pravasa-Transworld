@@ -4,6 +4,12 @@ import Payment from '../../models/Payment';
 import Application from '../../models/Application';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
+import {
+  isRazorpayConfigured,
+  getRazorpayKeyId,
+  createRazorpayOrder,
+  verifyPaymentSignature,
+} from '../../services/razorpay.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
 export const getUserPayments = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -46,24 +52,88 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// Called when user makes payment (creates the Payment record)
-export const processPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+// Step 1: create a Razorpay order + pending Payment record
+export const createPaymentOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
   if (!['submitted', 'payment_pending'].includes(application.status)) { sendError(res, 'Payment is not required at this stage'); return; }
+  if (!application.paymentAmount || application.paymentAmount <= 0) { sendError(res, 'Invalid payment amount'); return; }
+  if (!isRazorpayConfigured()) { sendError(res, 'Payment gateway is not configured. Please contact support.', 503); return; }
 
-  const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+  try {
+    const order = await createRazorpayOrder(application.paymentAmount, `rcpt_${application.referenceId}`, {
+      applicationId: String(application._id),
+      referenceId: application.referenceId,
+    });
 
-  const payment = await Payment.create({
+    // Reuse the pending record across retries so abandoned checkouts don't pile up
+    await Payment.findOneAndUpdate(
+      { application: application._id, user: req.user!._id, status: 'pending', gateway: 'razorpay' },
+      {
+        application: application._id,
+        user: req.user!._id,
+        amount: application.paymentAmount,
+        currency: order.currency,
+        method: 'online',
+        status: 'pending',
+        gateway: 'razorpay',
+        razorpayOrderId: order.id,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    sendSuccess(res, {
+      keyId: getRazorpayKeyId(),
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Pravasa Transworld',
+      description: `Visa application ${application.referenceId}`,
+      prefill: {
+        name: req.user!.name,
+        email: req.user!.email,
+        contact: (req.user as any).phone || '',
+      },
+    });
+  } catch (err) {
+    console.error('Razorpay order creation failed', err);
+    sendError(res, 'Could not initiate payment. Please try again.', 502);
+  }
+};
+
+// Step 2: verify checkout signature, then mark payment complete
+export const verifyPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    sendError(res, 'Missing payment verification details'); return;
+  }
+
+  const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+
+  const payment = await Payment.findOne({
     application: application._id,
     user: req.user!._id,
-    amount: application.paymentAmount,
-    method: 'online',
-    status: 'completed',
-    transactionId,
-    markedByAdmin: false,
-    paidAt: new Date(),
+    razorpayOrderId: razorpay_order_id,
   });
+  if (!payment) { sendError(res, 'Payment order not found', 404); return; }
+
+  // Idempotent: checkout handler + retries may both hit this endpoint
+  if (payment.status === 'completed') { sendSuccess(res, { payment, application }, 'Payment already verified'); return; }
+
+  if (!verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+    payment.status = 'failed';
+    await payment.save();
+    sendError(res, 'Payment verification failed. If money was deducted, it will be refunded automatically.', 400);
+    return;
+  }
+
+  payment.status = 'completed';
+  payment.transactionId = razorpay_payment_id;
+  payment.razorpayPaymentId = razorpay_payment_id;
+  payment.razorpaySignature = razorpay_signature;
+  payment.paidAt = new Date();
+  await payment.save();
 
   application.status = 'payment_completed';
   await application.save();
