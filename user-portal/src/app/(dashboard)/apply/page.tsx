@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy, Plane, Ticket, Hourglass, Home, Users, Minus, Plus } from 'lucide-react';
 import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
 type DocSource =
   | { type: 'vault'; vaultDocId: string; label: string; url: string }
   | { type: 'file'; file: File };
+type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 
 const STEPS = ['Country', 'Visa Type', 'Application Form', 'Documents', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
@@ -49,44 +50,160 @@ const JURISDICTION_LABELS: Record<string, string> = {
   'pan-india': 'Pan India', mumbai: 'Mumbai', delhi: 'Delhi',
 };
 
-/* ── Travel Date Modal ── */
-function TravelDateModal({ country, onConfirm }: { country: Country; onConfirm: (date: string) => void }) {
-  const [date, setDate] = useState('');
-  const today = new Date().toISOString().split('T')[0];
+const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const buildTravelers = (adults: number, children: number): Traveler[] => {
+  const list: Traveler[] = [];
+  for (let i = 0; i < adults; i++) list.push({ key: `a${i}`, label: `Adult ${i + 1}`, type: 'adult' });
+  for (let i = 0; i < children; i++) list.push({ key: `c${i}`, label: `Child ${i + 1}`, type: 'child' });
+  return list;
+};
+
+/* ── Counter control ── */
+function Counter({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={value <= min}
+        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <span className="w-5 text-center text-base font-bold text-slate-900 tabular-nums">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(value + 1)}
+        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+/* ── Travel Plan Modal: travelers + calendar ── */
+function TravelPlanModal({
+  country,
+  initial,
+  onConfirm,
+  onClose,
+}: {
+  country: Country;
+  initial: { date: string; adults: number; children: number };
+  onConfirm: (data: { date: string; adults: number; children: number }) => void;
+  onClose: () => void;
+}) {
+  const today = useMemo(() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t; }, []);
+  const [adults, setAdults] = useState(initial.adults || 1);
+  const [children, setChildren] = useState(initial.children || 0);
+  const [selected, setSelected] = useState<Date | null>(initial.date ? new Date(initial.date) : null);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const base = initial.date ? new Date(initial.date) : today;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+
+  const cells = useMemo(() => {
+    const monthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+    const first = new Date(monthStart);
+    first.setDate(1 - monthStart.getDay());
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(first);
+      d.setDate(first.getDate() + i);
+      return d;
+    });
+  }, [viewMonth]);
+
+  const canGoPrev = viewMonth > new Date(today.getFullYear(), today.getMonth(), 1);
+  const prevMonth = () => canGoPrev && setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1));
+  const nextMonth = () => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)' }}>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-white" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden my-6">
+        <div className="px-6 pt-5 pb-4 flex items-start justify-between" style={{ background: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)' }}>
+          <div>
+            <h2 className="text-white font-bold text-lg leading-tight">When are you planning to go?</h2>
+            <p className="text-blue-200 text-xs mt-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> {country.name}</p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Travelers */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-slate-200 p-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Adults</p>
+                <p className="text-[11px] text-slate-400 leading-tight">Travellers aged 18 and above</p>
+              </div>
+              <Counter value={adults} onChange={setAdults} min={1} />
             </div>
-            <div>
-              <h2 className="text-white font-bold text-base leading-tight">When are you travelling?</h2>
-              <p className="text-blue-200 text-xs mt-0.5 flex items-center gap-1">
-                <Globe className="w-3 h-3" /> {country.name}
-              </p>
+            <div className="rounded-xl border border-slate-200 p-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Children</p>
+                <p className="text-[11px] text-slate-400 leading-tight">Travellers below the age of 18</p>
+              </div>
+              <Counter value={children} onChange={setChildren} min={0} />
             </div>
           </div>
-        </div>
-        <div className="px-6 py-5">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Expected Travel Date</label>
-          <input
-            type="date"
-            min={today}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full h-11 px-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-          />
-          <p className="text-xs text-slate-400 mt-2">This helps us process your application faster.</p>
+
+          {/* Info banner */}
+          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
+            <p className="text-xs font-medium text-amber-700 text-center">Selected dates will be reflected on your visa, so please choose them carefully.</p>
+          </div>
+
+          {/* Calendar */}
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={prevMonth} disabled={!canGoPrev} className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <p className="font-semibold text-slate-800">{MONTH_NAMES[viewMonth.getMonth()]} <span className="text-slate-400">{viewMonth.getFullYear()}</span></p>
+              <button onClick={nextMonth} className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 mb-1">
+              {WEEK_DAYS.map((d) => <div key={d} className="text-center text-xs font-semibold text-violet-600 py-1">{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-y-1">
+              {cells.map((d, i) => {
+                const inMonth = d.getMonth() === viewMonth.getMonth();
+                const past = d < today;
+                const disabled = !inMonth || past;
+                const isSel = selected && sameDay(d, selected);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSelected(new Date(d))}
+                    className={`mx-auto w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors ${
+                      isSel ? 'bg-blue-600 text-white font-bold shadow'
+                      : disabled ? 'text-slate-300 cursor-not-allowed'
+                      : 'text-slate-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    {d.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <button
-            onClick={() => date && onConfirm(date)}
-            disabled={!date}
-            className="mt-4 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={date ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}
+            onClick={() => selected && onConfirm({ date: fmtDate(selected), adults, children })}
+            disabled={!selected}
+            className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={selected ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}
           >
-            <ChevronRight className="w-4 h-4" /> Continue
+            Continue
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -99,46 +216,73 @@ function VisaOverviewModal({
   country,
   visa,
   isCorporate,
-  effectivePrice,
+  adults,
+  children,
   onClose,
   onContinue,
 }: {
   country: Country;
   visa: VisaType;
   isCorporate: boolean;
-  effectivePrice: (v: VisaType) => number;
+  adults: number;
+  children: number;
   onClose: () => void;
   onContinue: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(false);
 
+  const adultRate = isCorporate && visa.corporateAdultPrice ? visa.corporateAdultPrice : (visa.adultPrice || visa.price);
+  const childRate = isCorporate && visa.corporateChildPrice != null ? visa.corporateChildPrice : (visa.childPrice || 0);
+
   const requiredDocs = visa.documentRequirements.filter((r) => r.required);
   const optionalDocs = visa.documentRequirements.filter((r) => !r.required);
-  const docsText =
-    `Documents for ${visa.name}:\n` +
-    visa.documentRequirements.map((r) => `- ${r.name}${r.required ? ' (required)' : ' (optional)'}`).join('\n');
+
+  // Copy full visa details — info, form fields, and documents.
+  const fullText = (() => {
+    const lines: string[] = [];
+    lines.push(`${visa.name} — ${country.name}`);
+    if (visa.description) lines.push(visa.description);
+    lines.push('');
+    lines.push('VISA DETAILS');
+    lines.push(`- Visa Type: ${visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}`);
+    if (visa.visaCategory) lines.push(`- Category: ${CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}`);
+    if (visa.entry?.length) lines.push(`- Entry: ${visa.entry.join(', ')}`);
+    if (visa.stayDuration) lines.push(`- Stay Duration: ${visa.stayDuration}`);
+    if (visa.validity) lines.push(`- Validity: ${visa.validity}`);
+    if (visa.processingTime) lines.push(`- Processing Time: ${visa.processingTime}`);
+    lines.push(`- Adult Price: ${formatCurrency(adultRate)}`);
+    lines.push(`- Child Price: ${formatCurrency(childRate)}`);
+    if (visa.formFields?.length) {
+      lines.push('');
+      lines.push('APPLICATION FORM FIELDS');
+      [...visa.formFields].sort((a, b) => a.order - b.order).forEach((f) => {
+        lines.push(`- ${f.label}${f.required ? ' (required)' : ''}${f.type !== 'text' ? ` [${f.type}]` : ''}`);
+      });
+    }
+    if (visa.documentRequirements?.length) {
+      lines.push('');
+      lines.push('DOCUMENTS');
+      visa.documentRequirements.forEach((r) => {
+        lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}`);
+      });
+    }
+    return lines.join('\n');
+  })();
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(t);
   }, []);
 
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(onClose, 300);
-  };
-
-  const handleContinue = () => {
-    setVisible(false);
-    setTimeout(onContinue, 300);
-  };
+  const handleClose = () => { setVisible(false); setTimeout(onClose, 300); };
+  const handleContinue = () => { setVisible(false); setTimeout(onContinue, 300); };
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(docsText);
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
-      toast({ title: 'Copied!', description: 'Document list copied to clipboard.', variant: 'success' });
+      toast({ title: 'Copied!', description: 'Full visa details copied to clipboard.', variant: 'success' });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ title: 'Error', description: 'Failed to copy to clipboard.', variant: 'destructive' });
@@ -153,77 +297,42 @@ function VisaOverviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
-      {/* Backdrop */}
-      <div
-        onClick={handleClose}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
-        style={{ opacity: visible ? 1 : 0 }}
-      />
+      <div onClick={handleClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300" style={{ opacity: visible ? 1 : 0 }} />
 
-      {/* Panel — slides up from bottom on mobile, scales in on desktop */}
       <div
         className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl z-10 flex flex-col overflow-hidden max-h-[92dvh] sm:max-h-[88vh] transition-all duration-300 ease-out"
-        style={{
-          transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.97)',
-          opacity: visible ? 1 : 0,
-        }}
+        style={{ transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.97)', opacity: visible ? 1 : 0 }}
       >
-        {/* Mobile drag handle */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
           <div className="w-10 h-1 bg-slate-200 rounded-full" />
         </div>
 
-        {/* ── Header: country + visa name + price chips ── */}
         <div className="px-4 sm:px-6 pt-3 sm:pt-0 flex-shrink-0">
-          {/* Gradient banner */}
           <div className="rounded-2xl px-4 py-4 mb-3" style={{ background: 'linear-gradient(135deg,#0f2d6b 0%,#1a3a8f 60%,#1e40af 100%)' }}>
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <img
-                  src={`https://flagcdn.com/w40/${country.flag}.png`}
-                  alt={country.name}
-                  className="w-10 h-7 object-cover rounded shadow"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+                <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt={country.name} className="w-10 h-7 object-cover rounded shadow" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 <div>
                   <p className="text-blue-200 text-xs font-medium">{country.name}</p>
                   <h2 className="text-white font-bold text-base leading-tight">{visa.name}</h2>
-                  {visa.description && (
-                    <p className="text-blue-200/80 text-xs mt-0.5 line-clamp-1">{visa.description}</p>
-                  )}
+                  {visa.description && <p className="text-blue-200/80 text-xs mt-0.5 line-clamp-1">{visa.description}</p>}
                 </div>
               </div>
-              <button onClick={handleClose} className="text-white/60 hover:text-white transition-colors -mt-0.5 ml-2 flex-shrink-0">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={handleClose} className="text-white/60 hover:text-white transition-colors -mt-0.5 ml-2 flex-shrink-0"><X className="w-5 h-5" /></button>
             </div>
 
-            {/* Price + meta chips */}
             <div className="flex flex-wrap gap-1.5 mt-3">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full">
                 <CreditCard className="w-3 h-3" />
-                {isCorporate && visa.corporatePrice
-                  ? `${formatCurrency(effectivePrice(visa))} (Corporate)`
-                  : formatCurrency(effectivePrice(visa))}
+                {formatCurrency(adultRate)} / adult{isCorporate ? ' (Corporate)' : ''}
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
-                <Loader2 className="w-3 h-3" />
-                {visa.processingTime}
-              </span>
-              {visa.validity && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full">
-                  <Check className="w-3 h-3" />
-                  Valid: {visa.validity}
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full"><Clock className="w-3 h-3" />{visa.processingTime}</span>
+              {visa.validity && <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full"><Check className="w-3 h-3" />Valid: {visa.validity}</span>}
             </div>
           </div>
         </div>
 
-        {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 pb-2 space-y-4">
-
-          {/* Visa metadata grid */}
           <div className="grid grid-cols-2 gap-2.5">
             {visa.visaSubType && (
               <div className="bg-indigo-50 rounded-xl p-3">
@@ -233,57 +342,39 @@ function VisaOverviewModal({
             )}
             {visa.visaCategory && (
               <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Tag className="w-3 h-3 text-slate-400" />
-                  <p className="text-xs text-slate-500 font-medium">Category</p>
-                </div>
+                <div className="flex items-center gap-1 mb-0.5"><Tag className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Category</p></div>
                 <p className="text-sm font-semibold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
               </div>
             )}
             {visa.processingTime && (
               <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  <p className="text-xs text-slate-500 font-medium">Processing Time</p>
-                </div>
+                <div className="flex items-center gap-1 mb-0.5"><Clock className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Processing Time</p></div>
                 <p className="text-sm font-semibold text-slate-800">{visa.processingTime}</p>
               </div>
             )}
             {visa.stayDuration && (
               <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <Calendar className="w-3 h-3 text-slate-400" />
-                  <p className="text-xs text-slate-500 font-medium">Stay Duration</p>
-                </div>
+                <div className="flex items-center gap-1 mb-0.5"><Calendar className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Stay Duration</p></div>
                 <p className="text-sm font-semibold text-slate-800">{visa.stayDuration}</p>
               </div>
             )}
             {visa.jurisdiction && (
               <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <MapPin className="w-3 h-3 text-slate-400" />
-                  <p className="text-xs text-slate-500 font-medium">Jurisdiction</p>
-                </div>
+                <div className="flex items-center gap-1 mb-0.5"><MapPin className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Jurisdiction</p></div>
                 <p className="text-sm font-semibold text-slate-800">{JURISDICTION_LABELS[visa.jurisdiction] || visa.jurisdiction}</p>
               </div>
             )}
           </div>
 
-          {/* Entry types */}
           {visa.entry && visa.entry.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Entry</p>
               <div className="flex flex-wrap gap-2">
-                {visa.entry.map((e) => (
-                  <span key={e} className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">
-                    {e} Entry
-                  </span>
-                ))}
+                {visa.entry.map((e) => <span key={e} className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">{e} Entry</span>)}
               </div>
             </div>
           )}
 
-          {/* Description */}
           {visa.description && (
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">About</p>
@@ -291,7 +382,6 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* ── Document Requirements Section ── */}
           {visa.documentRequirements.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -299,32 +389,18 @@ function VisaOverviewModal({
                   Documents Required
                   <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
                 </p>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150"
-                >
-                  {copied ? (
-                    <><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>
-                  ) : (
-                    <><Copy className="w-3.5 h-3.5" />Copy List</>
-                  )}
+                <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150">
+                  {copied ? (<><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>) : (<><Copy className="w-3.5 h-3.5" />Copy Details</>)}
                 </button>
               </div>
 
-              {/* Required docs */}
               {requiredDocs.length > 0 && (
                 <div className="mb-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Required</p>
                   <ul className="space-y-2">
-                    {requiredDocs.map((req, i) => (
-                      <li
-                        key={req._id || req.name}
-                        className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100 transition-all duration-200 hover:bg-red-50 hover:border-red-200 hover:shadow-sm"
-                        style={{ transitionDelay: `${i * 40}ms`, opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
-                      >
-                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <FileText className="w-3.5 h-3.5" />
-                        </span>
+                    {requiredDocs.map((req) => (
+                      <li key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100">
+                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
                           {req.description && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{req.description}</p>}
@@ -336,20 +412,13 @@ function VisaOverviewModal({
                 </div>
               )}
 
-              {/* Optional docs */}
               {optionalDocs.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Optional</p>
                   <ul className="space-y-2">
-                    {optionalDocs.map((req, i) => (
-                      <li
-                        key={req._id || req.name}
-                        className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100 transition-all duration-200 hover:bg-slate-100 hover:border-slate-200 hover:shadow-sm"
-                        style={{ transitionDelay: `${(requiredDocs.length + i) * 40}ms`, opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
-                      >
-                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <FileText className="w-3.5 h-3.5" />
-                        </span>
+                    {optionalDocs.map((req) => (
+                      <li key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
                           {req.description && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{req.description}</p>}
@@ -364,24 +433,52 @@ function VisaOverviewModal({
           )}
         </div>
 
-        {/* ── Footer CTA ── */}
         <div className="px-4 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
-          <button
-            onClick={handleContinue}
-            className="w-full py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm sm:text-base rounded-xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
-          >
+          <button onClick={handleContinue} className="w-full py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm sm:text-base rounded-xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
             Continue with {visa.name}
             <ChevronRight className="w-4 h-4" />
           </button>
-          <button
-            onClick={handleClose}
-            className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150"
-          >
-            Choose a different visa
-          </button>
+          <button onClick={handleClose} className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150">Choose a different visa</button>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Visa selection card (green, per design) ── */
+function VisaCard({ visa, selected, priceLabel, onClick }: { visa: VisaType; selected: boolean; priceLabel: string; onClick: () => void }) {
+  const rows: { icon: React.ReactNode; label: string; value: string }[] = [
+    { icon: <Ticket className="w-4 h-4" />, label: 'Visa Types', value: visa.visaSubType === 'e-visa' ? 'eVisa' : 'Sticker' },
+  ];
+  if (visa.stayDuration) rows.push({ icon: <Home className="w-4 h-4" />, label: 'Stay duration', value: visa.stayDuration });
+  if (visa.validity) rows.push({ icon: <Hourglass className="w-4 h-4" />, label: 'Visa validity', value: visa.validity });
+  if (visa.processingTime) rows.push({ icon: <Clock className="w-4 h-4" />, label: 'Processing time', value: visa.processingTime });
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full rounded-2xl overflow-hidden border-2 text-left transition-all ${selected ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-transparent hover:shadow-md'}`}
+    >
+      {/* Green header */}
+      <div className="px-5 py-4 relative" style={{ background: 'linear-gradient(135deg,#0f9d6b 0%,#10b981 100%)' }}>
+        <Plane className="w-5 h-5 text-white/90 mb-1.5" />
+        <p className="text-white font-bold text-base leading-tight">{visa.name}</p>
+        {visa.entry?.[0] && <p className="text-white/80 text-xs mt-0.5 capitalize">{visa.entry[0]}</p>}
+      </div>
+      {/* Detail rows */}
+      <div className="bg-white divide-y divide-slate-100">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between px-5 py-2.5">
+            <span className="flex items-center gap-2.5 text-sm text-slate-500"><span className="text-slate-400">{r.icon}</span>{r.label}</span>
+            <span className="text-sm font-bold text-slate-800">{r.value}</span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between px-5 py-3 bg-slate-50">
+          <span className="text-xs text-slate-500">Starting from</span>
+          <span className="text-base font-bold text-emerald-700">{priceLabel}</span>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -389,8 +486,9 @@ export default function ApplyPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const isCorporate = user?.accountType === 'corporate';
-  const effectivePrice = (v: VisaType) =>
-    isCorporate && v.corporatePrice ? v.corporatePrice : v.price;
+
+  const adultRate = (v: VisaType) => (isCorporate && v.corporateAdultPrice ? v.corporateAdultPrice : (v.adultPrice || v.price));
+  const childRate = (v: VisaType) => (isCorporate && v.corporateChildPrice != null ? v.corporateChildPrice : (v.childPrice || 0));
 
   const [step, setStep] = useState<Step>(1);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -406,17 +504,20 @@ export default function ApplyPage() {
   const [submitStatus, setSubmitStatus] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
   const [travelDate, setTravelDate] = useState('');
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
 
   // Modal visibility
-  const [showTravelDateModal, setShowTravelDateModal] = useState(false);
+  const [showTravelModal, setShowTravelModal] = useState(false);
   const [pendingCountry, setPendingCountry] = useState<Country | null>(null);
   const [showVisaOverview, setShowVisaOverview] = useState(false);
 
+  const travelers = useMemo(() => buildTravelers(adults, children), [adults, children]);
+  const orderTotal = (v: VisaType) => adults * adultRate(v) + children * childRate(v);
+
   useEffect(() => {
     getPublicCountries().then((r) => setCountries(r.data.data));
-    getVaultDocuments()
-      .then((r) => setVaultDocs(r.data.data || []))
-      .catch(() => {});
+    getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
 
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
@@ -428,6 +529,8 @@ export default function ApplyPage() {
         if (d.formData) setFormData(d.formData);
         if (d.step) setStep(d.step as Step);
         if (d.travelDate) setTravelDate(d.travelDate);
+        if (d.adults) setAdults(d.adults);
+        if (typeof d.children === 'number') setChildren(d.children);
       } catch {
         localStorage.removeItem(DRAFT_KEY);
       }
@@ -437,27 +540,9 @@ export default function ApplyPage() {
 
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelDate };
+    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelDate, adults, children };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelDate]);
-
-  useEffect(() => {
-    if (step !== 4 || !selectedVisa || vaultDocs.length === 0) return;
-    const requirements = selectedVisa.documentRequirements;
-    setDocSources((prev) => {
-      const next = { ...prev };
-      for (const req of requirements) {
-        if (next[req.name]) continue;
-        const vaultType = getVaultType(req.name);
-        if (!vaultType) continue;
-        const matches = vaultDocs.filter((v) => v.type === vaultType);
-        if (matches.length === 1) {
-          next[req.name] = { type: 'vault', vaultDocId: matches[0]._id, label: matches[0].label, url: matches[0].url };
-        }
-      }
-      return next;
-    });
-  }, [step, selectedVisa, vaultDocs]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelDate, adults, children]);
 
   const startOver = () => {
     localStorage.removeItem(DRAFT_KEY);
@@ -469,17 +554,21 @@ export default function ApplyPage() {
     setVisaTypes([]);
     setCountrySearch('');
     setTravelDate('');
+    setAdults(1);
+    setChildren(0);
   };
 
-  // Country click → travel date modal
+  // Country click → travel plan modal
   const handleCountrySelect = (country: Country) => {
     setPendingCountry(country);
-    setShowTravelDateModal(true);
+    setShowTravelModal(true);
   };
 
-  const confirmTravelDate = async (date: string) => {
-    setTravelDate(date);
-    setShowTravelDateModal(false);
+  const confirmTravelPlan = async (data: { date: string; adults: number; children: number }) => {
+    setTravelDate(data.date);
+    setAdults(data.adults);
+    setChildren(data.children);
+    setShowTravelModal(false);
     if (!pendingCountry) return;
     const country = pendingCountry;
     setPendingCountry(null);
@@ -527,9 +616,20 @@ export default function ApplyPage() {
     setSubmitting(true);
     try {
       setSubmitStatus('Creating application…');
-      const responses = { ...formData };
+      // Build per-traveler responses with readable keys.
+      const responses: Record<string, string> = {};
+      const sortedFields = [...selectedVisa.formFields].sort((a, b) => a.order - b.order);
+      for (const tr of travelers) {
+        for (const f of sortedFields) {
+          const val = formData[`${tr.key}__${f.fieldName}`];
+          // Mongo Map keys cannot contain dots — sanitize the composed label.
+          const key = `${tr.label} — ${f.label || f.fieldName}`.replace(/\./g, ' ');
+          if (val && String(val).trim()) responses[key] = String(val);
+        }
+      }
       if (travelDate) responses['travelDate'] = travelDate;
-      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses });
+
+      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses, adults, children, travelDate });
       const appId = r.data.data._id;
 
       const reqs = selectedVisa.documentRequirements;
@@ -621,6 +721,10 @@ export default function ApplyPage() {
   const canProceed = () => {
     if (step === 1) return !!selectedCountry;
     if (step === 2) return !!selectedVisa && !loading;
+    if (step === 3 && selectedVisa) {
+      const reqFields = selectedVisa.formFields.filter((f) => f.required);
+      return travelers.every((tr) => reqFields.every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim()));
+    }
     if (step === 4 && selectedVisa) {
       return selectedVisa.documentRequirements
         .filter((r) => r.required)
@@ -634,20 +738,18 @@ export default function ApplyPage() {
     return true;
   };
 
-  const renderField = (field: FormField) => {
+  const renderField = (field: FormField, prefix: string) => {
+    const key = `${prefix}__${field.fieldName}`;
     const common = {
-      id: field.fieldName,
-      value: formData[field.fieldName] || '',
+      id: key,
+      value: formData[key] || '',
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-        setFormData({ ...formData, [field.fieldName]: e.target.value }),
+        setFormData({ ...formData, [key]: e.target.value }),
     };
 
     if (field.type === 'select') {
       return (
-        <Select
-          value={formData[field.fieldName] || ''}
-          onValueChange={(v) => setFormData({ ...formData, [field.fieldName]: v })}
-        >
+        <Select value={formData[key] || ''} onValueChange={(v) => setFormData({ ...formData, [key]: v })}>
           <SelectTrigger><SelectValue placeholder={field.placeholder || 'Select an option'} /></SelectTrigger>
           <SelectContent>
             {field.options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
@@ -657,12 +759,8 @@ export default function ApplyPage() {
     }
     if (field.type === 'textarea') {
       return (
-        <textarea
-          {...common}
-          rows={3}
-          placeholder={field.placeholder}
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-        />
+        <textarea {...common} rows={3} placeholder={field.placeholder}
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
       );
     }
     if (field.type === 'radio' && field.options.length > 0) {
@@ -670,14 +768,8 @@ export default function ApplyPage() {
         <div className="flex flex-wrap gap-4 mt-1">
           {field.options.map((o) => (
             <label key={o} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name={field.fieldName}
-                value={o}
-                checked={formData[field.fieldName] === o}
-                onChange={() => setFormData({ ...formData, [field.fieldName]: o })}
-                className="text-blue-600 focus:ring-blue-500"
-              />
+              <input type="radio" name={key} value={o} checked={formData[key] === o}
+                onChange={() => setFormData({ ...formData, [key]: o })} className="text-blue-600 focus:ring-blue-500" />
               <span className="text-sm text-slate-700">{o}</span>
             </label>
           ))}
@@ -688,12 +780,11 @@ export default function ApplyPage() {
       return (
         <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50">
           <div className="flex-1 min-w-0">
-            {formData[field.fieldName]
-              ? <span className="text-sm text-green-700 font-medium truncate">✓ {formData[field.fieldName]}</span>
+            {formData[key]
+              ? <span className="text-sm text-green-700 font-medium truncate">✓ {formData[key]}</span>
               : <span className="text-sm text-slate-400">{field.placeholder || 'No file selected'}</span>}
           </div>
-          <button
-            type="button"
+          <button type="button"
             className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors flex-shrink-0"
             onClick={() => {
               const input = document.createElement('input');
@@ -701,11 +792,10 @@ export default function ApplyPage() {
               input.accept = ACCEPTED;
               input.onchange = (e: any) => {
                 const file = e.target?.files?.[0];
-                if (file) setFormData({ ...formData, [field.fieldName]: file.name });
+                if (file) setFormData({ ...formData, [key]: file.name });
               };
               input.click();
-            }}
-          >
+            }}>
             <Upload className="w-3.5 h-3.5" /> Browse
           </button>
         </div>
@@ -725,43 +815,39 @@ export default function ApplyPage() {
     return !!docSources[r.name];
   }).length;
 
+  const sortedFields = selectedVisa ? [...selectedVisa.formFields].sort((a, b) => a.order - b.order) : [];
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      {/* Travel Date Modal — shown when user clicks a country */}
-      {showTravelDateModal && pendingCountry && (
-        <TravelDateModal country={pendingCountry} onConfirm={confirmTravelDate} />
+      {showTravelModal && pendingCountry && (
+        <TravelPlanModal
+          country={pendingCountry}
+          initial={{ date: travelDate, adults, children }}
+          onConfirm={confirmTravelPlan}
+          onClose={() => { setShowTravelModal(false); setPendingCountry(null); }}
+        />
       )}
 
-      {/* Visa Overview Modal — shown when user clicks a visa card (info + docs + price) */}
       {showVisaOverview && selectedVisa && selectedCountry && (
         <VisaOverviewModal
           country={selectedCountry}
           visa={selectedVisa}
           isCorporate={isCorporate}
-          effectivePrice={effectivePrice}
+          adults={adults}
+          children={children}
           onClose={() => setShowVisaOverview(false)}
-          onContinue={() => {
-            setShowVisaOverview(false);
-            goNext();
-          }}
+          onContinue={() => { setShowVisaOverview(false); goNext(); }}
         />
       )}
 
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-2xl font-bold text-slate-900">Apply for Visa</h1>
         {(step > 1 || !!selectedCountry) && (
-          <button
-            onClick={startOver}
-            className="text-xs text-slate-400 hover:text-red-500 transition-colors mt-1.5 flex-shrink-0"
-          >
-            Start over
-          </button>
+          <button onClick={startOver} className="text-xs text-slate-400 hover:text-red-500 transition-colors mt-1.5 flex-shrink-0">Start over</button>
         )}
       </div>
       <p className="text-slate-500 text-sm mb-8">
-        {step > 1 || selectedCountry
-          ? 'Your progress has been saved — continue where you left off.'
-          : 'Complete the steps below to submit your application.'}
+        {step > 1 || selectedCountry ? 'Your progress has been saved — continue where you left off.' : 'Complete the steps below to submit your application.'}
       </p>
 
       {/* Step Indicator */}
@@ -778,9 +864,7 @@ export default function ApplyPage() {
               }`}>
                 {done ? <Check className="w-3.5 h-3.5" /> : n}
               </div>
-              <span className={`text-xs font-medium hidden sm:block ml-1.5 mr-1 ${active ? 'text-blue-700' : done ? 'text-green-700' : 'text-slate-400'}`}>
-                {label}
-              </span>
+              <span className={`text-xs font-medium hidden sm:block ml-1.5 mr-1 ${active ? 'text-blue-700' : done ? 'text-green-700' : 'text-slate-400'}`}>{label}</span>
               {i < STEPS.length - 1 && !(n === 4 && selectedVisa && requirements.length === 0) && (
                 <div className={`flex-1 h-0.5 mx-1 ${step > n ? 'bg-green-300' : 'bg-slate-200'}`} />
               )}
@@ -797,30 +881,17 @@ export default function ApplyPage() {
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Destination Country</h2>
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                className="pl-9"
-                placeholder="Search countries..."
-                value={countrySearch}
-                onChange={(e) => setCountrySearch(e.target.value)}
-              />
+              <Input className="pl-9" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {countries
                 .filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
                 .map((c) => (
-                  <button
-                    key={c._id}
-                    onClick={() => handleCountrySelect(c)}
+                  <button key={c._id} onClick={() => handleCountrySelect(c)}
                     className={`p-4 rounded-xl border-2 text-left transition-all ${
                       selectedCountry?._id === c._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <img
-                      src={`https://flagcdn.com/w40/${c.flag}.png`}
-                      alt={c.name}
-                      className="w-8 h-5 object-cover rounded mb-2"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
+                    }`}>
+                    <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-8 h-5 object-cover rounded mb-2" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <p className="text-sm font-semibold text-slate-900">{c.name}</p>
                   </button>
                 ))}
@@ -834,13 +905,19 @@ export default function ApplyPage() {
         {/* ── Step 2: Visa Type ── */}
         {step === 2 && (
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
               <h2 className="text-lg font-semibold text-slate-900">Select Visa Type</h2>
-              {travelDate && (
-                <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
-                  <Calendar className="w-3 h-3" /> Travel: {new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              <div className="flex items-center gap-2 flex-wrap">
+                {travelDate && (
+                  <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
+                    <Calendar className="w-3 h-3" /> {new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full font-medium">
+                  <Users className="w-3 h-3" /> {adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}
                 </span>
-              )}
+                <button onClick={() => { setPendingCountry(selectedCountry); setShowTravelModal(true); }} className="text-xs text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2">Edit</button>
+              </div>
             </div>
             <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
               Visas available for
@@ -852,86 +929,59 @@ export default function ApplyPage() {
             ) : visaTypes.length === 0 ? (
               <p className="text-slate-400 text-sm text-center py-8">No visa types available for this country.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {visaTypes.map((v) => (
-                  <button
+                  <VisaCard
                     key={v._id}
-                    onClick={() => {
-                      setSelectedVisa(v);
-                      setDocSources({});
-                      setShowVisaOverview(true);
-                    }}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                      selectedVisa?._id === v._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900">{v.name}</p>
-                          {v.visaSubType && (
-                            <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                              {v.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
-                            </span>
-                          )}
-                        </div>
-                        {v.visaCategory && (
-                          <p className="text-xs text-slate-500 mt-0.5">{CATEGORY_LABELS[v.visaCategory] || v.visaCategory}</p>
-                        )}
-                        {v.entry && v.entry.length > 0 && (
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {v.entry.map((e) => (
-                              <span key={e} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize font-medium">{e}</span>
-                            ))}
-                          </div>
-                        )}
-                        {v.documentRequirements.length > 0 && (
-                          <p className="text-xs text-blue-600 mt-1 font-medium">
-                            {v.documentRequirements.length} document{v.documentRequirements.length > 1 ? 's' : ''} required
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right ml-4 flex-shrink-0">
-                        <p className="font-bold text-blue-700">{formatCurrency(effectivePrice(v))}</p>
-                        {isCorporate && v.corporatePrice && (
-                          <>
-                            <p className="text-[11px] font-semibold text-violet-600">Corporate rate</p>
-                            <p className="text-[11px] text-slate-400 line-through">{formatCurrency(v.price)}</p>
-                          </>
-                        )}
-                        <p className="text-xs text-slate-400">{v.processingTime}</p>
-                        {v.stayDuration && <p className="text-xs text-slate-400">Stay: {v.stayDuration}</p>}
-                        {v.validity && <p className="text-xs text-slate-400">Valid: {v.validity}</p>}
-                      </div>
-                    </div>
-                  </button>
+                    visa={v}
+                    selected={selectedVisa?._id === v._id}
+                    priceLabel={`${formatCurrency(adultRate(v))} / adult`}
+                    onClick={() => { setSelectedVisa(v); setDocSources({}); setShowVisaOverview(true); }}
+                  />
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* ── Step 3: Application Form ── */}
+        {/* ── Step 3: Application Form (per traveler) ── */}
         {step === 3 && selectedVisa && (
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
-            <div className="space-y-4">
-              {[...selectedVisa.formFields].sort((a, b) => a.order - b.order).map((field) => (
-                <div key={field._id}>
-                  <Label htmlFor={field.fieldName}>
-                    {field.label}
-                    {field.required && <span className="text-red-500 ml-1">*</span>}
-                  </Label>
-                  <div className="mt-1">{renderField(field)}</div>
-                </div>
-              ))}
-              {selectedVisa.formFields.length === 0 && (
-                <div className="text-center py-6 text-slate-400">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No additional form fields required for this visa type.</p>
-                </div>
-              )}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h2 className="text-lg font-semibold text-slate-900">Application Details</h2>
+              <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full font-medium">
+                <Users className="w-3 h-3" /> {travelers.length} traveller{travelers.length > 1 ? 's' : ''}
+              </span>
             </div>
+
+            {sortedFields.length === 0 ? (
+              <div className="text-center py-6 text-slate-400">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No additional form fields required for this visa type.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {travelers.map((tr) => (
+                  <div key={tr.key} className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className={`px-4 py-2.5 flex items-center gap-2 ${tr.type === 'adult' ? 'bg-blue-50' : 'bg-emerald-50'}`}>
+                      <Users className={`w-4 h-4 ${tr.type === 'adult' ? 'text-blue-500' : 'text-emerald-500'}`} />
+                      <p className={`text-sm font-bold ${tr.type === 'adult' ? 'text-blue-800' : 'text-emerald-800'}`}>{tr.label}</p>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {sortedFields.map((field) => (
+                        <div key={field._id || field.fieldName}>
+                          <Label htmlFor={`${tr.key}__${field.fieldName}`}>
+                            {field.label}
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </Label>
+                          <div className="mt-1">{renderField(field, tr.key)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -941,13 +991,9 @@ export default function ApplyPage() {
             <div className="flex items-start justify-between mb-5">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Upload Documents</h2>
-                <p className="text-slate-500 text-sm mt-0.5">
-                  Upload the required documents for your {selectedVisa.name} application.
-                </p>
+                <p className="text-slate-500 text-sm mt-0.5">Upload the required documents for your {selectedVisa.name} application.</p>
               </div>
-              <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full font-medium flex-shrink-0">
-                {readyCount}/{requirements.length} ready
-              </span>
+              <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full font-medium flex-shrink-0">{readyCount}/{requirements.length} ready</span>
             </div>
 
             {requirements.length === 0 ? (
@@ -982,19 +1028,11 @@ export default function ApplyPage() {
                   const source = docSources[req.name];
                   const vaultType = getVaultType(req.name);
                   const vaultMatches = vaultType ? vaultDocs.filter((v) => v.type === vaultType) : [];
-                  const isAutoFilled = source?.type === 'vault' && vaultMatches.some((v) => v._id === source.vaultDocId);
-
                   return (
-                    <div
-                      key={req._id || req.name}
+                    <div key={req._id || req.name}
                       className={`rounded-xl border-2 p-4 transition-all ${
-                        source
-                          ? 'border-green-200 bg-green-50'
-                          : req.required
-                          ? 'border-slate-200 bg-white hover:border-blue-200'
-                          : 'border-dashed border-slate-200 bg-slate-50/50'
-                      }`}
-                    >
+                        source ? 'border-green-200 bg-green-50' : req.required ? 'border-slate-200 bg-white hover:border-blue-200' : 'border-dashed border-slate-200 bg-slate-50/50'
+                      }`}>
                       <div className="flex items-start gap-3 mb-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${source ? 'bg-green-100' : 'bg-slate-100'}`}>
                           {source ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4 text-slate-400" />}
@@ -1007,28 +1045,18 @@ export default function ApplyPage() {
                           </p>
                           {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
                         </div>
-                        {isAutoFilled && (
-                          <span className="text-xs bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
-                            Auto-filled from vault
-                          </span>
-                        )}
                       </div>
 
                       {source && (
                         <div className="flex items-center gap-2 mb-3 ml-11">
                           {source.type === 'vault' ? (
-                            <span className="text-xs text-green-700 font-medium flex items-center gap-1">
-                              <Vault className="w-3 h-3" /> From vault: {source.label}
-                            </span>
+                            <span className="text-xs text-green-700 font-medium flex items-center gap-1"><Vault className="w-3 h-3" /> From vault: {source.label}</span>
                           ) : (
                             <span className="text-xs text-green-700 font-medium truncate max-w-[200px]">
-                              {source.file.name}
-                              <span className="text-slate-400 ml-1">· {formatBytes(source.file.size)}</span>
+                              {source.file.name}<span className="text-slate-400 ml-1">· {formatBytes(source.file.size)}</span>
                             </span>
                           )}
-                          <button onClick={() => clearDocSource(req.name)} className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                          <button onClick={() => clearDocSource(req.name)} className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><X className="w-3.5 h-3.5" /></button>
                         </div>
                       )}
 
@@ -1037,13 +1065,11 @@ export default function ApplyPage() {
                           {vaultMatches.map((vd) => {
                             const isSelected = source?.type === 'vault' && source.vaultDocId === vd._id;
                             return (
-                              <button
-                                key={vd._id}
+                              <button key={vd._id}
                                 onClick={() => isSelected ? clearDocSource(req.name) : selectVaultDoc(req.name, vd)}
                                 className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${
                                   isSelected ? 'bg-green-100 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'
-                                }`}
-                              >
+                                }`}>
                                 <Vault className="w-3 h-3" />
                                 {isSelected ? `Selected: ${vd.label} ✓` : `Use from vault: ${vd.label}`}
                               </button>
@@ -1053,10 +1079,8 @@ export default function ApplyPage() {
                       )}
 
                       <div className="ml-11">
-                        <button
-                          onClick={() => pickFile(req.name)}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors"
-                        >
+                        <button onClick={() => pickFile(req.name)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors">
                           <Upload className="w-3.5 h-3.5" />
                           {source?.type === 'file' ? 'Replace file' : 'Upload new file'}
                         </button>
@@ -1077,9 +1101,7 @@ export default function ApplyPage() {
               </div>
             )}
 
-            <p className="text-xs text-slate-400 mt-4">
-              Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file
-            </p>
+            <p className="text-xs text-slate-400 mt-4">Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file</p>
           </div>
         )}
 
@@ -1104,8 +1126,8 @@ export default function ApplyPage() {
                     <p className="font-medium mt-0.5">{selectedVisa.name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Processing Time</p>
-                    <p className="font-medium mt-0.5">{selectedVisa.processingTime}</p>
+                    <p className="text-xs text-slate-400">Travellers</p>
+                    <p className="font-medium mt-0.5">{adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}</p>
                   </div>
                   {travelDate && (
                     <div>
@@ -1113,32 +1135,46 @@ export default function ApplyPage() {
                       <p className="font-medium mt-0.5">{new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-xs text-slate-400">Processing Time</p>
+                    <p className="font-medium mt-0.5">{selectedVisa.processingTime}</p>
+                  </div>
                   {selectedVisa.validity && (
                     <div>
                       <p className="text-xs text-slate-400">Validity</p>
                       <p className="font-medium mt-0.5">{selectedVisa.validity}</p>
                     </div>
                   )}
-                  {selectedVisa.entry && selectedVisa.entry.length > 0 && (
-                    <div>
-                      <p className="text-xs text-slate-400">Entry</p>
-                      <p className="font-medium mt-0.5 capitalize">{selectedVisa.entry.join(', ')}</p>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Form responses */}
-              {Object.keys(formData).filter((k) => k !== 'travelDate').length > 0 && (
+              {/* Per-traveler responses */}
+              {sortedFields.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Your Responses</p>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(formData).filter(([k]) => k !== 'travelDate').map(([k, v]) => (
-                      <div key={k} className="flex justify-between gap-4">
-                        <span className="text-slate-500 capitalize shrink-0">{k.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="font-medium text-slate-900 text-right truncate">{v}</span>
-                      </div>
-                    ))}
+                  <p className="text-xs text-slate-500 font-semibold mb-3 uppercase tracking-wide">Traveller Details</p>
+                  <div className="space-y-3">
+                    {travelers.map((tr) => {
+                      const entries = sortedFields
+                        .map((f) => [f.label || f.fieldName, formData[`${tr.key}__${f.fieldName}`]] as const)
+                        .filter(([, v]) => v && String(v).trim());
+                      return (
+                        <div key={tr.key}>
+                          <p className={`text-xs font-bold mb-1 ${tr.type === 'adult' ? 'text-blue-700' : 'text-emerald-700'}`}>{tr.label}</p>
+                          {entries.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">No details provided</p>
+                          ) : (
+                            <div className="space-y-1 text-sm">
+                              {entries.map(([k, v]) => (
+                                <div key={k} className="flex justify-between gap-4">
+                                  <span className="text-slate-500 shrink-0">{k}</span>
+                                  <span className="font-medium text-slate-900 text-right truncate">{v}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1155,20 +1191,12 @@ export default function ApplyPage() {
                         return (
                           <div key={req._id || req.name} className="space-y-1">
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-slate-700 flex items-center gap-1">
-                                <BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Front
-                              </span>
-                              {fSrc?.type === 'file'
-                                ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {fSrc.file.name}</span>
-                                : <span className="text-slate-400 italic text-xs">Not provided</span>}
+                              <span className="text-slate-700 flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Front</span>
+                              {fSrc?.type === 'file' ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {fSrc.file.name}</span> : <span className="text-slate-400 italic text-xs">Not provided</span>}
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-slate-700 flex items-center gap-1">
-                                <BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Back
-                              </span>
-                              {bSrc?.type === 'file'
-                                ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {bSrc.file.name}</span>
-                                : <span className="text-slate-400 italic text-xs">Not provided</span>}
+                              <span className="text-slate-700 flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 text-slate-400" /> {req.name} — Back</span>
+                              {bSrc?.type === 'file' ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {bSrc.file.name}</span> : <span className="text-slate-400 italic text-xs">Not provided</span>}
                             </div>
                           </div>
                         );
@@ -1179,13 +1207,9 @@ export default function ApplyPage() {
                           <span className="text-slate-700">{req.name}{req.required && <span className="text-red-400 ml-1">*</span>}</span>
                           {source ? (
                             source.type === 'vault' ? (
-                              <span className="text-green-700 font-medium flex items-center gap-1">
-                                <Vault className="w-3.5 h-3.5" /> {source.label}
-                              </span>
+                              <span className="text-green-700 font-medium flex items-center gap-1"><Vault className="w-3.5 h-3.5" /> {source.label}</span>
                             ) : (
-                              <span className="text-green-700 font-medium flex items-center gap-1">
-                                <Check className="w-3.5 h-3.5" /> {source.file.name}
-                              </span>
+                              <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3.5 h-3.5" /> {source.file.name}</span>
                             )
                           ) : (
                             <span className="text-slate-400 italic text-xs">Not provided</span>
@@ -1197,41 +1221,32 @@ export default function ApplyPage() {
                 </div>
               )}
 
-              {/* Pricing breakdown */}
+              {/* Pricing breakdown (per traveler) */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Payment Summary</p>
                 <div className="space-y-2">
-                  {selectedVisa.visaCharges > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{adults} × Adult {isCorporate && selectedVisa.corporateAdultPrice ? '(Corporate)' : ''} @ {formatCurrency(adultRate(selectedVisa))}</span>
+                    <span className="font-medium text-slate-800">{formatCurrency(adults * adultRate(selectedVisa))}</span>
+                  </div>
+                  {children > 0 && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Visa Charges</span>
-                      <span className="font-medium text-slate-800">{formatCurrency(selectedVisa.visaCharges)}</span>
+                      <span className="text-slate-600">{children} × Child {isCorporate && selectedVisa.corporateChildPrice != null ? '(Corporate)' : ''} @ {formatCurrency(childRate(selectedVisa))}</span>
+                      <span className="font-medium text-slate-800">{formatCurrency(children * childRate(selectedVisa))}</span>
                     </div>
                   )}
-                  {selectedVisa.serviceFee > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Service Fee</span>
-                      <span className="font-medium text-slate-800">{formatCurrency(selectedVisa.serviceFee)}</span>
-                    </div>
-                  )}
-                  {(selectedVisa.visaCharges > 0 || selectedVisa.serviceFee > 0) && (
-                    <div className="border-t border-blue-200 pt-2" />
-                  )}
+                  <div className="border-t border-blue-200 pt-2" />
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-blue-800">Total</p>
-                      {isCorporate && selectedVisa.corporatePrice && (
+                      {isCorporate && (selectedVisa.corporateAdultPrice || selectedVisa.corporateChildPrice != null) && (
                         <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Corporate</span>
                       )}
                     </div>
-                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(effectivePrice(selectedVisa))}</p>
+                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(orderTotal(selectedVisa))}</p>
                   </div>
-                  {isCorporate && selectedVisa.corporatePrice && (
-                    <p className="text-xs text-slate-400 line-through text-right">Regular: {formatCurrency(selectedVisa.price)}</p>
-                  )}
                 </div>
-                <div className="flex items-center justify-end mt-3">
-                  <CreditCard className="w-6 h-6 text-blue-400" />
-                </div>
+                <div className="flex items-center justify-end mt-3"><CreditCard className="w-6 h-6 text-blue-400" /></div>
               </div>
 
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
@@ -1257,15 +1272,9 @@ export default function ApplyPage() {
         ) : (
           <Button onClick={handleSubmit} disabled={submitting} className="min-w-[200px]">
             {submitting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-xs">{submitStatus || 'Submitting…'}</span>
-              </span>
+              <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
             ) : (
-              <span className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Pay &amp; Submit Application
-              </span>
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Pay &amp; Submit Application</span>
             )}
           </Button>
         )}
