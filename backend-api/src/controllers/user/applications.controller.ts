@@ -36,7 +36,7 @@ export const getApplications = async (req: AuthRequest, res: Response): Promise<
 };
 
 export const createApplication = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visaTypeId, formResponses } = req.body;
+  const { visaTypeId, formResponses, adults, children, travelDate } = req.body;
   if (!visaTypeId) { sendError(res, 'Visa type is required'); return; }
 
   const visaType = await VisaType.findById(visaTypeId);
@@ -59,7 +59,17 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   if (!referenceId) referenceId = `PRS-${rawCode}-${Date.now().toString().slice(-4)}`;
 
   const isCorporate = req.user!.accountType === 'corporate';
-  const paymentAmount = (isCorporate && visaType.corporatePrice) ? visaType.corporatePrice : visaType.price;
+  const numAdults = Math.max(1, Number(adults) || 1);
+  const numChildren = Math.max(0, Number(children) || 0);
+
+  // Per-traveler pricing. Falls back to legacy single price for visa types created before per-traveler pricing.
+  const adultRate = isCorporate && visaType.corporateAdultPrice
+    ? visaType.corporateAdultPrice
+    : (visaType.adultPrice || visaType.price);
+  const childRate = isCorporate && visaType.corporateChildPrice != null
+    ? visaType.corporateChildPrice
+    : (visaType.childPrice || 0);
+  const paymentAmount = numAdults * adultRate + numChildren * childRate;
 
   const application = await Application.create({
     user: req.user!._id,
@@ -67,6 +77,9 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     country: visaType.country,
     status: 'submitted',
     formResponses: formResponses || {},
+    adults: numAdults,
+    children: numChildren,
+    travelDate: travelDate || (formResponses?.travelDate ?? ''),
     paymentAmount,
     referenceId,
   });

@@ -16,26 +16,47 @@ export const getVisaType = async (req: AdminRequest, res: Response): Promise<voi
 };
 
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { country, name, description, visaCharges, serviceFee, processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity } = req.body;
-  if (!country || !name || visaCharges === undefined || !processingTime) {
-    sendError(res, 'Country, name, visaCharges, and processingTime are required');
+  const {
+    country, name, description, adultPrice, childPrice, corporateAdultPrice, corporateChildPrice,
+    processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
+    jurisdiction, visaCategory, process, validity,
+  } = req.body;
+  if (!country || !name || adultPrice === undefined || !processingTime) {
+    sendError(res, 'Country, name, adult price, and processingTime are required');
     return;
   }
-  const price = Number(visaCharges) + Number(serviceFee || 0);
-  const visaType = await VisaType.create({ country, name, description, price, visaCharges: Number(visaCharges), serviceFee: Number(serviceFee || 0), processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration, jurisdiction, visaCategory, validity });
+  // `price` / `corporatePrice` mirror the per-adult rate for backward compatibility (listing "from" price).
+  const price = Number(adultPrice);
+  const corporatePrice = corporateAdultPrice !== undefined && corporateAdultPrice !== '' ? Number(corporateAdultPrice) : undefined;
+  const visaType = await VisaType.create({
+    country, name, description,
+    price,
+    adultPrice: Number(adultPrice),
+    childPrice: Number(childPrice || 0),
+    corporateAdultPrice: corporatePrice,
+    corporateChildPrice: corporateChildPrice !== undefined && corporateChildPrice !== '' ? Number(corporateChildPrice) : undefined,
+    corporatePrice,
+    processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
+    jurisdiction, visaCategory, process, validity,
+  });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
   sendSuccess(res, populated, 'Visa type created', 201);
 };
 
 export const updateVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
   const body = { ...req.body };
-  if (body.visaCharges !== undefined || body.serviceFee !== undefined) {
-    const existing = await VisaType.findById(req.params.id);
-    const charges = body.visaCharges !== undefined ? Number(body.visaCharges) : (existing?.visaCharges || 0);
-    const fee = body.serviceFee !== undefined ? Number(body.serviceFee) : (existing?.serviceFee || 0);
-    body.price = charges + fee;
-    body.visaCharges = charges;
-    body.serviceFee = fee;
+  // Keep legacy `price` / `corporatePrice` mirrored to the per-adult rates.
+  if (body.adultPrice !== undefined) {
+    body.adultPrice = Number(body.adultPrice);
+    body.price = body.adultPrice;
+  }
+  if (body.childPrice !== undefined) body.childPrice = Number(body.childPrice);
+  if (body.corporateAdultPrice !== undefined) {
+    body.corporateAdultPrice = body.corporateAdultPrice === '' ? undefined : Number(body.corporateAdultPrice);
+    body.corporatePrice = body.corporateAdultPrice;
+  }
+  if (body.corporateChildPrice !== undefined) {
+    body.corporateChildPrice = body.corporateChildPrice === '' ? undefined : Number(body.corporateChildPrice);
   }
   const visaType = await VisaType.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('country', 'name flag');

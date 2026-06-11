@@ -44,6 +44,9 @@ export interface IApplication extends Document {
   country: mongoose.Types.ObjectId;
   status: ApplicationStatus;
   formResponses: Map<string, string>;
+  adults: number;
+  children: number;
+  travelDate: string;
   rejectionReason: string;
   adminNotes: string;
   paymentAmount: number;
@@ -63,6 +66,9 @@ const ApplicationSchema = new Schema<IApplication>(
       default: 'submitted',
     },
     formResponses: { type: Map, of: String, default: {} },
+    adults: { type: Number, default: 1, min: 1 },
+    children: { type: Number, default: 0, min: 0 },
+    travelDate: { type: String, default: '' },
     rejectionReason: { type: String, default: '' },
     adminNotes: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },

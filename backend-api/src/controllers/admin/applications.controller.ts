@@ -123,7 +123,18 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
 
   const visaType = await (await import('../../models/VisaType')).default.findById(application.visaType);
   application.status = 'documents_approved';
-  application.paymentAmount = visaType?.price || 0;
+  // Preserve the per-traveler total locked at creation; only recompute if it was never set.
+  if (!application.paymentAmount || application.paymentAmount <= 0) {
+    const fullUser = await (await import('../../models/User')).default.findById(application.user);
+    const isCorporate = fullUser?.accountType === 'corporate';
+    const adultRate = isCorporate && visaType?.corporateAdultPrice
+      ? visaType.corporateAdultPrice
+      : (visaType?.adultPrice || visaType?.price || 0);
+    const childRate = isCorporate && visaType?.corporateChildPrice != null
+      ? visaType.corporateChildPrice
+      : (visaType?.childPrice || 0);
+    application.paymentAmount = (application.adults || 1) * adultRate + (application.children || 0) * childRate;
+  }
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };

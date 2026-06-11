@@ -52,6 +52,12 @@ export const toggleVisaType = (id: string) => api.patch(`/admin/visa-types/${id}
 export const updateCorporatePrice = (id: string, corporatePrice: number | '') =>
   api.patch(`/admin/visa-types/${id}/corporate-price`, { corporatePrice });
 
+// Form Presets
+export const getFormPresets = () => api.get('/admin/form-presets');
+export const createFormPreset = (data: object) => api.post('/admin/form-presets', data);
+export const updateFormPreset = (id: string, data: object) => api.put(`/admin/form-presets/${id}`, data);
+export const deleteFormPreset = (id: string) => api.delete(`/admin/form-presets/${id}`);
+
 // Applications
 export const getApplications = (params?: object) => api.get('/admin/applications', { params });
 export const getApplication = (id: string) => api.get(`/admin/applications/${id}`);

@@ -45,7 +45,7 @@ export const submitContactLead = (data: { name: string; email: string; phone?: s
 // User — Applications
 export const getDashboard = () => api.get('/user/dashboard');
 export const getApplications = () => api.get('/user/applications');
-export const createApplication = (data: { visaTypeId: string; formResponses: Record<string, string> }) =>
+export const createApplication = (data: { visaTypeId: string; formResponses: Record<string, string>; adults?: number; children?: number; travelDate?: string }) =>
   api.post('/user/applications', data);
 export const getApplication = (id: string) => api.get(`/user/applications/${id}`);
 export const uploadDocument = (id: string, formData: FormData) =>

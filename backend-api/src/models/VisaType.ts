@@ -24,6 +24,7 @@ export type EntryType = 'single' | 'multiple' | 'double';
 export type VisaSubType = 'e-visa' | 'sticker';
 export type JurisdictionType = 'pan-india' | 'mumbai' | 'delhi';
 export type VisaCategoryType = 'tourist' | 'business' | 'transit' | 'student';
+export type ProcessType = 'normal' | 'express';
 
 export interface IVisaType extends Document {
   country: mongoose.Types.ObjectId;
@@ -33,6 +34,11 @@ export interface IVisaType extends Document {
   visaCharges: number;
   serviceFee: number;
   corporatePrice?: number;
+  // Per-traveler pricing
+  adultPrice: number;
+  childPrice: number;
+  corporateAdultPrice?: number;
+  corporateChildPrice?: number;
   processingTime: string;
   validity: string;
   entry: EntryType[];
@@ -40,6 +46,7 @@ export interface IVisaType extends Document {
   stayDuration: string;
   jurisdiction: JurisdictionType;
   visaCategory: VisaCategoryType;
+  process: ProcessType;
   formFields: IFormField[];
   documentRequirements: IDocumentRequirement[];
   isActive: boolean;
@@ -70,6 +77,10 @@ const VisaTypeSchema = new Schema<IVisaType>(
     visaCharges: { type: Number, default: 0, min: 0 },
     serviceFee: { type: Number, default: 0, min: 0 },
     corporatePrice: { type: Number, min: 0 },
+    adultPrice: { type: Number, default: 0, min: 0 },
+    childPrice: { type: Number, default: 0, min: 0 },
+    corporateAdultPrice: { type: Number, min: 0 },
+    corporateChildPrice: { type: Number, min: 0 },
     processingTime: { type: String, required: true, default: '' },
     validity: { type: String, default: '' },
     entry: [{ type: String, enum: ['single', 'multiple', 'double'] }],
@@ -77,6 +88,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     stayDuration: { type: String, default: '' },
     jurisdiction: { type: String, enum: ['pan-india', 'mumbai', 'delhi'], default: 'pan-india' },
     visaCategory: { type: String, enum: ['tourist', 'business', 'transit', 'student'], default: 'tourist' },
+    process: { type: String, enum: ['normal', 'express'], default: 'normal' },
     formFields: [FormFieldSchema],
     documentRequirements: [DocumentRequirementSchema],
     isActive: { type: Boolean, default: true },

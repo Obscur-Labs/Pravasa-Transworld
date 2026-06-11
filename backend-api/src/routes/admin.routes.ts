@@ -7,6 +7,7 @@ import * as apps from '../controllers/admin/applications.controller';
 import * as leads from '../controllers/admin/contactLeads.controller';
 import * as notifications from '../controllers/admin/notifications.controller';
 import * as users from '../controllers/admin/users.controller';
+import * as formPresets from '../controllers/admin/formPresets.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -24,6 +25,10 @@ router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVis
 router.route('/visa-types/:id').get(visaTypes.getVisaType).put(visaTypes.updateVisaType).delete(visaTypes.deleteVisaType);
 router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 router.patch('/visa-types/:id/corporate-price', visaTypes.updateCorporatePrice);
+
+// Form Presets
+router.route('/form-presets').get(formPresets.getFormPresets).post(formPresets.createFormPreset);
+router.route('/form-presets/:id').put(formPresets.updateFormPreset).delete(formPresets.deleteFormPreset);
 
 // Applications
 router.get('/applications', apps.getApplications);

@@ -34,6 +34,7 @@ export type EntryType = 'single' | 'multiple' | 'double';
 export type VisaSubType = 'e-visa' | 'sticker';
 export type JurisdictionType = 'pan-india' | 'mumbai' | 'delhi';
 export type VisaCategoryType = 'tourist' | 'business' | 'transit' | 'student';
+export type ProcessType = 'normal' | 'express';
 
 export interface VisaType {
   _id: string;
@@ -44,6 +45,10 @@ export interface VisaType {
   visaCharges: number;
   serviceFee: number;
   corporatePrice?: number;
+  adultPrice: number;
+  childPrice: number;
+  corporateAdultPrice?: number;
+  corporateChildPrice?: number;
   processingTime: string;
   validity?: string;
   entry: EntryType[];
@@ -51,6 +56,7 @@ export interface VisaType {
   stayDuration: string;
   jurisdiction: JurisdictionType;
   visaCategory: VisaCategoryType;
+  process: ProcessType;
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
 }
@@ -88,6 +94,9 @@ export interface Application {
   country: Country;
   status: ApplicationStatus;
   formResponses: Record<string, string>;
+  adults: number;
+  children: number;
+  travelDate: string;
   rejectionReason: string;
   paymentAmount: number;
   referenceId: string;
