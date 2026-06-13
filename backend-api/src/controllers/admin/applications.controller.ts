@@ -12,6 +12,7 @@ import Payment from '../../models/Payment';
 import Trash from '../../models/Trash';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
+import { generateReceiptPDF } from '../../services/pdf.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
 async function fetchBuffer(url: string): Promise<Buffer> {
@@ -162,7 +163,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
 };
 
 export const updateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, rejectionReason, adminNotes } = req.body;
+  const { status, rejectionReason, adminNotes, processingReferenceNumber } = req.body;
   if (!status) { sendError(res, 'Status is required'); return; }
 
   const application = await Application.findById(req.params.id).populate('user', 'name email');
@@ -171,6 +172,7 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   application.status = status as ApplicationStatus;
   if (rejectionReason) application.rejectionReason = rejectionReason;
   if (adminNotes) application.adminNotes = adminNotes;
+  if (processingReferenceNumber !== undefined) application.processingReferenceNumber = processingReferenceNumber;
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };
@@ -329,6 +331,43 @@ export const getUserApplications = async (req: AdminRequest, res: Response): Pro
     .populate('country', 'name flag')
     .sort({ createdAt: -1 });
   sendSuccess(res, applications);
+};
+
+export const downloadApplicationReceipt = async (req: AdminRequest, res: Response): Promise<void> => {
+  const payment = await Payment.findOne({ application: req.params.id, status: 'completed' })
+    .populate({ path: 'application', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
+    .populate('user', 'name email');
+
+  if (!payment) { sendError(res, 'No completed payment found for this application', 404); return; }
+
+  const app = payment.application as any;
+  const user = payment.user as any;
+
+  const countryCode = (app.country?.flag || 'XX').toUpperCase();
+  const yearShort = new Date().getFullYear().toString().slice(-2);
+  const appLastNum = (app.referenceId || '').split('-').pop() || '0000';
+
+  const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });
+  const seqIdx = allPayments.findIndex((p) => String(p._id) === String(payment._id));
+  const seqNo = String((seqIdx >= 0 ? seqIdx : 0) + 1).padStart(3, '0');
+  const receiptNumber = `${countryCode}-${yearShort}/${appLastNum}/${seqNo}`;
+
+  try {
+    const pdfBuffer = await generateReceiptPDF({
+      payment: payment as any,
+      appRef: app.referenceId,
+      userName: user.name,
+      visaType: app.visaType?.name || 'N/A',
+      country: app.country?.name || 'N/A',
+      receiptNumber,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);
+    res.end(pdfBuffer);
+  } catch (err) {
+    sendError(res, 'Failed to generate receipt', 500);
+  }
 };
 
 export const downloadApplicationDocumentsZip = async (req: AdminRequest, res: Response): Promise<void> => {

@@ -46,6 +46,7 @@ router.put('/applications/:id/approve-documents', apps.approveAllDocuments);
 router.post('/applications/:id/visa-file', upload.single('file'), apps.uploadVisaFile);
 router.put('/applications/:id/manual-payment', apps.manualPaymentOverride);
 router.get('/applications/:id/documents/zip', apps.downloadApplicationDocumentsZip);
+router.get('/applications/:id/receipt', apps.downloadApplicationReceipt);
 router.delete('/applications/:id', apps.deleteApplication);
 
 // Payments

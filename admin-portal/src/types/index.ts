@@ -48,6 +48,7 @@ export interface DocumentRequirement {
   name: string;
   description: string;
   required: boolean;
+  childOnly?: boolean;
 }
 
 export interface Country {
@@ -134,8 +135,10 @@ export interface Application {
   adults: number;
   children: number;
   travelDate: string;
+  travelEndDate?: string;
   rejectionReason: string;
   adminNotes: string;
+  processingReferenceNumber?: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: string;

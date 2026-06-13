@@ -1,27 +1,22 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileText, Clock, CheckCircle, XCircle, Activity, ArrowRight, Mail, MessageSquare } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, Activity, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getDashboardStats, getApplications, getLeads } from '@/lib/api';
+import { getDashboardStats, getApplications } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import type { Application, ContactLead } from '@/types';
+import type { Application } from '@/types';
 import { STATUS_LABELS } from '@/types';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ total: 0, pending: 0, processing: 0, approved: 0, rejected: 0 });
   const [recent, setRecent] = useState<Application[]>([]);
-  const [leads, setLeads] = useState<ContactLead[]>([]);
 
   useEffect(() => {
     getDashboardStats().then((r) => setStats(r.data.data));
     getApplications({ limit: 8 }).then((r) => setRecent(r.data.data.applications));
-    getLeads().then((r) => setLeads(r.data.data));
   }, []);
-
-  const recentLeads = leads.slice(0, 3);
-  const unreadLeads = leads.filter((l) => !l.read).length;
 
   const cards = [
     { label: 'Total Applications', value: stats.total, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -62,51 +57,6 @@ export default function AdminDashboard() {
           );
         })}
       </div>
-
-      {/* Recent Contact Leads */}
-      <Card className="mb-8">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-blue-600" />
-              Recent Contact Leads
-            </h2>
-            {unreadLeads > 0 && (
-              <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                {unreadLeads} new
-              </span>
-            )}
-          </div>
-          <Link href="/leads" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-            View all <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {recentLeads.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-sm">No contact leads yet.</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {recentLeads.map((lead) => (
-              <div key={lead._id} className="flex items-start gap-4 px-5 py-4">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-700 text-sm font-bold">{lead.name?.[0]?.toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-slate-900 text-sm">{lead.name}</span>
-                    {!lead.read && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
-                    <span className="text-xs text-slate-400 ml-auto flex-shrink-0">{formatDate(lead.createdAt)}</span>
-                  </div>
-                  <p className="text-xs text-slate-500 line-clamp-1 mb-1">{lead.message}</p>
-                  <span className="flex items-center gap-1 text-xs text-slate-400">
-                    <Mail className="w-3 h-3" />{lead.email}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
 
       {/* Recent Applications */}
       <Card>

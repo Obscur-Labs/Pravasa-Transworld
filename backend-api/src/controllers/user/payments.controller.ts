@@ -36,16 +36,26 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
   const user = payment.user as any;
 
   try {
+    const countryCode = (app.country?.flag || 'XX').toUpperCase();
+    const yearShort = new Date().getFullYear().toString().slice(-2);
+    const appLastNum = (app.referenceId || '').split('-').pop() || '0000';
+
+    const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });
+    const seqIdx = allPayments.findIndex((p) => String(p._id) === String(payment._id));
+    const seqNo = String((seqIdx >= 0 ? seqIdx : 0) + 1).padStart(3, '0');
+    const receiptNumber = `${countryCode}-${yearShort}/${appLastNum}/${seqNo}`;
+
     const pdfBuffer = await generateReceiptPDF({
       payment: payment as any,
       appRef: app.referenceId,
       userName: user.name,
       visaType: app.visaType?.name || 'N/A',
       country: app.country?.name || 'N/A',
+      receiptNumber,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="receipt-${payment._id}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);
     res.end(pdfBuffer);
   } catch (err) {
     sendError(res, 'Failed to generate receipt', 500);

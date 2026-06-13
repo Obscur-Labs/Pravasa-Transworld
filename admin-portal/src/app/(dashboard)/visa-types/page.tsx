@@ -15,7 +15,7 @@ import type { Country, VisaType, FormField, DocumentRequirement, FieldType, Entr
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, childOnly: false });
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true });
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, childOnly: false });
 
 const ENTRY_OPTIONS: { value: EntryType; label: string }[] = [
   { value: 'single', label: 'Single' },
@@ -523,15 +523,21 @@ export default function VisaTypesPage() {
                 </div>
                 <div className="space-y-2">
                   {form.documentRequirements.map((doc, i) => (
-                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-3 gap-2 items-center">
-                      <Input className="h-8 text-xs" placeholder="Document name" value={doc.name} onChange={(e) => updateDocReq(i, 'name', e.target.value)} />
-                      <Input className="h-8 text-xs" placeholder="Description (optional)" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
-                      <div className="flex items-center justify-between">
+                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <Input className="h-8 text-xs" placeholder="Document name" value={doc.name} onChange={(e) => updateDocReq(i, 'name', e.target.value)} />
+                        <Input className="h-8 text-xs" placeholder="Description (optional)" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
+                      </div>
+                      <div className="flex items-center gap-4">
                         <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} />
+                          <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} className="rounded" />
                           Required
                         </label>
-                        <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                        <label className="flex items-center gap-1.5 text-xs text-emerald-700 cursor-pointer">
+                          <input type="checkbox" checked={!!doc.childOnly} onChange={(e) => updateDocReq(i, 'childOnly', e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                          Children only
+                        </label>
+                        <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}

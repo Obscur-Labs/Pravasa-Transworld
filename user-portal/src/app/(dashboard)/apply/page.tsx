@@ -1,14 +1,21 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, AlertCircle, Search, Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy, Plane, Ticket, Hourglass, Home, Users, Minus, Plus } from 'lucide-react';
+import {
+  ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
+  Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
+  Ticket, Hourglass, Users, Minus, Plus, Shield, ArrowRight, Info,
+} from 'lucide-react';
 import PassportUploadCard from '@/components/passport/PassportUploadCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { getPublicCountries, getPublicVisaTypes, createApplication, uploadDocument, addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments } from '@/lib/api';
+import {
+  getPublicCountries, getPublicVisaTypes, createApplication, uploadDocument,
+  addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments,
+} from '@/lib/api';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
@@ -51,6 +58,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 };
 
 const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fmtDisplay = (s: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -62,11 +70,12 @@ const buildTravelers = (adults: number, children: number): Traveler[] => {
   return list;
 };
 
-// Fields a given traveler should fill: adults skip child-only fields; children see everything.
 const fieldsForTraveler = (fields: FormField[], tr: Traveler) =>
   tr.type === 'child' ? fields : fields.filter((f) => !f.childOnly);
 
-/* ── Counter control ── */
+const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
+  tr.type === 'child' ? docs : docs.filter((d) => !d.childOnly);
+
 function Counter({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
   return (
     <div className="flex items-center gap-3">
@@ -83,7 +92,7 @@ function Counter({ value, onChange, min }: { value: number; onChange: (v: number
   );
 }
 
-/* ── Travel Plan Modal: travelers + calendar ── */
+/* ── Travel Plan Modal with date RANGE ── */
 function TravelPlanModal({
   country,
   initial,
@@ -91,16 +100,18 @@ function TravelPlanModal({
   onClose,
 }: {
   country: Country;
-  initial: { date: string; adults: number; children: number };
-  onConfirm: (data: { date: string; adults: number; children: number }) => void;
+  initial: { startDate: string; endDate: string; adults: number; children: number };
+  onConfirm: (data: { startDate: string; endDate: string; adults: number; children: number }) => void;
   onClose: () => void;
 }) {
   const today = useMemo(() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t; }, []);
   const [adults, setAdults] = useState(initial.adults || 1);
   const [children, setChildren] = useState(initial.children || 0);
-  const [selected, setSelected] = useState<Date | null>(initial.date ? new Date(initial.date) : null);
+  const [startDate, setStartDate] = useState<Date | null>(initial.startDate ? new Date(initial.startDate) : null);
+  const [endDate, setEndDate] = useState<Date | null>(initial.endDate ? new Date(initial.endDate) : null);
+  const [hoverDate, setHoverDate] = useState<Date | null>(null);
   const [viewMonth, setViewMonth] = useState(() => {
-    const base = initial.date ? new Date(initial.date) : today;
+    const base = initial.startDate ? new Date(initial.startDate) : today;
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
 
@@ -119,39 +130,81 @@ function TravelPlanModal({
   const prevMonth = () => canGoPrev && setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1));
   const nextMonth = () => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1));
 
+  const isInRange = (d: Date) => {
+    const rangeEnd = endDate || hoverDate;
+    if (!startDate || !rangeEnd) return false;
+    const s = startDate < rangeEnd ? startDate : rangeEnd;
+    const e = startDate < rangeEnd ? rangeEnd : startDate;
+    return d > s && d < e;
+  };
+
+  const handleDayClick = (d: Date) => {
+    if (!startDate || (startDate && endDate)) {
+      setStartDate(new Date(d));
+      setEndDate(null);
+    } else {
+      if (d < startDate) {
+        setEndDate(startDate);
+        setStartDate(new Date(d));
+      } else {
+        setEndDate(new Date(d));
+      }
+    }
+  };
+
+  const canConfirm = startDate && endDate && adults >= 1;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden my-6">
         <div className="px-6 pt-5 pb-4 flex items-start justify-between" style={{ background: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)' }}>
           <div>
-            <h2 className="text-white font-bold text-lg leading-tight">When are you planning to go?</h2>
+            <h2 className="text-white font-bold text-lg leading-tight">Plan Your Travel</h2>
             <p className="text-blue-200 text-xs mt-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> {country.name}</p>
           </div>
           <button onClick={onClose} className="text-white/60 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Traveler counts */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-xl border border-slate-200 p-3 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-800">Adults</p>
-                <p className="text-[11px] text-slate-400 leading-tight">Travellers aged 18 and above</p>
+                <p className="text-[11px] text-slate-400 leading-tight">Age 18 and above</p>
               </div>
               <Counter value={adults} onChange={setAdults} min={1} />
             </div>
             <div className="rounded-xl border border-slate-200 p-3 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-800">Children</p>
-                <p className="text-[11px] text-slate-400 leading-tight">Travellers below the age of 18</p>
+                <p className="text-[11px] text-slate-400 leading-tight">Below the age of 18</p>
               </div>
               <Counter value={children} onChange={setChildren} min={0} />
             </div>
           </div>
 
-          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
-            <p className="text-xs font-medium text-amber-700 text-center">Selected dates will be reflected on your visa, so please choose them carefully.</p>
+          {/* Selected range display */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className={`rounded-xl border px-3 py-2 ${startDate ? 'border-blue-300 bg-blue-50' : 'border-dashed border-slate-200 bg-slate-50'}`}>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Departure</p>
+              <p className={`text-sm font-bold mt-0.5 ${startDate ? 'text-blue-800' : 'text-slate-300'}`}>
+                {startDate ? fmtDisplay(fmtDate(startDate)) : 'Select date'}
+              </p>
+            </div>
+            <div className={`rounded-xl border px-3 py-2 ${endDate ? 'border-emerald-300 bg-emerald-50' : 'border-dashed border-slate-200 bg-slate-50'}`}>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Return</p>
+              <p className={`text-sm font-bold mt-0.5 ${endDate ? 'text-emerald-800' : 'text-slate-300'}`}>
+                {endDate ? fmtDisplay(fmtDate(endDate)) : 'Select date'}
+              </p>
+            </div>
           </div>
 
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 px-3 py-2 rounded-lg text-center">
+            Click to select departure, click again for return date. Dates reflect on your visa.
+          </p>
+
+          {/* Calendar */}
           <div className="rounded-xl border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <button onClick={prevMonth} disabled={!canGoPrev} className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
@@ -170,22 +223,35 @@ function TravelPlanModal({
                 const inMonth = d.getMonth() === viewMonth.getMonth();
                 const past = d < today;
                 const disabled = !inMonth || past;
-                const isSel = selected && sameDay(d, selected);
+                const isStart = startDate && sameDay(d, startDate);
+                const isEnd = endDate && sameDay(d, endDate);
+                const inRange = !disabled && isInRange(d);
                 return (
-                  <button key={i} type="button" disabled={disabled} onClick={() => setSelected(new Date(d))}
-                    className={`mx-auto w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors ${
-                      isSel ? 'bg-blue-600 text-white font-bold shadow' : disabled ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-blue-50'
-                    }`}>
-                    {d.getDate()}
-                  </button>
+                  <div key={i} className={`relative flex items-center justify-center ${inRange ? 'bg-blue-100' : ''} ${isStart ? 'rounded-l-full' : ''} ${isEnd ? 'rounded-r-full' : ''}`}>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleDayClick(d)}
+                      onMouseEnter={() => startDate && !endDate && setHoverDate(d)}
+                      onMouseLeave={() => setHoverDate(null)}
+                      className={`w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors z-10 relative ${
+                        isStart || isEnd ? 'bg-blue-600 text-white font-bold shadow' :
+                        disabled ? 'text-slate-300 cursor-not-allowed' :
+                        'text-slate-700 hover:bg-blue-50'
+                      }`}>
+                      {d.getDate()}
+                    </button>
+                  </div>
                 );
               })}
             </div>
           </div>
 
-          <button onClick={() => selected && onConfirm({ date: fmtDate(selected), adults, children })} disabled={!selected}
+          <button
+            onClick={() => canConfirm && onConfirm({ startDate: fmtDate(startDate!), endDate: fmtDate(endDate!), adults, children })}
+            disabled={!canConfirm}
             className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={selected ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
+            style={canConfirm ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
             Continue
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -195,7 +261,7 @@ function TravelPlanModal({
   );
 }
 
-/* ── Visa Overview Modal ── */
+/* ── New Visa Overview Modal ── */
 function VisaOverviewModal({
   country, visa, isCorporate, adultRate, childRate, onClose, onContinue,
 }: {
@@ -219,25 +285,14 @@ function VisaOverviewModal({
     if (visa.description) lines.push(visa.description);
     lines.push('');
     lines.push('VISA DETAILS');
-    lines.push(`- Visa Type: ${visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}`);
-    if (visa.visaCategory) lines.push(`- Category: ${CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}`);
-    if (visa.entry?.length) lines.push(`- Entry: ${visa.entry.join(', ')}`);
-    if (visa.stayDuration) lines.push(`- Stay Duration: ${visa.stayDuration}`);
-    if (visa.validity) lines.push(`- Validity: ${visa.validity}`);
-    if (visa.processingTime) lines.push(`- Processing Time: ${visa.processingTime}`);
     lines.push(`- Adult Price: ${formatCurrency(adultRate)}`);
-    lines.push(`- Child Price: ${formatCurrency(childRate)}`);
-    if (visa.formFields?.length) {
-      lines.push('');
-      lines.push('APPLICATION FORM FIELDS');
-      [...visa.formFields].sort((a, b) => a.order - b.order).forEach((f) => {
-        lines.push(`- ${f.label}${f.required ? ' (required)' : ''}${f.childOnly ? ' [children only]' : ''}${f.type !== 'text' ? ` [${f.type}]` : ''}`);
-      });
-    }
+    if (childRate > 0) lines.push(`- Child Price: ${formatCurrency(childRate)}`);
+    if (visa.processingTime) lines.push(`- Processing Time: ${visa.processingTime}`);
+    if (visa.validity) lines.push(`- Validity: ${visa.validity}`);
     if (visa.documentRequirements?.length) {
       lines.push('');
       lines.push('DOCUMENTS');
-      visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}`));
+      visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}${r.childOnly ? ' [children only]' : ''}`));
     }
     return lines.join('\n');
   })();
@@ -269,89 +324,122 @@ function VisaOverviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
-      <div onClick={handleClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300" style={{ opacity: visible ? 1 : 0 }} />
+      <div onClick={handleClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" style={{ opacity: visible ? 1 : 0 }} />
 
-      <div className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl z-10 flex flex-col overflow-hidden max-h-[92dvh] sm:max-h-[88vh] transition-all duration-300 ease-out"
+      <div
+        className="relative w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 flex flex-col overflow-hidden max-h-[92dvh] sm:max-h-[88vh] transition-all duration-300 ease-out"
         style={{ transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.97)', opacity: visible ? 1 : 0 }}>
+
+        {/* Mobile handle */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
           <div className="w-10 h-1 bg-slate-200 rounded-full" />
         </div>
 
-        <div className="px-4 sm:px-6 pt-3 sm:pt-0 flex-shrink-0">
-          <div className="rounded-2xl px-4 py-4 mb-3" style={{ background: 'linear-gradient(135deg,#0f2d6b 0%,#1a3a8f 60%,#1e40af 100%)' }}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <img src={`https://flagcdn.com/w40/${country.flag}.png`} alt={country.name} className="w-10 h-7 object-cover rounded shadow" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div>
-                  <p className="text-blue-200 text-xs font-medium">{country.name}</p>
-                  <h2 className="text-white font-bold text-base leading-tight">{visa.name}</h2>
-                  {visa.description && <p className="text-blue-200/80 text-xs mt-0.5 line-clamp-1">{visa.description}</p>}
-                </div>
+        {/* Header */}
+        <div className="flex-shrink-0 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 px-5 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <img
+                  src={`https://flagcdn.com/w40/${country.flag}.png`}
+                  alt={country.name}
+                  className="w-12 h-8 object-cover rounded-lg shadow-lg"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               </div>
-              <button onClick={handleClose} className="text-white/60 hover:text-white transition-colors -mt-0.5 ml-2 flex-shrink-0"><X className="w-5 h-5" /></button>
+              <div>
+                <p className="text-slate-400 text-xs font-medium">{country.name}</p>
+                <h2 className="text-white font-bold text-lg sm:text-xl leading-tight">{visa.name}</h2>
+                {visa.description && <p className="text-slate-300/70 text-xs mt-0.5 line-clamp-1">{visa.description}</p>}
+              </div>
             </div>
+            <button onClick={handleClose} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 -mr-1 flex-shrink-0">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full">
-                <CreditCard className="w-3 h-3" />
-                {formatCurrency(adultRate)} / adult{isCorporate ? ' (Corporate)' : ''}
+          {/* Price + quick chips */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-blue-800 px-3 py-1.5 rounded-full shadow-sm">
+              <CreditCard className="w-3.5 h-3.5" />
+              {formatCurrency(adultRate)} / adult{isCorporate ? ' (Corp)' : ''}
+            </span>
+            {childRate > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/15 text-white px-3 py-1.5 rounded-full">
+                {formatCurrency(childRate)} / child
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full"><Clock className="w-3 h-3" />{visa.processingTime}</span>
-              {visa.validity && <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/10 text-blue-100 px-2.5 py-1 rounded-full"><Check className="w-3 h-3" />Valid: {visa.validity}</span>}
-            </div>
+            )}
+            {visa.processingTime && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-blue-100 px-3 py-1.5 rounded-full">
+                <Clock className="w-3.5 h-3.5" />{visa.processingTime}
+              </span>
+            )}
+            {visa.validity && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-blue-100 px-3 py-1.5 rounded-full">
+                <Shield className="w-3.5 h-3.5" />Valid: {visa.validity}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 pb-2 space-y-4">
-          <div className="grid grid-cols-2 gap-2.5">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4 space-y-4">
+
+          {/* Details grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {visa.visaSubType && (
-              <div className="bg-indigo-50 rounded-xl p-3">
-                <p className="text-xs text-indigo-500 font-medium mb-0.5">Visa Type</p>
-                <p className="text-sm font-semibold text-indigo-900">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5">
+                <p className="text-xs text-indigo-500 font-semibold mb-1">Visa Type</p>
+                <p className="text-sm font-bold text-indigo-900">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
               </div>
             )}
             {visa.visaCategory && (
-              <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5"><Tag className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Category</p></div>
-                <p className="text-sm font-semibold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5">
+                <div className="flex items-center gap-1 mb-1"><Tag className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-semibold">Category</p></div>
+                <p className="text-sm font-bold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
               </div>
             )}
             {visa.processingTime && (
-              <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5"><Clock className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Processing Time</p></div>
-                <p className="text-sm font-semibold text-slate-800">{visa.processingTime}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5">
+                <div className="flex items-center gap-1 mb-1"><Clock className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-semibold">Processing</p></div>
+                <p className="text-sm font-bold text-slate-800">{visa.processingTime}</p>
               </div>
             )}
             {visa.stayDuration && (
-              <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5"><Calendar className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Stay Duration</p></div>
-                <p className="text-sm font-semibold text-slate-800">{visa.stayDuration}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5">
+                <div className="flex items-center gap-1 mb-1"><Calendar className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-semibold">Stay Duration</p></div>
+                <p className="text-sm font-bold text-slate-800">{visa.stayDuration}</p>
               </div>
             )}
             {visa.jurisdiction && (
-              <div className="bg-slate-50 rounded-xl p-3">
-                <div className="flex items-center gap-1 mb-0.5"><MapPin className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-medium">Jurisdiction</p></div>
-                <p className="text-sm font-semibold text-slate-800">{JURISDICTION_LABELS[visa.jurisdiction] || visa.jurisdiction}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5">
+                <div className="flex items-center gap-1 mb-1"><MapPin className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-semibold">Jurisdiction</p></div>
+                <p className="text-sm font-bold text-slate-800">{JURISDICTION_LABELS[visa.jurisdiction] || visa.jurisdiction}</p>
               </div>
             )}
           </div>
 
+          {/* Entry */}
           {visa.entry && visa.entry.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Entry</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Entry Type</p>
               <div className="flex flex-wrap gap-2">
-                {visa.entry.map((e) => <span key={e} className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">{e} Entry</span>)}
+                {visa.entry.map((e) => (
+                  <span key={e} className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">{e} Entry</span>
+                ))}
               </div>
             </div>
           )}
 
+          {/* About */}
           {visa.description && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">About</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">About</p>
               <p className="text-sm text-slate-600 leading-relaxed">{visa.description}</p>
             </div>
           )}
 
+          {/* Documents */}
           {visa.documentRequirements.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -359,88 +447,139 @@ function VisaOverviewModal({
                   Documents Required
                   <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
                 </p>
-                <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150">
-                  {copied ? (<><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>) : (<><Copy className="w-3.5 h-3.5" />Copy Details</>)}
+                <button onClick={handleCopy}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150">
+                  {copied ? (<><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>) : (<><Copy className="w-3.5 h-3.5" />Copy All</>)}
                 </button>
               </div>
 
               {requiredDocs.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Required</p>
-                  <ul className="space-y-2">
-                    {requiredDocs.map((req) => (
-                      <li key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100">
-                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
-                          {req.description && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{req.description}</p>}
-                        </div>
-                        <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0 self-start">Required</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="mb-3 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">Required</p>
+                  {requiredDocs.map((req) => (
+                    <div key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100">
+                      <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
+                        {req.description && <p className="text-xs text-slate-500 mt-0.5">{req.description}</p>}
+                        {req.childOnly && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                      </div>
+                      <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0">Required</span>
+                    </div>
+                  ))}
                 </div>
               )}
 
               {optionalDocs.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Optional</p>
-                  <ul className="space-y-2">
-                    {optionalDocs.map((req) => (
-                      <li key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
-                          {req.description && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{req.description}</p>}
-                        </div>
-                        <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0 self-start">Optional</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Optional</p>
+                  {optionalDocs.map((req) => (
+                    <div key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
+                        {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
+                        {req.childOnly && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                      </div>
+                      <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">Optional</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
-          <button onClick={handleContinue} className="w-full py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm sm:text-base rounded-xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
+        {/* Footer CTA */}
+        <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
+          <button onClick={handleContinue}
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
             Continue with {visa.name}
-            <ChevronRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4" />
           </button>
-          <button onClick={handleClose} className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150">Choose a different visa</button>
+          <button onClick={handleClose} className="w-full mt-2 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors">Choose a different visa</button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ── Visa selection card (green) ── */
-function VisaCard({ visa, selected, priceLabel, onClick }: { visa: VisaType; selected: boolean; priceLabel: string; onClick: () => void }) {
-  const rows: { icon: React.ReactNode; label: string; value: string }[] = [
-    { icon: <Ticket className="w-4 h-4" />, label: 'Visa Types', value: visa.visaSubType === 'e-visa' ? 'eVisa' : 'Sticker' },
-  ];
-  if (visa.stayDuration) rows.push({ icon: <Home className="w-4 h-4" />, label: 'Stay duration', value: visa.stayDuration });
-  if (visa.validity) rows.push({ icon: <Hourglass className="w-4 h-4" />, label: 'Visa validity', value: visa.validity });
-  if (visa.processingTime) rows.push({ icon: <Clock className="w-4 h-4" />, label: 'Processing time', value: visa.processingTime });
-
+/* ── New Modern Visa Card ── */
+function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
+  visa: VisaType;
+  selected: boolean;
+  adultPrice: number;
+  childPrice: number;
+  onClick: () => void;
+}) {
   return (
-    <button onClick={onClick} className={`w-full rounded-2xl overflow-hidden border-2 text-left transition-all ${selected ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-transparent hover:shadow-md'}`}>
-      <div className="px-5 py-4 relative" style={{ background: 'linear-gradient(135deg,#0f9d6b 0%,#10b981 100%)' }}>
-        <Plane className="w-5 h-5 text-white/90 mb-1.5" />
-        <p className="text-white font-bold text-base leading-tight">{visa.name}</p>
-        {visa.entry?.[0] && <p className="text-white/80 text-xs mt-0.5 capitalize">{visa.entry[0]}</p>}
-      </div>
-      <div className="bg-white divide-y divide-slate-100">
-        {rows.map((r) => (
-          <div key={r.label} className="flex items-center justify-between px-5 py-2.5">
-            <span className="flex items-center gap-2.5 text-sm text-slate-500"><span className="text-slate-400">{r.icon}</span>{r.label}</span>
-            <span className="text-sm font-bold text-slate-800">{r.value}</span>
+    <button
+      onClick={onClick}
+      className={`w-full rounded-2xl overflow-hidden border-2 text-left transition-all duration-200 group ${
+        selected ? 'border-blue-500 ring-2 ring-blue-100 shadow-lg' : 'border-slate-200 hover:border-blue-300 hover:shadow-lg'
+      }`}
+    >
+      {/* Card header */}
+      <div className="relative overflow-hidden px-5 py-5 bg-gradient-to-br from-slate-800 via-blue-900 to-indigo-900">
+        <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/5" />
+        <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+        <div className="relative z-10">
+          <div className="flex items-start justify-between mb-3">
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+              visa.visaSubType === 'e-visa' ? 'bg-blue-400/30 text-blue-100' : 'bg-amber-400/30 text-amber-100'
+            }`}>
+              {visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
+            </span>
+            {visa.entry?.[0] && (
+              <span className="text-[10px] text-white/60 capitalize bg-white/10 px-2 py-0.5 rounded-full">{visa.entry[0]} Entry</span>
+            )}
           </div>
-        ))}
-        <div className="flex items-center justify-between px-5 py-3 bg-slate-50">
-          <span className="text-xs text-slate-500">Starting from</span>
-          <span className="text-base font-bold text-emerald-700">{priceLabel}</span>
+          <h3 className="text-white font-bold text-base leading-tight">{visa.name}</h3>
+          {visa.visaCategory && (
+            <p className="text-white/60 text-xs mt-1 capitalize">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Details rows */}
+      <div className="bg-white divide-y divide-slate-100">
+        {visa.processingTime && (
+          <div className="flex items-center justify-between px-5 py-2.5">
+            <span className="flex items-center gap-2 text-sm text-slate-500"><Clock className="w-3.5 h-3.5 text-slate-400" />Processing</span>
+            <span className="text-sm font-bold text-slate-800">{visa.processingTime}</span>
+          </div>
+        )}
+        {visa.stayDuration && (
+          <div className="flex items-center justify-between px-5 py-2.5">
+            <span className="flex items-center gap-2 text-sm text-slate-500"><Calendar className="w-3.5 h-3.5 text-slate-400" />Stay</span>
+            <span className="text-sm font-bold text-slate-800">{visa.stayDuration}</span>
+          </div>
+        )}
+        {visa.validity && (
+          <div className="flex items-center justify-between px-5 py-2.5">
+            <span className="flex items-center gap-2 text-sm text-slate-500"><Shield className="w-3.5 h-3.5 text-slate-400" />Valid</span>
+            <span className="text-sm font-bold text-slate-800">{visa.validity}</span>
+          </div>
+        )}
+
+        {/* Price footer */}
+        <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-blue-50/50 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">From</p>
+            <p className="text-lg font-bold text-blue-700">{formatCurrency(adultPrice)}</p>
+            <p className="text-[10px] text-slate-400">per adult</p>
+          </div>
+          {childPrice > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400">Child</p>
+              <p className="text-sm font-bold text-slate-600">{formatCurrency(childPrice)}</p>
+            </div>
+          )}
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+            selected ? 'bg-blue-600' : 'bg-slate-100 group-hover:bg-blue-100'
+          }`}>
+            <ArrowRight className={`w-4 h-4 ${selected ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} />
+          </div>
         </div>
       </div>
     </button>
@@ -452,7 +591,6 @@ export default function ApplyPage() {
   const { user } = useAuthStore();
   const isCorporate = user?.accountType === 'corporate';
 
-  // Per-traveler rates = base price + service fee (corporate-aware, mirrors the backend).
   const rateParts = (v: VisaType) => {
     const useCorpAdult = isCorporate && (v.corporateAdultPrice != null || v.corporateAdultServiceFee != null);
     const useCorpChild = isCorporate && (v.corporateChildPrice != null || v.corporateChildServiceFee != null);
@@ -480,7 +618,8 @@ export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
-  const [travelDate, setTravelDate] = useState('');
+  const [travelStartDate, setTravelStartDate] = useState('');
+  const [travelEndDate, setTravelEndDate] = useState('');
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [activeTraveler, setActiveTraveler] = useState(0);
@@ -505,7 +644,8 @@ export default function ApplyPage() {
         if (d.visaTypes) setVisaTypes(d.visaTypes);
         if (d.formData) setFormData(d.formData);
         if (d.step) setStep(d.step as Step);
-        if (d.travelDate) setTravelDate(d.travelDate);
+        if (d.travelStartDate) setTravelStartDate(d.travelStartDate);
+        if (d.travelEndDate) setTravelEndDate(d.travelEndDate);
         if (d.adults) setAdults(d.adults);
         if (typeof d.children === 'number') setChildren(d.children);
       } catch {
@@ -517,11 +657,10 @@ export default function ApplyPage() {
 
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelDate, adults, children };
+    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelStartDate, travelEndDate, adults, children };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelDate, adults, children]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelStartDate, travelEndDate, adults, children]);
 
-  // Keep the active tab in range when traveller counts change.
   useEffect(() => {
     if (activeTraveler > travelers.length - 1) setActiveTraveler(0);
   }, [travelers.length, activeTraveler]);
@@ -535,7 +674,8 @@ export default function ApplyPage() {
     setDocSources({});
     setVisaTypes([]);
     setCountrySearch('');
-    setTravelDate('');
+    setTravelStartDate('');
+    setTravelEndDate('');
     setAdults(1);
     setChildren(0);
     setActiveTraveler(0);
@@ -546,8 +686,9 @@ export default function ApplyPage() {
     setShowTravelModal(true);
   };
 
-  const confirmTravelPlan = async (data: { date: string; adults: number; children: number }) => {
-    setTravelDate(data.date);
+  const confirmTravelPlan = async (data: { startDate: string; endDate: string; adults: number; children: number }) => {
+    setTravelStartDate(data.startDate);
+    setTravelEndDate(data.endDate);
     setAdults(data.adults);
     setChildren(data.children);
     setActiveTraveler(0);
@@ -568,7 +709,6 @@ export default function ApplyPage() {
     setStep(2);
   };
 
-  // ── Document helpers (keyed per traveler) ──
   const docKey = (tr: Traveler, reqName: string, suffix = '') => `${tr.key}::${reqName}${suffix}`;
 
   const pickFileFor = (storeKey: string) => {
@@ -604,9 +744,10 @@ export default function ApplyPage() {
           if (val && String(val).trim()) responses[key] = String(val);
         }
       }
-      if (travelDate) responses['travelDate'] = travelDate;
+      if (travelStartDate) responses['Travel Start Date'] = travelStartDate;
+      if (travelEndDate) responses['Travel End Date'] = travelEndDate;
 
-      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses, adults, children, travelDate });
+      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses, adults, children, travelDate: travelStartDate });
       const appId = r.data.data._id;
 
       const reqs = selectedVisa.documentRequirements;
@@ -621,7 +762,7 @@ export default function ApplyPage() {
       };
 
       for (const tr of travelers) {
-        for (const req of reqs) {
+        for (const req of docsForTraveler(reqs, tr)) {
           const label = `${tr.label} - ${req.name}`;
           if (isPassportReq(req.name)) {
             const frontSrc = docSources[docKey(tr, req.name, '__front')];
@@ -684,7 +825,8 @@ export default function ApplyPage() {
 
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = fieldsForTraveler(sortedFields, tr).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
-    const docsOk = requirements.filter((r) => r.required).every((r) => {
+    const trDocs = docsForTraveler(requirements, tr);
+    const docsOk = trDocs.filter((r) => r.required).every((r) => {
       if (isPassportReq(r.name)) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
       return !!docSources[docKey(tr, r.name)];
     });
@@ -753,7 +895,6 @@ export default function ApplyPage() {
     return <Input {...common} type={field.type} placeholder={field.placeholder} />;
   };
 
-  // Per-traveler document requirement card
   const renderDocCard = (tr: Traveler, req: DocumentRequirement) => {
     if (isPassportReq(req.name)) {
       const frontSrc = docSources[docKey(tr, req.name, '__front')];
@@ -792,6 +933,7 @@ export default function ApplyPage() {
               {req.name}
               {req.required && <span className="text-red-500 ml-1">*</span>}
               {!req.required && <span className="text-slate-400 ml-1.5 text-xs font-normal">(optional)</span>}
+              {req.childOnly && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
             </p>
             {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
           </div>
@@ -840,7 +982,7 @@ export default function ApplyPage() {
       {showTravelModal && pendingCountry && (
         <TravelPlanModal
           country={pendingCountry}
-          initial={{ date: travelDate, adults, children }}
+          initial={{ startDate: travelStartDate, endDate: travelEndDate, adults, children }}
           onConfirm={confirmTravelPlan}
           onClose={() => { setShowTravelModal(false); setPendingCountry(null); }}
         />
@@ -917,9 +1059,11 @@ export default function ApplyPage() {
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
               <h2 className="text-lg font-semibold text-slate-900">Select Visa Type</h2>
               <div className="flex items-center gap-2 flex-wrap">
-                {travelDate && (
+                {travelStartDate && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
-                    <Calendar className="w-3 h-3" /> {new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    <Calendar className="w-3 h-3" />
+                    {new Date(travelStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    {travelEndDate && <> → {new Date(travelEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>}
                   </span>
                 )}
                 <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full font-medium">
@@ -940,15 +1084,21 @@ export default function ApplyPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {visaTypes.map((v) => (
-                  <VisaCard key={v._id} visa={v} selected={selectedVisa?._id === v._id} priceLabel={`${formatCurrency(adultRate(v))} / adult`}
-                    onClick={() => { setSelectedVisa(v); setDocSources({}); setShowVisaOverview(true); }} />
+                  <VisaCard
+                    key={v._id}
+                    visa={v}
+                    selected={selectedVisa?._id === v._id}
+                    adultPrice={adultRate(v)}
+                    childPrice={childRate(v)}
+                    onClick={() => { setSelectedVisa(v); setDocSources({}); setShowVisaOverview(true); }}
+                  />
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* ── Step 3: Applicant Details (tabbed per traveler, with documents) ── */}
+        {/* ── Step 3: Applicant Details ── */}
         {step === 3 && selectedVisa && (
           <div>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -958,7 +1108,6 @@ export default function ApplyPage() {
               </span>
             </div>
 
-            {/* Traveller tabs */}
             <div className="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-3">
               {travelers.map((tr, idx) => {
                 const isActive = idx === Math.min(activeTraveler, travelers.length - 1);
@@ -978,7 +1127,6 @@ export default function ApplyPage() {
 
             {activeTr && (
               <div className="space-y-6">
-                {/* Details */}
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Details</p>
                   {fieldsForTraveler(sortedFields, activeTr).length === 0 ? (
@@ -999,18 +1147,16 @@ export default function ApplyPage() {
                   )}
                 </div>
 
-                {/* Documents */}
-                {requirements.length > 0 && (
+                {docsForTraveler(requirements, activeTr).length > 0 && (
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Documents</p>
                     <div className="space-y-3">
-                      {requirements.map((req) => renderDocCard(activeTr, req))}
+                      {docsForTraveler(requirements, activeTr).map((req) => renderDocCard(activeTr, req))}
                     </div>
                     <p className="text-xs text-slate-400 mt-3">Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file</p>
                   </div>
                 )}
 
-                {/* Sequential navigation between travellers */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                   <button disabled={activeTraveler === 0} onClick={() => setActiveTraveler((i) => Math.max(0, i - 1))}
                     className="text-sm text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1">
@@ -1051,10 +1197,16 @@ export default function ApplyPage() {
                     <p className="text-xs text-slate-400">Travellers</p>
                     <p className="font-medium mt-0.5">{adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}</p>
                   </div>
-                  {travelDate && (
+                  {travelStartDate && (
                     <div>
-                      <p className="text-xs text-slate-400">Travel Date</p>
-                      <p className="font-medium mt-0.5">{new Date(travelDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-xs text-slate-400">Departure Date</p>
+                      <p className="font-medium mt-0.5">{new Date(travelStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  )}
+                  {travelEndDate && (
+                    <div>
+                      <p className="text-xs text-slate-400">Return Date</p>
+                      <p className="font-medium mt-0.5">{new Date(travelEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                   )}
                   <div>
@@ -1093,9 +1245,9 @@ export default function ApplyPage() {
                             ))}
                           </div>
                         )}
-                        {requirements.length > 0 && (
+                        {docsForTraveler(requirements, tr).length > 0 && (
                           <div className="mt-2 space-y-1">
-                            {requirements.map((req) => {
+                            {docsForTraveler(requirements, tr).map((req) => {
                               if (isPassportReq(req.name)) {
                                 const f = docSources[docKey(tr, req.name, '__front')];
                                 const b = docSources[docKey(tr, req.name, '__back')];
@@ -1123,7 +1275,7 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* Pricing breakdown with service fees */}
+              {/* Pricing breakdown */}
               {(() => {
                 const r = rateParts(selectedVisa);
                 return (
@@ -1168,7 +1320,7 @@ export default function ApplyPage() {
 
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
                 <p className="text-sm text-emerald-700">
-                  <strong>Secure payment via Razorpay</strong> — you&apos;ll be redirected to a secure checkout to pay with UPI, card, or netbanking. Currently in test mode: use card <span className="font-mono">4111 1111 1111 1111</span>, any future expiry and any CVV.
+                  <strong>Secure payment via Razorpay</strong> — you&apos;ll be redirected to a secure checkout to pay with UPI, card, or netbanking.
                 </p>
               </div>
             </div>

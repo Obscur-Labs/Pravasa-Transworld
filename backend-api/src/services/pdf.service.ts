@@ -1,4 +1,4 @@
-﻿import PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { IPayment } from '../models/Payment';
 
 interface ReceiptData {
@@ -7,6 +7,7 @@ interface ReceiptData {
   userName: string;
   visaType: string;
   country: string;
+  receiptNumber?: string;
 }
 
 export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
@@ -29,9 +30,9 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
     doc.fillColor('#0f172a').fontSize(18).font('Helvetica-Bold').text('Payment Receipt', { align: 'center' });
     doc.moveDown(0.5);
 
-    const receiptNo = `VF-RCP-${String(data.payment._id).slice(-8).toUpperCase()}`;
+    const receiptNo = data.receiptNumber || `VF-RCP-${String(data.payment._id).slice(-8).toUpperCase()}`;
     doc.fontSize(10).fillColor('#64748b').font('Helvetica').text(`Receipt No: ${receiptNo}`, { align: 'center' });
-    doc.text(`Date: ${data.payment.paidAt ? new Date(data.payment.paidAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`, { align: 'center' });
+    doc.text(`Date: ${data.payment.paidAt ? new Date(data.payment.paidAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`, { align: 'center' });
 
     doc.moveDown(1.5);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
@@ -60,7 +61,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
 
     // Amount
     doc.fillColor('#64748b').fontSize(12).font('Helvetica').text('Total Paid', 50, doc.y, { continued: true });
-    doc.fillColor('#1d4ed8').fontSize(20).font('Helvetica-Bold').text(`$${data.payment.amount.toFixed(2)}`, { align: 'right' });
+    doc.fillColor('#1d4ed8').fontSize(20).font('Helvetica-Bold').text(`₹${data.payment.amount.toLocaleString('en-IN')}`, { align: 'right' });
 
     doc.moveDown(2);
 

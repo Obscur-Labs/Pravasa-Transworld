@@ -72,6 +72,8 @@ export const reviewDocument = (id: string, data: object) => api.put(`/admin/appl
 export const approveAllDocuments = (id: string) => api.put(`/admin/applications/${id}/approve-documents`);
 export const downloadApplicationDocumentsZip = (id: string) =>
   api.get(`/admin/applications/${id}/documents/zip`, { responseType: 'blob' });
+export const downloadApplicationReceipt = (id: string) =>
+  api.get(`/admin/applications/${id}/receipt`, { responseType: 'blob' });
 export const uploadVisaFile = (id: string, formData: FormData) =>
   api.post(`/admin/applications/${id}/visa-file`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

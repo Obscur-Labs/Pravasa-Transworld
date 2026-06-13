@@ -47,8 +47,10 @@ export interface IApplication extends Document {
   adults: number;
   children: number;
   travelDate: string;
+  travelEndDate: string;
   rejectionReason: string;
   adminNotes: string;
+  processingReferenceNumber: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: Date;
@@ -69,8 +71,10 @@ const ApplicationSchema = new Schema<IApplication>(
     adults: { type: Number, default: 1, min: 1 },
     children: { type: Number, default: 0, min: 0 },
     travelDate: { type: String, default: '' },
+    travelEndDate: { type: String, default: '' },
     rejectionReason: { type: String, default: '' },
     adminNotes: { type: String, default: '' },
+    processingReferenceNumber: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },
     referenceId: { type: String, unique: true },
   },

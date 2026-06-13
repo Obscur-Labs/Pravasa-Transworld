@@ -91,6 +91,7 @@ export interface DocumentRequirement {
   name: string;
   description: string;
   required: boolean;
+  childOnly?: boolean;
 }
 
 export interface Application {
