@@ -104,6 +104,9 @@ export interface Application {
   children: number;
   travelDate: string;
   rejectionReason: string;
+  processingReferenceNumber?: string;
+  embassyName?: string;
+  submissionDate?: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: string;

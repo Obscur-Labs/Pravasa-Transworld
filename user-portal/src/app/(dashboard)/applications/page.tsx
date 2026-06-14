@@ -51,7 +51,7 @@ export default function ApplicationsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="hidden sm:grid grid-cols-6 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             <div className="col-span-2">Application</div>
-            <div>Reference</div>
+            <div>Application No.</div>
             <div>Amount</div>
             <div>Date</div>
             <div>Status</div>

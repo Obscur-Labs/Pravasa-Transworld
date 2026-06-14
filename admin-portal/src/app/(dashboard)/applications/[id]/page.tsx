@@ -13,7 +13,7 @@ import {
 } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application, Document, VisaFile } from '@/types';
-import { STATUS_LABELS, ALL_STATUSES } from '@/types';
+import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
 
 // ── 4-step simplified status ──
 const SIMPLIFIED_STEPS = [
@@ -61,6 +61,8 @@ export default function AdminApplicationDetailPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [processingRef, setProcessingRef] = useState('');
+  const [embassyName, setEmbassyName] = useState('');
+  const [submissionDate, setSubmissionDate] = useState('');
   const [activeDocTab, setActiveDocTab] = useState('');
   const [activeFormTab, setActiveFormTab] = useState('');
 
@@ -73,6 +75,8 @@ export default function AdminApplicationDetailPage() {
       setVisaFile(r.data.data.visaFile);
       setNewStatus(app.status);
       setProcessingRef(app.processingReferenceNumber || '');
+      setEmbassyName(app.embassyName || '');
+      setSubmissionDate(app.submissionDate || '');
     } finally {
       setLoading(false);
     }
@@ -192,8 +196,30 @@ export default function AdminApplicationDetailPage() {
         rejectionReason,
         adminNotes,
         processingReferenceNumber: processingRef,
+        embassyName,
+        submissionDate,
       });
       toast({ title: 'Status updated', variant: 'success' });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Save embassy submission details without changing the current status.
+  const handleSaveVisaSubmission = async () => {
+    if (!application) return;
+    setProcessing(true);
+    try {
+      await updateStatus(id, {
+        status: application.status,
+        processingReferenceNumber: processingRef,
+        embassyName,
+        submissionDate,
+      });
+      toast({ title: 'Visa submission details saved', variant: 'success' });
       fetchData();
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
@@ -237,6 +263,12 @@ export default function AdminApplicationDetailPage() {
   const allApproved = documents.length > 0 && documents.every((d) => d.status === 'approved');
   const currentDocList = docGroups[activeDocTab] || [];
 
+  // Manual dropdown mirrors the 4-step progress (+ Rejected). Keep the current status
+  // visible even if it's an internal sub-status set automatically by the workflow.
+  const statusOptions = SELECTABLE_STATUSES.includes(application.status)
+    ? SELECTABLE_STATUSES
+    : [application.status, ...SELECTABLE_STATUSES];
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -245,7 +277,7 @@ export default function AdminApplicationDetailPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Application Review</h1>
-          <p className="text-xs text-slate-400 font-mono">{application.referenceId}</p>
+          <p className="text-xs text-slate-400">Application No. <span className="font-mono text-slate-500">{application.referenceId}</span></p>
         </div>
         <Button variant="outline" onClick={handleTrash} disabled={trashing}
           className="ml-auto text-red-600 border-red-200 hover:bg-red-50">
@@ -478,20 +510,42 @@ export default function AdminApplicationDetailPage() {
                 </div>
               )}
 
-              {/* Reference number input for visa_processing */}
+              {/* Visa Submission — embassy details entered during processing, shared with the applicant */}
               {application.status === 'visa_processing' && (
-                <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
-                  <label className="text-xs font-semibold text-blue-800 block">Processing Reference Number</label>
-                  <input
-                    type="text"
-                    value={processingRef}
-                    onChange={(e) => setProcessingRef(e.target.value)}
-                    placeholder="Enter embassy/processing reference"
-                    className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  />
-                  {application.processingReferenceNumber && (
-                    <p className="text-xs text-blue-600">Current: {application.processingReferenceNumber}</p>
-                  )}
+                <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+                  <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wide">Visa Submission</h4>
+                  <div>
+                    <label className="text-xs font-semibold text-blue-800 block mb-1">Reference Number</label>
+                    <input
+                      type="text"
+                      value={processingRef}
+                      onChange={(e) => setProcessingRef(e.target.value)}
+                      placeholder="Reference shared by the embassy"
+                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-blue-800 block mb-1">Embassy Name</label>
+                    <input
+                      type="text"
+                      value={embassyName}
+                      onChange={(e) => setEmbassyName(e.target.value)}
+                      placeholder="e.g. Embassy of Japan, New Delhi"
+                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-blue-800 block mb-1">Submission Date</label>
+                    <input
+                      type="date"
+                      value={submissionDate}
+                      onChange={(e) => setSubmissionDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <Button size="sm" className="w-full" onClick={handleSaveVisaSubmission} disabled={processing}>
+                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Visa Submission'}
+                  </Button>
                 </div>
               )}
 
@@ -544,7 +598,7 @@ export default function AdminApplicationDetailPage() {
                     onChange={(e) => setNewStatus(e.target.value)}
                     className="w-full h-9 px-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {ALL_STATUSES.map((s) => (
+                    {statusOptions.map((s) => (
                       <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                     ))}
                   </select>
@@ -556,13 +610,10 @@ export default function AdminApplicationDetailPage() {
                       className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                   </div>
                 )}
-                {newStatus === 'visa_processing' && (
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 block mb-1">Processing Reference Number</label>
-                    <input type="text" value={processingRef} onChange={(e) => setProcessingRef(e.target.value)}
-                      placeholder="Embassy / processing reference"
-                      className="w-full h-9 px-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
+                {newStatus === 'visa_processing' && application.status !== 'visa_processing' && (
+                  <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-2 py-1.5">
+                    After saving, enter the embassy reference, name and submission date in the Visa Submission box above.
+                  </p>
                 )}
                 <div>
                   <label className="text-xs font-medium text-slate-500 block mb-1">Admin Notes (internal)</label>

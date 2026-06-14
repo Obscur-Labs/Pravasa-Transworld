@@ -57,7 +57,7 @@ export default function ApplicationsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by name, email, reference..."
+            placeholder="Search by name, email, application no..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 h-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -83,7 +83,7 @@ export default function ApplicationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                {['Reference', 'Applicant', 'Visa Type', 'Country', 'Amount', 'Date', 'Status', ''].map((h) => (
+                {['Application No.', 'Applicant', 'Visa Type', 'Country', 'Amount', 'Date', 'Status', ''].map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>

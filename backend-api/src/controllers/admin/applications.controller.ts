@@ -163,7 +163,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
 };
 
 export const updateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, rejectionReason, adminNotes, processingReferenceNumber } = req.body;
+  const { status, rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate } = req.body;
   if (!status) { sendError(res, 'Status is required'); return; }
 
   const application = await Application.findById(req.params.id).populate('user', 'name email');
@@ -173,6 +173,8 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   if (rejectionReason) application.rejectionReason = rejectionReason;
   if (adminNotes) application.adminNotes = adminNotes;
   if (processingReferenceNumber !== undefined) application.processingReferenceNumber = processingReferenceNumber;
+  if (embassyName !== undefined) application.embassyName = embassyName;
+  if (submissionDate !== undefined) application.submissionDate = submissionDate;
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };
@@ -350,7 +352,7 @@ export const downloadApplicationReceipt = async (req: AdminRequest, res: Respons
   const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });
   const seqIdx = allPayments.findIndex((p) => String(p._id) === String(payment._id));
   const seqNo = String((seqIdx >= 0 ? seqIdx : 0) + 1).padStart(3, '0');
-  const receiptNumber = `${countryCode}-${yearShort}/${appLastNum}/${seqNo}`;
+  const receiptNumber = `${countryCode}-${appLastNum}-${yearShort}-${seqNo}`;
 
   try {
     const pdfBuffer = await generateReceiptPDF({

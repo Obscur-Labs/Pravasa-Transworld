@@ -51,6 +51,8 @@ export interface IApplication extends Document {
   rejectionReason: string;
   adminNotes: string;
   processingReferenceNumber: string;
+  embassyName: string;
+  submissionDate: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: Date;
@@ -75,6 +77,8 @@ const ApplicationSchema = new Schema<IApplication>(
     rejectionReason: { type: String, default: '' },
     adminNotes: { type: String, default: '' },
     processingReferenceNumber: { type: String, default: '' },
+    embassyName: { type: String, default: '' },
+    submissionDate: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },
     referenceId: { type: String, unique: true },
   },

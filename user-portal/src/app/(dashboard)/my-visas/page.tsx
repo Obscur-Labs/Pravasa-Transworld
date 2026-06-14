@@ -68,7 +68,7 @@ export default function MyVisasPage() {
 
                 <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                   <div>
-                    <p className="text-xs text-slate-400">Reference</p>
+                    <p className="text-xs text-slate-400">Application No.</p>
                     <p className="font-mono text-xs text-slate-600">{app.referenceId}</p>
                   </div>
                   <div>

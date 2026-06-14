@@ -97,7 +97,7 @@ export default function PaymentHistoryPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="hidden sm:grid grid-cols-6 gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200">
-            {['Visa / Destination', 'Reference', 'Method', 'Date', 'Amount', ''].map((h) => (
+            {['Visa / Destination', 'Application No.', 'Method', 'Date', 'Amount', ''].map((h) => (
               <p key={h} className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{h}</p>
             ))}
           </div>

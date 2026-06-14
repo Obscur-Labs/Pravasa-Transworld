@@ -43,7 +43,7 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
     const allPayments = await Payment.find({ application: app._id, status: 'completed' }).sort({ paidAt: 1 });
     const seqIdx = allPayments.findIndex((p) => String(p._id) === String(payment._id));
     const seqNo = String((seqIdx >= 0 ? seqIdx : 0) + 1).padStart(3, '0');
-    const receiptNumber = `${countryCode}-${yearShort}/${appLastNum}/${seqNo}`;
+    const receiptNumber = `${countryCode}-${appLastNum}-${yearShort}-${seqNo}`;
 
     const pdfBuffer = await generateReceiptPDF({
       payment: payment as any,

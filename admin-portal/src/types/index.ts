@@ -29,6 +29,11 @@ export const ALL_STATUSES: ApplicationStatus[] = [
   'visa_rejected', 'visa_delivered',
 ];
 
+// Statuses an admin can set manually — mirrors the 4-step Application Progress (+ Rejected).
+export const SELECTABLE_STATUSES: ApplicationStatus[] = [
+  'submitted', 'payment_completed', 'visa_processing', 'visa_approved', 'visa_rejected',
+];
+
 export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
 
 export interface FormField {
@@ -139,6 +144,8 @@ export interface Application {
   rejectionReason: string;
   adminNotes: string;
   processingReferenceNumber?: string;
+  embassyName?: string;
+  submissionDate?: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: string;

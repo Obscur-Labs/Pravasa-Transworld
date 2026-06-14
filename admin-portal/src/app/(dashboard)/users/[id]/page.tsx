@@ -228,7 +228,7 @@ export default function CustomerProfilePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  {['Reference', 'Country & Visa', 'Amount', 'Status', 'Applied On', ''].map((h) => (
+                  {['Application No.', 'Country & Visa', 'Amount', 'Status', 'Applied On', ''].map((h) => (
                     <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
                   ))}
                 </tr>

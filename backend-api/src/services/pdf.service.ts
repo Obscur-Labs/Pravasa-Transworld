@@ -41,7 +41,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
     // Details table
     const rows: [string, string][] = [
       ['Applicant Name', data.userName],
-      ['Application Reference', data.appRef],
+      ['Application Number', data.appRef],
       ['Visa Type', data.visaType],
       ['Destination', data.country],
       ['Payment Method', data.payment.method === 'cash' ? 'Cash' : data.payment.method === 'manual_override' ? 'Manual Override' : 'Online Payment'],

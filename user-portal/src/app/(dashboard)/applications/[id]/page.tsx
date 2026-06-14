@@ -164,7 +164,7 @@ export default function ApplicationDetailPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Application Details</h1>
-          <p className="text-xs text-slate-400 font-mono">{application.referenceId}</p>
+          <p className="text-xs text-slate-400">Application No. <span className="font-mono text-slate-500">{application.referenceId}</span></p>
         </div>
       </div>
 
@@ -254,6 +254,39 @@ export default function ApplicationDetailPage() {
                   <Button className="bg-green-700 hover:bg-green-800 ml-4" onClick={() => window.open(visaFile.url, '_blank')}>
                     <Download className="w-4 h-4 mr-2" />Download Visa
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Visa Submission — embassy details shared by our team during processing */}
+          {['visa_processing', 'embassy_review'].includes(application.status) &&
+            (application.processingReferenceNumber || application.embassyName || application.submissionDate) && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <h3 className="font-bold text-blue-900">Visa Submission</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  {application.processingReferenceNumber && (
+                    <div>
+                      <p className="text-xs text-blue-600">Reference Number</p>
+                      <p className="font-semibold text-blue-900 font-mono">{application.processingReferenceNumber}</p>
+                    </div>
+                  )}
+                  {application.embassyName && (
+                    <div>
+                      <p className="text-xs text-blue-600">Embassy</p>
+                      <p className="font-semibold text-blue-900">{application.embassyName}</p>
+                    </div>
+                  )}
+                  {application.submissionDate && (
+                    <div>
+                      <p className="text-xs text-blue-600">Submission Date</p>
+                      <p className="font-semibold text-blue-900">{formatDate(application.submissionDate)}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
