@@ -14,11 +14,24 @@ export interface IFormField {
   childOnly: boolean;
 }
 
+// docType: a saved document kind ('custom' for a free-form name). Passport kinds
+// trigger automatic OCR data extraction when the applicant uploads the image.
+export type DocumentType =
+  | 'custom'
+  | 'passport'
+  | 'passport_front'
+  | 'passport_back'
+  | 'photo'
+  | 'aadhaar'
+  | 'pan';
+
 export interface IDocumentRequirement {
   _id?: mongoose.Types.ObjectId;
   name: string;
   description: string;
   required: boolean;
+  childOnly: boolean;
+  docType: DocumentType;
 }
 
 export type EntryType = 'single' | 'multiple' | 'double';
@@ -72,6 +85,12 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   name: { type: String, required: true },
   description: { type: String, default: '' },
   required: { type: Boolean, default: true },
+  childOnly: { type: Boolean, default: false },
+  docType: {
+    type: String,
+    enum: ['custom', 'passport', 'passport_front', 'passport_back', 'photo', 'aadhaar', 'pan'],
+    default: 'custom',
+  },
 });
 
 const VisaTypeSchema = new Schema<IVisaType>(

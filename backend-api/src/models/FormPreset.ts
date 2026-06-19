@@ -25,6 +25,12 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   name: { type: String, required: true },
   description: { type: String, default: '' },
   required: { type: Boolean, default: true },
+  childOnly: { type: Boolean, default: false },
+  docType: {
+    type: String,
+    enum: ['custom', 'passport', 'passport_front', 'passport_back', 'photo', 'aadhaar', 'pan'],
+    default: 'custom',
+  },
 });
 
 const FormPresetSchema = new Schema<IFormPreset>(

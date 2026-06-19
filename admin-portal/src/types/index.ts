@@ -48,12 +48,28 @@ export interface FormField {
   childOnly?: boolean;
 }
 
+export type DocumentType =
+  | 'custom' | 'passport' | 'passport_front' | 'passport_back' | 'photo' | 'aadhaar' | 'pan';
+
+// Saved document kinds an admin can pick in form config. Passport kinds auto-extract
+// details from the uploaded image. `defaultName` pre-fills the requirement name.
+export const DOC_TYPE_OPTIONS: { value: DocumentType; label: string; defaultName: string; extracts?: boolean }[] = [
+  { value: 'custom', label: 'Custom', defaultName: '' },
+  { value: 'passport', label: 'Passport (Front & Back)', defaultName: 'Passport', extracts: true },
+  { value: 'passport_front', label: 'Passport Front', defaultName: 'Passport Front', extracts: true },
+  { value: 'passport_back', label: 'Passport Back', defaultName: 'Passport Back', extracts: true },
+  { value: 'photo', label: 'Photograph', defaultName: 'Photograph' },
+  { value: 'aadhaar', label: 'Aadhaar Card', defaultName: 'Aadhaar Card' },
+  { value: 'pan', label: 'PAN Card', defaultName: 'PAN Card' },
+];
+
 export interface DocumentRequirement {
   _id?: string;
   name: string;
   description: string;
   required: boolean;
   childOnly?: boolean;
+  docType?: DocumentType;
 }
 
 export interface Country {
@@ -158,6 +174,8 @@ export interface Document {
   url: string;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason: string;
+  docType?: string;
+  extractedData?: Record<string, string>;
   reviewedAt: string | null;
   createdAt: string;
 }

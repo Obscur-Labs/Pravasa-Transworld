@@ -22,6 +22,7 @@ router.get('/dashboard', apps.getDashboard);
 router.get('/applications', apps.getApplications);
 router.post('/applications', apps.createApplication);
 router.get('/applications/:id', apps.getApplication);
+router.post('/ocr/passport', upload.single('file'), apps.scanPassport);
 router.post('/applications/:id/documents', upload.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);
 router.post('/applications/:id/payment/order', payments.createPaymentOrder);

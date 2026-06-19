@@ -9,6 +9,9 @@ export interface IDocument extends Document {
   publicId: string;
   status: DocumentStatus;
   rejectionReason: string;
+  docType: string;
+  // Structured fields read from the uploaded image (e.g. passport OCR), keyed by display label.
+  extractedData: Map<string, string>;
   uploadedAt: Date;
   reviewedAt: Date | null;
 }
@@ -21,6 +24,8 @@ const DocumentSchema = new Schema<IDocument>(
     publicId: { type: String, required: true },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     rejectionReason: { type: String, default: '' },
+    docType: { type: String, default: '' },
+    extractedData: { type: Map, of: String, default: {} },
     reviewedAt: { type: Date, default: null },
   },
   { timestamps: true }

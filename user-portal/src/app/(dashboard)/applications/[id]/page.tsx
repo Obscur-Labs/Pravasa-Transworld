@@ -58,6 +58,24 @@ function triggerFileUpload(onFile: (file: File) => void) {
   input.click();
 }
 
+// Renders the details we read automatically from an uploaded document (e.g. passport OCR).
+function ExtractedDetails({ data }: { data?: Record<string, string> }) {
+  if (!data || Object.keys(data).length === 0) return null;
+  return (
+    <div className="mt-2.5 ml-7 p-3 bg-blue-50/60 rounded-lg border border-blue-100">
+      <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wide mb-2">We read these details from your document</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+        {Object.entries(data).map(([k, v]) => (
+          <div key={k} className="text-xs">
+            <span className="text-slate-400">{k}: </span>
+            <span className="font-medium text-slate-800">{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [application, setApplication] = useState<Application | null>(null);
@@ -478,31 +496,34 @@ export default function ApplicationDetailPage() {
                   <div className="border-t border-slate-100">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 pt-3 pb-1">Additional Documents</p>
                     {extraDocs.map((doc) => (
-                      <div key={doc._id} className="px-4 py-3 flex items-center justify-between gap-4 border-b border-slate-50">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex-shrink-0">{docStatusIcon(doc.status)}</div>
-                          <p className="text-sm font-medium text-slate-900 truncate">{doc.requirementName}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {doc.status === 'approved' ? (
-                            <Badge variant="success">Approved</Badge>
-                          ) : canUploadDocs ? (
-                            uploading === doc.requirementName ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                      <div key={doc._id} className="px-4 py-3 border-b border-slate-50">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex-shrink-0">{docStatusIcon(doc.status)}</div>
+                            <p className="text-sm font-medium text-slate-900 truncate">{doc.requirementName}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {doc.status === 'approved' ? (
+                              <Badge variant="success">Approved</Badge>
+                            ) : canUploadDocs ? (
+                              uploading === doc.requirementName ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                              ) : (
+                                <button
+                                  onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
+                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                >
+                                  <Upload className="w-3.5 h-3.5" /> Replace
+                                </button>
+                              )
                             ) : (
-                              <button
-                                onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
-                                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
-                              >
-                                <Upload className="w-3.5 h-3.5" /> Replace
-                              </button>
-                            )
-                          ) : (
-                            <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
-                              {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
-                            </Badge>
-                          )}
+                              <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
+                        <ExtractedDetails data={doc.extractedData} />
                       </div>
                     ))}
                   </div>

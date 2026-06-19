@@ -52,6 +52,9 @@ export const uploadDocument = (id: string, formData: FormData) =>
   api.post(`/user/applications/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const addDocumentFromVault = (id: string, data: { vaultDocId: string; requirementName: string }) =>
   api.post(`/user/applications/${id}/documents/from-vault`, data);
+// Live passport OCR (no persistence) used to pre-fill the editable review form.
+export const scanPassport = (formData: FormData) =>
+  api.post('/user/ocr/passport', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const createPaymentOrder = (id: string) => api.post(`/user/applications/${id}/payment/order`);
 export const verifyPayment = (id: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
   api.post(`/user/applications/${id}/payment/verify`, data);

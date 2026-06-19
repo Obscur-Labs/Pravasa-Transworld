@@ -6,6 +6,7 @@ import VisaFile from '../../models/VisaFile';
 import VisaType from '../../models/VisaType';
 import Country from '../../models/Country';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
+import { extractPassport } from '../../services/ocr.service';
 import { sendSuccess, sendError } from '../../utils/response';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -107,6 +108,22 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   sendSuccess(res, populated, 'Application submitted successfully', 201);
 };
 
+// Live OCR for the apply flow: reads a single passport image (front or back) and
+// returns the extracted fields so the UI can pre-fill an editable review form.
+// Does not persist anything.
+export const scanPassport = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.file) { sendError(res, 'Image file is required'); return; }
+  if (!req.file.mimetype.startsWith('image/')) { sendError(res, 'Only image files can be scanned'); return; }
+  const side: 'front' | 'back' = req.body.side === 'back' ? 'back' : 'front';
+  try {
+    const ocr = await extractPassport(req.file.buffer, side);
+    sendSuccess(res, { fields: ocr.fields, confidence: ocr.confidence }, 'Passport scanned');
+  } catch (err) {
+    console.error('Passport scan failed:', err);
+    sendError(res, 'Could not read the passport image', 500);
+  }
+};
+
 export const getApplication = async (req: AuthRequest, res: Response): Promise<void> => {
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id })
     .populate('visaType')
@@ -133,6 +150,30 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   const userId = String(req.user!._id);
   const { url, publicId } = await uploadToCloudinary(req.file.buffer, `users/${userId}/documents`);
 
+  // Auto-extract passport details from the image. The doc kind comes from the
+  // requirement's docType when sent; otherwise we fall back to the name.
+  const docType: string = req.body.docType || '';
+  const lowerName = requirementName.toLowerCase();
+  const isPassport = docType.startsWith('passport') || lowerName.includes('passport');
+  let extractedData: Record<string, string> = {};
+  // Reviewed/edited values from the apply flow take precedence over a fresh OCR pass.
+  if (req.body.extractedData) {
+    try {
+      const parsed = JSON.parse(req.body.extractedData);
+      if (parsed && typeof parsed === 'object') extractedData = parsed;
+    } catch { /* ignore malformed payload */ }
+  }
+  if (Object.keys(extractedData).length === 0 && isPassport && req.file.mimetype.startsWith('image/')) {
+    const side: 'front' | 'back' =
+      docType === 'passport_back' || /\bback\b/.test(lowerName) ? 'back' : 'front';
+    try {
+      const ocr = await extractPassport(req.file.buffer, side);
+      extractedData = ocr.fields;
+    } catch (err) {
+      console.error('Passport OCR failed:', err);
+    }
+  }
+
   const existing = await Document.findOne({ application: application._id, requirementName });
   let doc;
   if (existing) {
@@ -141,9 +182,11 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     existing.status = 'pending';
     existing.rejectionReason = '';
     existing.reviewedAt = null;
+    if (docType) existing.docType = docType;
+    existing.extractedData = extractedData as any;
     doc = await existing.save();
   } else {
-    doc = await Document.create({ application: application._id, requirementName, url, publicId });
+    doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData });
   }
 
   sendSuccess(res, doc, 'Document uploaded');

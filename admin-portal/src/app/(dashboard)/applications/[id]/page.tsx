@@ -415,6 +415,19 @@ export default function AdminApplicationDetailPage() {
                         )}
                       </div>
                     </div>
+                    {doc.extractedData && Object.keys(doc.extractedData).length > 0 && (
+                      <div className="mt-3 ml-7 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Auto-extracted details</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                          {Object.entries(doc.extractedData).map(([k, v]) => (
+                            <div key={k} className="text-xs">
+                              <span className="text-slate-400">{k}: </span>
+                              <span className="font-medium text-slate-800">{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

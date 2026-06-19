@@ -92,6 +92,7 @@ export interface DocumentRequirement {
   description: string;
   required: boolean;
   childOnly?: boolean;
+  docType?: string;
 }
 
 export interface Application {
@@ -119,6 +120,8 @@ export interface Document {
   url: string;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason: string;
+  docType?: string;
+  extractedData?: Record<string, string>;
 }
 
 export interface Notification {

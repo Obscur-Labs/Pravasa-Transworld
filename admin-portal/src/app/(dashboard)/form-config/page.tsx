@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { getFormPresets, createFormPreset, updateFormPreset, deleteFormPreset } from '@/lib/api';
-import type { FormField, DocumentRequirement, FieldType, FormPreset } from '@/types';
+import { DOC_TYPE_OPTIONS } from '@/types';
+import type { FormField, DocumentRequirement, FieldType, FormPreset, DocumentType } from '@/types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, childOnly: false });
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true });
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, docType: 'custom' });
 
 function OptionListEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
   const [draft, setDraft] = useState('');
@@ -92,6 +93,16 @@ export default function FormConfigPage() {
   const removeDocReq = (i: number) => setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.filter((_, idx) => idx !== i) }));
   const updateDocReq = (i: number, key: keyof DocumentRequirement, value: any) =>
     setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => idx === i ? { ...d, [key]: value } : d) }));
+
+  // Changing the type pre-fills the document name (unless the admin already typed a custom one).
+  const updateDocType = (i: number, value: DocumentType) =>
+    setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => {
+      if (idx !== i) return d;
+      const opt = DOC_TYPE_OPTIONS.find((o) => o.value === value);
+      const prevDefault = DOC_TYPE_OPTIONS.find((o) => o.value === (d.docType || 'custom'))?.defaultName;
+      const name = (!d.name.trim() || d.name === prevDefault) && opt?.defaultName ? opt.defaultName : d.name;
+      return { ...d, docType: value, name };
+    }) }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,19 +229,44 @@ export default function FormConfigPage() {
                   <Button type="button" size="sm" variant="outline" onClick={addDocReq}><Plus className="w-3.5 h-3.5 mr-1" />Add Document</Button>
                 </div>
                 <div className="space-y-2">
-                  {form.documentRequirements.map((doc, i) => (
-                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-3 gap-2 items-center">
-                      <Input className="h-8 text-xs" placeholder="Document name" value={doc.name} onChange={(e) => updateDocReq(i, 'name', e.target.value)} />
-                      <Input className="h-8 text-xs" placeholder="Description (optional)" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
-                      <div className="flex items-center justify-between">
+                  {form.documentRequirements.map((doc, i) => {
+                    const typeOpt = DOC_TYPE_OPTIONS.find((o) => o.value === (doc.docType || 'custom'));
+                    return (
+                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+                        <div>
+                          <label className="text-xs text-slate-500">Type</label>
+                          <select value={doc.docType || 'custom'} onChange={(e) => updateDocType(i, e.target.value as DocumentType)}
+                            className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {DOC_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500">Name</label>
+                          <Input className="mt-0.5 h-8 text-xs" placeholder="Document name" value={doc.name} onChange={(e) => updateDocReq(i, 'name', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500">Description</label>
+                          <Input className="mt-0.5 h-8 text-xs" placeholder="Optional" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
                         <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} />
+                          <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} className="rounded" />
                           Required
                         </label>
-                        <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                        <label className="flex items-center gap-1.5 text-xs text-emerald-700 cursor-pointer">
+                          <input type="checkbox" checked={!!doc.childOnly} onChange={(e) => updateDocReq(i, 'childOnly', e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                          Children only
+                        </label>
+                        {typeOpt?.extracts && (
+                          <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Auto-extracts details</span>
+                        )}
+                        <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
