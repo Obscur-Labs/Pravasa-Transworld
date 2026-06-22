@@ -174,6 +174,11 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     }
   }
 
+  // Mongoose Map rejects keys containing "." — strip dots from all keys before DB write.
+  const safeData = Object.fromEntries(
+    Object.entries(extractedData).map(([k, v]) => [k.replace(/\./g, ''), v])
+  );
+
   const existing = await Document.findOne({ application: application._id, requirementName });
   let doc;
   if (existing) {
@@ -183,10 +188,10 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
     existing.rejectionReason = '';
     existing.reviewedAt = null;
     if (docType) existing.docType = docType;
-    existing.extractedData = extractedData as any;
+    existing.extractedData = safeData as any;
     doc = await existing.save();
   } else {
-    doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData });
+    doc = await Document.create({ application: application._id, requirementName, url, publicId, docType, extractedData: safeData });
   }
 
   sendSuccess(res, doc, 'Document uploaded');
