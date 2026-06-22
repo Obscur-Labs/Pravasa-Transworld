@@ -318,6 +318,13 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
   const handleFile = useCallback(async (side: 'front' | 'back', file: File) => {
     side === 'front' ? onFrontChange(file) : onBackChange(file);
     readPreview(file, side === 'front' ? setFrontPreview : setBackPreview);
+
+    // Wipe fields for this side immediately so stale data from the old image disappears
+    const sideFields = side === 'front' ? PASSPORT_FRONT_FIELDS : PASSPORT_BACK_FIELDS;
+    const cleared = { ...values };
+    sideFields.forEach((k) => { cleared[k] = ''; });
+    onValuesChange(cleared);
+
     if (!file.type.startsWith('image/')) return;
 
     setScanning(side);
@@ -327,12 +334,11 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
       fd.append('side', side);
       const r = await scanPassport(fd);
       const fields: Record<string, string> = r.data?.data?.fields || {};
-      const merged = { ...values };
-      let added = false;
+      const merged = { ...cleared };
       for (const [k, v] of Object.entries(fields)) {
-        if (v && !merged[k]?.trim()) { merged[k] = v; added = true; }
+        if (v) merged[k] = v;
       }
-      if (added) onValuesChange(merged);
+      onValuesChange(merged);
     } catch {
       /* extraction is best-effort */
     } finally {

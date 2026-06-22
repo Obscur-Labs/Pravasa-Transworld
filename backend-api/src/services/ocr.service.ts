@@ -122,38 +122,46 @@ export async function extractFromDocument(buffer: Buffer): Promise<ExtractedDocu
 
 // ── Passport-specific OCR ─────────────────────────────────────────────────────
 
-const PASSPORT_FRONT_PROMPT = `You are an expert passport OCR system.
-This is the FRONT page of an Indian passport. Extract all visible fields carefully.
-Also read the Machine Readable Zone (MRZ) — two lines of uppercase letters and digits at the bottom — to cross-verify and fill any unclear fields.
+const PASSPORT_FRONT_PROMPT = `You are an expert passport OCR system specialising in Indian passports.
 
-Return ONLY a JSON object:
+STRICT NAME EXTRACTION RULES — read carefully before extracting any name field:
+- Indian passports print all names in CAPITAL LETTERS in English (Latin script).
+- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script — it appears next to or below the English name and must NOT be included.
+- Names contain ONLY the letters A–Z and spaces. No numbers, no punctuation, no country codes, no gender codes (M/F), no 2–3 letter abbreviations.
+- If you see stray 1–2 letter uppercase tokens after a name (e.g. "SHARMA FA", "KUMAR AS") those are romanised Hindi syllable fragments — strip them, return only "SHARMA" / "KUMAR".
+- Do NOT copy characters from the MRZ (the two machine-readable lines at the bottom) into name fields — use MRZ only to cross-verify passport number, DOB, expiry, and sex.
+
+Extract the following from the FRONT page and return ONLY a JSON object (no explanation):
 {
-  "passportNo": "letter followed by 7 digits (e.g. A1234567)",
-  "surname": "family/last name",
-  "givenNames": "first and middle names",
-  "nationality": "as printed (e.g. INDIAN)",
-  "dateOfBirth": "DD/MM/YYYY",
+  "passportNo": "one letter followed by exactly 7 digits as printed (e.g. A1234567) — verify against MRZ line 2",
+  "surname": "family name in CAPITAL LETTERS, English only, letters and spaces only",
+  "givenNames": "given/first/middle name(s) in CAPITAL LETTERS, English only, letters and spaces only",
+  "nationality": "as printed in English (e.g. INDIAN)",
+  "dateOfBirth": "DD/MM/YYYY — verify against MRZ",
   "sex": "Male or Female",
-  "placeOfBirth": "city name",
-  "placeOfIssue": "city name",
+  "placeOfBirth": "city name in English",
+  "placeOfIssue": "city name in English",
   "dateOfIssue": "DD/MM/YYYY",
-  "dateOfExpiry": "DD/MM/YYYY",
-  "rawText": "all readable text including MRZ lines"
-}
-Return ONLY the JSON, no explanation.`;
+  "dateOfExpiry": "DD/MM/YYYY — verify against MRZ",
+  "rawText": "all readable English text including both MRZ lines"
+}`;
 
-const PASSPORT_BACK_PROMPT = `You are an expert passport OCR system.
-This is the BACK page of an Indian passport. Extract all visible fields carefully.
+const PASSPORT_BACK_PROMPT = `You are an expert passport OCR system specialising in Indian passports.
 
-Return ONLY a JSON object:
+STRICT NAME EXTRACTION RULES — read carefully before extracting any name field:
+- Indian passports print all names in CAPITAL LETTERS in English (Latin script).
+- Extract ONLY the English printed text. Completely ignore any Hindi/Devanagari script that appears near the name — do NOT include it.
+- Names contain ONLY the letters A–Z and spaces. No numbers, no codes, no abbreviations.
+- If you see stray 1–2 letter uppercase tokens after a name (e.g. "DEVI FA", "LAL AS") those are romanised Hindi fragments — strip them entirely.
+
+Extract the following from the BACK page and return ONLY a JSON object (no explanation):
 {
-  "fatherName": "father or legal guardian full name",
-  "motherName": "mother's full name",
-  "spouseName": "spouse name if present",
-  "address": "full residential address as printed",
-  "rawText": "all readable text from this page"
-}
-Return ONLY the JSON, no explanation.`;
+  "fatherName": "father/legal guardian full name — CAPITAL LETTERS, English only, letters and spaces only",
+  "motherName": "mother full name — CAPITAL LETTERS, English only, letters and spaces only",
+  "spouseName": "spouse name if present — CAPITAL LETTERS, English only, letters and spaces only; omit if not present",
+  "address": "full residential address exactly as printed in English",
+  "rawText": "all readable English text from this page"
+}`;
 
 export async function extractPassport(buffer: Buffer, side: 'front' | 'back'): Promise<PassportExtraction> {
   const prompt = side === 'front' ? PASSPORT_FRONT_PROMPT : PASSPORT_BACK_PROMPT;
@@ -168,8 +176,10 @@ export async function extractPassport(buffer: Buffer, side: 'front' | 'back'): P
 
   if (side === 'front') {
     if (str(json.passportNo)) fields['Passport No.'] = json.passportNo.trim().toUpperCase();
-    if (str(json.surname)) fields['Surname'] = titleCase(json.surname);
-    if (str(json.givenNames)) fields['Given Name(s)'] = titleCase(json.givenNames);
+    const surname = str(json.surname) ? cleanPassportName(json.surname) : '';
+    if (surname) fields['Surname'] = titleCase(surname);
+    const givenNames = str(json.givenNames) ? cleanPassportName(json.givenNames) : '';
+    if (givenNames) fields['Given Name(s)'] = titleCase(givenNames);
     if (str(json.nationality)) fields['Nationality'] = titleCase(json.nationality);
     if (str(json.dateOfBirth)) fields['Date of Birth'] = json.dateOfBirth.trim();
     if (str(json.sex)) fields['Sex'] = normalizeSex(json.sex);
@@ -178,9 +188,12 @@ export async function extractPassport(buffer: Buffer, side: 'front' | 'back'): P
     if (str(json.dateOfIssue)) fields['Date of Issue'] = json.dateOfIssue.trim();
     if (str(json.dateOfExpiry)) fields['Date of Expiry'] = json.dateOfExpiry.trim();
   } else {
-    if (str(json.fatherName)) fields['Father / Legal Guardian'] = titleCase(json.fatherName);
-    if (str(json.motherName)) fields['Mother'] = titleCase(json.motherName);
-    if (str(json.spouseName)) fields['Spouse'] = titleCase(json.spouseName);
+    const fatherName = str(json.fatherName) ? cleanPassportName(json.fatherName) : '';
+    if (fatherName) fields['Father / Legal Guardian'] = titleCase(fatherName);
+    const motherName = str(json.motherName) ? cleanPassportName(json.motherName) : '';
+    if (motherName) fields['Mother'] = titleCase(motherName);
+    const spouseName = str(json.spouseName) ? cleanPassportName(json.spouseName) : '';
+    if (spouseName) fields['Spouse'] = titleCase(spouseName);
     if (str(json.address)) fields['Address'] = json.address.trim();
   }
 
@@ -194,4 +207,23 @@ function titleCase(s: string): string {
 
 function normalizeSex(s: string): string {
   return /^m/i.test(s.trim()) ? 'Male' : 'Female';
+}
+
+// Strips artifacts that commonly appear in Indian passport OCR:
+// - Non-ASCII characters (romanised Devanagari fragments, e.g. "ā", "ī")
+// - Any character that is not a Latin letter, space, hyphen, or apostrophe
+// - Trailing 1–2 letter uppercase tokens ("FA", "AS", "M", "S" etc.) that are
+//   Hindi syllable remnants or stray label abbreviations
+function cleanPassportName(raw: string): string {
+  // Drop non-ASCII (Devanagari leaking through vision model)
+  let s = raw.replace(/[^\x00-\x7F]/g, ' ');
+  // Keep only valid name characters
+  s = s.replace(/[^A-Za-z '\-]/g, ' ');
+  // Collapse whitespace
+  s = s.trim().replace(/\s+/g, ' ');
+  // Repeatedly strip trailing 1–2 letter tokens (handles "NAME FA AS")
+  s = s.replace(/(\s+[A-Z]{1,2})+$/g, '').trim();
+  // Strip leading 1–2 letter tokens too
+  s = s.replace(/^([A-Z]{1,2}\s+)+/g, '').trim();
+  return s;
 }
