@@ -253,6 +253,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   options: string[]           // for select / radio types
   placeholder: string
   order: number
+  applicantType: 'adult' | 'child' | 'both'   // default 'adult'; controls which traveller sees this field
 }
 ```
 
@@ -262,8 +263,12 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   name: string
   description: string
   required: boolean
+  applicantType: 'adult' | 'child' | 'both'   // default 'adult'; controls which traveller sees this doc
+  docType: 'custom' | 'passport' | 'passport_front' | 'passport_back' | 'photo' | 'aadhaar' | 'pan'
 }
 ```
+
+> **`applicantType` rule:** Every form field and document requirement has exactly one upload slot per traveller. `'adult'` = shown only in adult traveller cards; `'child'` = only children; `'both'` = all travellers. Admin sets this per field with a 3-button segmented control (blue/violet/emerald). Replaces the old boolean `childOnly` flag.
 
 ### Application
 ```typescript
@@ -533,7 +538,7 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 | Route | Description |
 |---|---|
 | `/dashboard` | Stats + recent applications |
-| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter) so all 8 active countries appear even if hidden from public website. |
+| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 3 renders one upload slot per document requirement per traveller — **single file per field, no dual-upload**. Field/doc visibility controlled by `applicantType` (adult/child/both). No `PassportScanCard`; OCR runs server-side on upload for passport docTypes. |
 | `/applications` | Application list |
 | `/applications/[id]` | Application detail with document upload and payment |
 | `/my-visas` | Approved/delivered visas |

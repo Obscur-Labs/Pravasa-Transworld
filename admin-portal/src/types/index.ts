@@ -35,6 +35,7 @@ export const SELECTABLE_STATUSES: ApplicationStatus[] = [
 ];
 
 export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
+export type ApplicantType = 'adult' | 'child' | 'both';
 
 export interface FormField {
   _id?: string;
@@ -45,7 +46,7 @@ export interface FormField {
   options: string[];
   placeholder: string;
   order: number;
-  childOnly?: boolean;
+  applicantType?: ApplicantType;
 }
 
 export type DocumentType =
@@ -54,13 +55,9 @@ export type DocumentType =
 // Saved document kinds an admin can pick in form config. Passport kinds auto-extract
 // details from the uploaded image. `defaultName` pre-fills the requirement name.
 export const DOC_TYPE_OPTIONS: { value: DocumentType; label: string; defaultName: string; extracts?: boolean }[] = [
-  { value: 'custom', label: 'Custom', defaultName: '' },
-  { value: 'passport', label: 'Passport (Front & Back)', defaultName: 'Passport', extracts: true },
-  { value: 'passport_front', label: 'Passport Front', defaultName: 'Passport Front', extracts: true },
-  { value: 'passport_back', label: 'Passport Back', defaultName: 'Passport Back', extracts: true },
-  { value: 'photo', label: 'Photograph', defaultName: 'Photograph' },
-  { value: 'aadhaar', label: 'Aadhaar Card', defaultName: 'Aadhaar Card' },
-  { value: 'pan', label: 'PAN Card', defaultName: 'PAN Card' },
+  { value: 'custom', label: 'Custom (no OCR)', defaultName: '' },
+  { value: 'passport_front', label: 'Passport Front (OCR)', defaultName: 'Passport Front', extracts: true },
+  { value: 'passport_back', label: 'Passport Back (OCR)', defaultName: 'Passport Back', extracts: true },
 ];
 
 export interface DocumentRequirement {
@@ -68,7 +65,7 @@ export interface DocumentRequirement {
   name: string;
   description: string;
   required: boolean;
-  childOnly?: boolean;
+  applicantType?: ApplicantType;
   docType?: DocumentType;
 }
 

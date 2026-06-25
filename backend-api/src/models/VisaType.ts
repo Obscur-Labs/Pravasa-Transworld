@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
+export type ApplicantType = 'adult' | 'child' | 'both';
 
 export interface IFormField {
   _id?: mongoose.Types.ObjectId;
@@ -11,7 +12,7 @@ export interface IFormField {
   options: string[];
   placeholder: string;
   order: number;
-  childOnly: boolean;
+  applicantType: ApplicantType;
 }
 
 // docType: a saved document kind ('custom' for a free-form name). Passport kinds
@@ -30,7 +31,7 @@ export interface IDocumentRequirement {
   name: string;
   description: string;
   required: boolean;
-  childOnly: boolean;
+  applicantType: ApplicantType;
   docType: DocumentType;
 }
 
@@ -78,14 +79,14 @@ const FormFieldSchema = new Schema<IFormField>({
   options: [{ type: String }],
   placeholder: { type: String, default: '' },
   order: { type: Number, default: 0 },
-  childOnly: { type: Boolean, default: false },
+  applicantType: { type: String, enum: ['adult', 'child', 'both'], default: 'adult' },
 });
 
 const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   name: { type: String, required: true },
   description: { type: String, default: '' },
   required: { type: Boolean, default: true },
-  childOnly: { type: Boolean, default: false },
+  applicantType: { type: String, enum: ['adult', 'child', 'both'], default: 'adult' },
   docType: {
     type: String,
     enum: ['custom', 'passport', 'passport_front', 'passport_back', 'photo', 'aadhaar', 'pan'],

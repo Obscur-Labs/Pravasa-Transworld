@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Globe, ArrowLeft, Loader2 } from 'lucide-react';
@@ -95,7 +95,16 @@ function useResendTimer() {
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
+  const [checking, setChecking] = useState(true);
   const [step, setStep] = useState<'form' | 'otp'>('form');
+
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      router.replace('/dashboard');
+    } else {
+      setChecking(false);
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [form, setForm] = useState({ email: '' });
@@ -151,6 +160,14 @@ export default function LoginPage() {
   };
 
   const otpFilled = otpDigits.join('').length === OTP_LENGTH;
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

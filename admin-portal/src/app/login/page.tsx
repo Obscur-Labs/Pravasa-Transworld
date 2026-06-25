@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Loader2, ArrowLeft, Mail, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,16 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { login } = useAdminAuthStore();
 
+  const [checking, setChecking] = useState(true);
   const [step, setStep] = useState<Step>('credentials');
+
+  useEffect(() => {
+    if (localStorage.getItem('adminToken')) {
+      router.replace('/dashboard');
+    } else {
+      setChecking(false);
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -57,6 +66,14 @@ export default function AdminLoginPage() {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">

@@ -93,6 +93,8 @@ export interface VaultDocument {
   createdAt: string;
 }
 
+export type ApplicantType = 'adult' | 'child' | 'both';
+
 export interface FormField {
   _id: string;
   label: string;
@@ -102,7 +104,7 @@ export interface FormField {
   options: string[];
   placeholder: string;
   order: number;
-  childOnly?: boolean;
+  applicantType?: ApplicantType;
 }
 
 export interface DocumentRequirement {
@@ -110,7 +112,7 @@ export interface DocumentRequirement {
   name: string;
   description: string;
   required: boolean;
-  childOnly?: boolean;
+  applicantType?: ApplicantType;
   docType?: string;
 }
 

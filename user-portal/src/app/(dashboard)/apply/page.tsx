@@ -3,10 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
-  Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
-  Ticket, Hourglass, Users, Minus, Plus, Shield, ArrowRight, Info,
+  Vault, CreditCard, Calendar, Globe, Clock, MapPin, Tag, Copy,
+  Users, Minus, Plus, Shield, ArrowRight,
 } from 'lucide-react';
-import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,21 +36,6 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
-// A two-sided passport requirement (front + back upload card): explicit 'passport'
-// docType, or a legacy requirement whose name mentions passport.
-const isPassportPair = (req: DocumentRequirement) =>
-  req.docType === 'passport' || ((!req.docType || req.docType === 'custom') && isPassportReq(req.name));
-
-// Passport (front + back) is captured on every application by default — even when
-// the visa type didn't list it — so we always get the bio-data and family pages.
-const PASSPORT_DEFAULT_REQ: DocumentRequirement = {
-  _id: '__passport_default__', name: 'Passport', description: '', required: true, childOnly: false, docType: 'passport',
-};
-const withDefaultPassport = (docs: DocumentRequirement[]): DocumentRequirement[] => {
-  const hasPassport = docs.some((d) => (!!d.docType && d.docType.startsWith('passport')) || isPassportReq(d.name));
-  return hasPassport ? docs : [PASSPORT_DEFAULT_REQ, ...docs];
-};
 
 function getVaultType(reqName: string): string | null {
   const lower = reqName.toLowerCase();
@@ -84,11 +68,16 @@ const buildTravelers = (adults: number, children: number): Traveler[] => {
   return list;
 };
 
+const appliesToTraveler = (applicantType: string | undefined, trType: 'adult' | 'child'): boolean => {
+  const t = applicantType || 'adult';
+  return t === 'both' || t === trType;
+};
+
 const fieldsForTraveler = (fields: FormField[], tr: Traveler) =>
-  tr.type === 'child' ? fields : fields.filter((f) => !f.childOnly);
+  fields.filter((f) => appliesToTraveler(f.applicantType, tr.type));
 
 const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
-  tr.type === 'child' ? docs : docs.filter((d) => !d.childOnly);
+  docs.filter((d) => appliesToTraveler(d.applicantType, tr.type));
 
 function Counter({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
   return (
@@ -306,7 +295,7 @@ function VisaOverviewModal({
     if (visa.documentRequirements?.length) {
       lines.push('');
       lines.push('DOCUMENTS');
-      visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}${r.childOnly ? ' [children only]' : ''}`));
+      visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}${r.applicantType === 'child' ? ' [children only]' : r.applicantType === 'both' ? ' [all travellers]' : ''}`));
     }
     return lines.join('\n');
   })();
@@ -476,7 +465,8 @@ function VisaOverviewModal({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
                         {req.description && <p className="text-xs text-slate-500 mt-0.5">{req.description}</p>}
-                        {req.childOnly && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                        {req.applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                        {req.applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
                       </div>
                       <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0">Required</span>
                     </div>
@@ -493,7 +483,8 @@ function VisaOverviewModal({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
                         {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
-                        {req.childOnly && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                        {req.applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                        {req.applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
                       </div>
                       <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">Optional</span>
                     </div>
@@ -626,8 +617,6 @@ export default function ApplyPage() {
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [docSources, setDocSources] = useState<Record<string, DocSource>>({});
-  // Reviewed/edited passport details, keyed by traveler.
-  const [passportValues, setPassportValues] = useState<Record<string, Record<string, string>>>({});
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -659,7 +648,6 @@ export default function ApplyPage() {
         if (d.selectedVisa) setSelectedVisa(d.selectedVisa);
         if (d.visaTypes) setVisaTypes(d.visaTypes);
         if (d.formData) setFormData(d.formData);
-        if (d.passportValues) setPassportValues(d.passportValues);
         if (d.step) setStep(d.step as Step);
         if (d.travelStartDate) setTravelStartDate(d.travelStartDate);
         if (d.travelEndDate) setTravelEndDate(d.travelEndDate);
@@ -674,9 +662,9 @@ export default function ApplyPage() {
 
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    const draft = { step, selectedCountry, selectedVisa, formData, passportValues, visaTypes, travelStartDate, travelEndDate, adults, children };
+    const draft = { step, selectedCountry, selectedVisa, formData, visaTypes, travelStartDate, travelEndDate, adults, children };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, passportValues, visaTypes, travelStartDate, travelEndDate, adults, children]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, visaTypes, travelStartDate, travelEndDate, adults, children]);
 
   useEffect(() => {
     if (activeTraveler > travelers.length - 1) setActiveTraveler(0);
@@ -689,7 +677,6 @@ export default function ApplyPage() {
     setSelectedVisa(null);
     setFormData({});
     setDocSources({});
-    setPassportValues({});
     setVisaTypes([]);
     setCountrySearch('');
     setTravelStartDate('');
@@ -717,7 +704,6 @@ export default function ApplyPage() {
     setSelectedCountry(country);
     setSelectedVisa(null);
     setDocSources({});
-    setPassportValues({});
     setLoading(true);
     try {
       const r = await getPublicVisaTypes(country._id);
@@ -765,59 +751,30 @@ export default function ApplyPage() {
       }
       // Reviewed passport details become part of the application responses. Dots are
       // stripped because Mongo Map keys cannot contain them.
-      for (const tr of travelers) {
-        const pv = passportValues[tr.key];
-        if (!pv) continue;
-        for (const [k, v] of Object.entries(pv)) {
-          if (v && v.trim()) responses[`${tr.label} — ${k}`.replace(/\./g, ' ').replace(/\s+/g, ' ').trim()] = v.trim();
-        }
-      }
       if (travelStartDate) responses['Travel Start Date'] = travelStartDate;
       if (travelEndDate) responses['Travel End Date'] = travelEndDate;
 
       const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses, adults, children, travelDate: travelStartDate });
       const appId = r.data.data._id;
 
-      const reqs = withDefaultPassport(selectedVisa.documentRequirements);
+      const reqs = selectedVisa.documentRequirements;
       let uploadIdx = 0;
-      const doUpload = async (file: File, requirementName: string, docType = '', extractedData?: Record<string, string>) => {
-        uploadIdx++;
-        setSubmitStatus(`Uploading documents (${uploadIdx})…`);
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('requirementName', requirementName);
-        if (docType) fd.append('docType', docType);
-        if (extractedData && Object.keys(extractedData).length > 0) fd.append('extractedData', JSON.stringify(extractedData));
-        await uploadDocument(appId, fd);
-      };
-
-      const pickFields = (pv: Record<string, string>, keys: string[]) =>
-        Object.fromEntries(keys.filter((k) => pv[k]?.trim()).map((k) => [k, pv[k].trim()]));
 
       for (const tr of travelers) {
         for (const req of docsForTraveler(reqs, tr)) {
           const label = `${tr.label} - ${req.name}`;
-          if (isPassportPair(req)) {
-            const frontSrc = docSources[docKey(tr, req.name, '__front')];
-            const backSrc = docSources[docKey(tr, req.name, '__back')];
-            const pv = passportValues[tr.key] || {};
-            if (frontSrc?.type === 'file') await doUpload(frontSrc.file, `${label} (Front)`, 'passport_front', pickFields(pv, PASSPORT_FRONT_FIELDS));
-            if (backSrc?.type === 'file') await doUpload(backSrc.file, `${label} (Back)`, 'passport_back', pickFields(pv, PASSPORT_BACK_FIELDS));
+          const source = docSources[docKey(tr, req.name)];
+          if (!source) continue;
+          uploadIdx++;
+          setSubmitStatus(`Uploading documents (${uploadIdx})…`);
+          if (source.type === 'vault') {
+            await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label });
           } else {
-            const source = docSources[docKey(tr, req.name)];
-            if (!source) continue;
-            if (source.type === 'vault') {
-              uploadIdx++;
-              setSubmitStatus(`Uploading documents (${uploadIdx})…`);
-              await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label });
-            } else {
-              const pv = passportValues[tr.key] || {};
-              const ocrData =
-                req.docType === 'passport_front' ? pickFields(pv, PASSPORT_FRONT_FIELDS)
-                : req.docType === 'passport_back' ? pickFields(pv, PASSPORT_BACK_FIELDS)
-                : undefined;
-              await doUpload(source.file, label, req.docType || '', ocrData);
-            }
+            const fd = new FormData();
+            fd.append('file', source.file);
+            fd.append('requirementName', label);
+            if (req.docType) fd.append('docType', req.docType);
+            await uploadDocument(appId, fd);
           }
         }
       }
@@ -857,15 +814,11 @@ export default function ApplyPage() {
   const goBack = () => setStep((s) => Math.max(s - 1, 1) as Step);
 
   const sortedFields = selectedVisa ? [...selectedVisa.formFields].sort((a, b) => a.order - b.order) : [];
-  const requirements: DocumentRequirement[] = withDefaultPassport(selectedVisa?.documentRequirements || []);
+  const requirements: DocumentRequirement[] = selectedVisa?.documentRequirements || [];
 
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = fieldsForTraveler(sortedFields, tr).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
-    const trDocs = docsForTraveler(requirements, tr);
-    const docsOk = trDocs.filter((r) => r.required).every((r) => {
-      if (isPassportPair(r)) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
-      return !!docSources[docKey(tr, r.name)];
-    });
+    const docsOk = docsForTraveler(requirements, tr).filter((r) => r.required).every((r) => !!docSources[docKey(tr, r.name)]);
     return fieldsOk && docsOk;
   };
 
@@ -932,58 +885,11 @@ export default function ApplyPage() {
   };
 
   const renderDocCard = (tr: Traveler, req: DocumentRequirement) => {
-    if (isPassportPair(req)) {
-      const frontSrc = docSources[docKey(tr, req.name, '__front')];
-      const backSrc = docSources[docKey(tr, req.name, '__back')];
-      return (
-        <PassportScanCard
-          key={req._id || req.name}
-          requirementName={`${tr.label} — ${req.name}`}
-          frontFile={frontSrc?.type === 'file' ? frontSrc.file : null}
-          backFile={backSrc?.type === 'file' ? backSrc.file : null}
-          values={passportValues[tr.key] || {}}
-          onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
-          onFrontChange={(file) => {
-            if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__front')]: { type: 'file', file } }));
-            else clearDocSource(docKey(tr, req.name, '__front'));
-          }}
-          onBackChange={(file) => {
-            if (file) setDocSources((p) => ({ ...p, [docKey(tr, req.name, '__back')]: { type: 'file', file } }));
-            else clearDocSource(docKey(tr, req.name, '__back'));
-          }}
-        />
-      );
-    }
-
-    // Separate single-side passport types: live scan + editable fields beside the preview.
-    if (req.docType === 'passport_front' || req.docType === 'passport_back') {
-      const side = req.docType === 'passport_back' ? 'back' : 'front';
-      const sk = docKey(tr, req.name);
-      const src = docSources[sk];
-      const file = src?.type === 'file' ? src.file : null;
-      const onFile = (f: File | null) => {
-        if (f) setDocSources((p) => ({ ...p, [sk]: { type: 'file', file: f } }));
-        else clearDocSource(sk);
-      };
-      return (
-        <PassportScanCard
-          key={req._id || req.name}
-          mode={side}
-          requirementName={`${tr.label} — ${req.name}`}
-          frontFile={side === 'front' ? file : null}
-          backFile={side === 'back' ? file : null}
-          values={passportValues[tr.key] || {}}
-          onValuesChange={(vals) => setPassportValues((p) => ({ ...p, [tr.key]: vals }))}
-          onFrontChange={side === 'front' ? onFile : () => {}}
-          onBackChange={side === 'back' ? onFile : () => {}}
-        />
-      );
-    }
-
     const sk = docKey(tr, req.name);
     const source = docSources[sk];
     const vaultType = getVaultType(req.name);
     const vaultMatches = vaultType ? vaultDocs.filter((v) => v.type === vaultType) : [];
+    const applicantType = req.applicantType || 'adult';
 
     return (
       <div key={req._id || req.name} className={`rounded-xl border-2 p-4 transition-all ${source ? 'border-green-200 bg-green-50' : req.required ? 'border-slate-200 bg-white hover:border-blue-200' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
@@ -992,11 +898,12 @@ export default function ApplyPage() {
             {source ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4 text-slate-400" />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-slate-900 flex items-center flex-wrap gap-1">
               {req.name}
-              {req.required && <span className="text-red-500 ml-1">*</span>}
-              {!req.required && <span className="text-slate-400 ml-1.5 text-xs font-normal">(optional)</span>}
-              {req.childOnly && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+              {req.required && <span className="text-red-500">*</span>}
+              {!req.required && <span className="text-slate-400 text-xs font-normal">(optional)</span>}
+              {applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+              {applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
             </p>
             {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
           </div>
@@ -1031,7 +938,7 @@ export default function ApplyPage() {
         <div className="ml-11">
           <button onClick={() => pickFileFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors">
             <Upload className="w-3.5 h-3.5" />
-            {source?.type === 'file' ? 'Replace file' : 'Upload new file'}
+            {source?.type === 'file' ? 'Replace file' : 'Upload file'}
           </button>
         </div>
       </div>
@@ -1291,7 +1198,8 @@ export default function ApplyPage() {
                           <Label htmlFor={`${activeTr.key}__${field.fieldName}`}>
                             {field.label}
                             {field.required && <span className="text-red-500 ml-1">*</span>}
-                            {field.childOnly && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Child</span>}
+                            {field.applicantType === 'child' && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Child</span>}
+                            {field.applicantType === 'both' && <span className="ml-1.5 text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">All</span>}
                           </Label>
                           <div className="mt-1">{renderField(field, activeTr.key)}</div>
                         </div>
@@ -1401,17 +1309,6 @@ export default function ApplyPage() {
                         {docsForTraveler(requirements, tr).length > 0 && (
                           <div className="mt-2 space-y-1">
                             {docsForTraveler(requirements, tr).map((req) => {
-                              if (isPassportPair(req)) {
-                                const f = docSources[docKey(tr, req.name, '__front')];
-                                const b = docSources[docKey(tr, req.name, '__back')];
-                                const ok = f && b;
-                                return (
-                                  <div key={req._id || req.name} className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-600 flex items-center gap-1"><BookOpen className="w-3 h-3 text-slate-400" /> {req.name} (Front & Back)</span>
-                                    {ok ? <span className="text-green-700 font-medium flex items-center gap-1"><Check className="w-3 h-3" /> Provided</span> : <span className="text-slate-400 italic">Not provided</span>}
-                                  </div>
-                                );
-                              }
                               const src = docSources[docKey(tr, req.name)];
                               return (
                                 <div key={req._id || req.name} className="flex items-center justify-between text-xs">
