@@ -1215,30 +1215,26 @@ export default function ApplyPage() {
 
             {activeTr && (
               <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Details</p>
-                  {fieldsForTraveler(sortedFields, activeTr).length === 0 ? (
-                    <p className="text-sm text-slate-400">No form fields required for this traveller.</p>
-                  ) : (
+                {fieldsForTraveler(sortedFields, activeTr).length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Details</p>
                     <div className="space-y-4">
                       {fieldsForTraveler(sortedFields, activeTr).map((field) => (
                         <div key={field._id || field.fieldName}>
                           <Label htmlFor={`${activeTr.key}__${field.fieldName}`}>
                             {field.label}
                             {field.required && <span className="text-red-500 ml-1">*</span>}
-                            {field.applicantType === 'child' && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Child</span>}
-                            {field.applicantType === 'both' && <span className="ml-1.5 text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">All</span>}
                           </Label>
                           <div className="mt-1">{renderField(field, activeTr.key)}</div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {docsForTraveler(requirements, activeTr).length > 0 && (
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Documents</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Documents</p>
                     <div className="space-y-3">
                       {docsForTraveler(requirements, activeTr).map((req) => renderDocCard(activeTr, req))}
                     </div>
