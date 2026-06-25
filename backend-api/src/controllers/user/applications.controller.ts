@@ -213,8 +213,22 @@ export const makePayment = async (req: AuthRequest, res: Response): Promise<void
 };
 
 export const getPublicCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
+  const countries = await Country.find({ isActive: true, showOnWebsite: true }).sort({ name: 1 });
+  sendSuccess(res, countries);
+};
+
+// All active countries — for logged-in users applying for a visa.
+// showOnWebsite is irrelevant here; a country can be active for applications without being public.
+export const getActiveCountries = async (_req: AuthRequest, res: Response): Promise<void> => {
   const countries = await Country.find({ isActive: true }).sort({ name: 1 });
   sendSuccess(res, countries);
+};
+
+export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
+  const country = await Country.findOne({ slug: req.params.slug, isActive: true, showOnWebsite: true });
+  if (!country) { sendError(res, 'Country not found', 404); return; }
+  const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ name: 1 });
+  sendSuccess(res, { country, visaTypes });
 };
 
 export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promise<void> => {

@@ -3,13 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { getPublicCountries } from '@/lib/api';
-
-interface Country {
-  _id: string;
-  name: string;
-  flag: string;
-  description: string;
-}
+import type { Country } from '@/types';
 
 export default function CountriesSlider() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -41,6 +35,9 @@ export default function CountriesSlider() {
   const handleNext = () => { next(); resetTimer(); };
 
   if (count === 0) return null;
+
+  const countryHref = (c: Country) =>
+    c.slug ? `/countries/${c.slug}` : `/countries/${c._id}`;
 
   return (
     <section id="destinations" className="py-24 bg-gradient-to-b from-blue-900 to-indigo-950 relative overflow-hidden">
@@ -81,30 +78,35 @@ export default function CountriesSlider() {
           >
             {countries.map((c) => (
               <div key={c._id} className="w-1/3 flex-none px-3">
-                <div className="glass rounded-2xl p-7 group hover:bg-white/15 transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
-                  <div className="flex items-start justify-between mb-5">
-                    <img
-                      src={`https://flagcdn.com/w80/${c.flag}.png`}
-                      alt={c.name}
-                      className="w-16 h-11 object-cover rounded-xl shadow-lg"
-                    />
-                    <div className="glass rounded-lg w-9 h-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ArrowRight className="w-4 h-4 text-white" />
+                <Link href={countryHref(c)} className="block h-full">
+                  <div className="glass rounded-2xl p-7 group hover:bg-white/15 transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
+                    <div className="flex items-start justify-between mb-5">
+                      {c.images?.[0] ? (
+                        <div className="w-16 h-11 rounded-xl overflow-hidden shadow-lg">
+                          <img src={c.images[0]} alt={c.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <img
+                          src={`https://flagcdn.com/w80/${c.flag}.png`}
+                          alt={c.name}
+                          className="w-16 h-11 object-cover rounded-xl shadow-lg"
+                        />
+                      )}
+                      <div className="glass rounded-lg w-9 h-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowRight className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">{c.name}</h3>
+                    {c.description && (
+                      <p className="text-sm text-blue-300 leading-relaxed line-clamp-2">{c.description}</p>
+                    )}
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <span className="text-sm text-blue-300 hover:text-white font-medium transition-colors flex items-center gap-1 group-hover:gap-2">
+                        View Visa Details <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
                     </div>
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{c.name}</h3>
-                  {c.description && (
-                    <p className="text-sm text-blue-300 leading-relaxed line-clamp-2">{c.description}</p>
-                  )}
-                  <div className="mt-4 pt-4 border-t border-white/10">
-                    <Link
-                      href="/login"
-                      className="text-sm text-blue-300 hover:text-white font-medium transition-colors flex items-center gap-1 group-hover:gap-2"
-                    >
-                      Apply now <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </div>
+                </Link>
               </div>
             ))}
           </div>
@@ -127,7 +129,7 @@ export default function CountriesSlider() {
 
         <div className="text-center mt-10">
           <Link
-            href="/login"
+            href="/countries"
             className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium px-6 py-3 rounded-xl transition-all duration-200"
           >
             Browse All Destinations <ArrowRight className="w-4 h-4" />

@@ -20,6 +20,10 @@ router.get('/dashboard', apps.getDashboardStats);
 router.route('/countries').get(countries.getCountries).post(countries.createCountry);
 router.route('/countries/:id').put(countries.updateCountry).delete(countries.deleteCountry);
 router.patch('/countries/:id/toggle', countries.toggleCountryStatus);
+router.patch('/countries/:id/toggle-website', countries.toggleWebsiteVisibility);
+router.put('/countries/:id/web-content', countries.updateWebContent);
+router.post('/countries/:id/images', upload.single('image'), countries.uploadCountryImage);
+router.delete('/countries/:id/images', countries.removeCountryImage);
 
 // Visa Types
 router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVisaType);

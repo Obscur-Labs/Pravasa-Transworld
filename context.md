@@ -91,7 +91,11 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET | `/dashboard` | Aggregate stats: active, pending, approved, rejected, total |
 | GET/POST | `/countries` | List all / create country |
 | PUT/DELETE | `/countries/:id` | Update / delete country |
-| PATCH | `/countries/:id/toggle` | Toggle active status |
+| PATCH | `/countries/:id/toggle` | Toggle isActive status |
+| PATCH | `/countries/:id/toggle-website` | Toggle showOnWebsite (public visibility) |
+| PUT | `/countries/:id/web-content` | Update webContent fields (heroTagline, overview, highlights, requirements, processingInfo, tips, faqs) |
+| POST | `/countries/:id/images` | Upload a photo to Cloudinary, append URL to images[] |
+| DELETE | `/countries/:id/images` | Remove a photo URL from images[] (body: { imageUrl }) |
 | GET/POST | `/visa-types` | List all / create visa type |
 | GET/PUT/DELETE | `/visa-types/:id` | Detail / update / delete visa type |
 | PATCH | `/visa-types/:id/toggle` | Toggle active status |
@@ -118,8 +122,45 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | DELETE | `/notifications/all` | Delete all admin notifications |
 | DELETE | `/notifications/:id` | Delete single admin notification |
 
+#### User Routes (`/api/user`) — requires `protect` middleware (JWT)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/countries` | All `isActive: true` countries — **no** `showOnWebsite` filter. Used by Apply for Visa form so staff can process all active countries regardless of public visibility. |
+| GET | `/dashboard` | User dashboard stats |
+| GET/POST | `/applications` | List / create applications |
+| GET | `/applications/:id` | Application detail |
+| POST | `/applications/:id/documents` | Upload document (Multer → Cloudinary) |
+| POST | `/applications/:id/documents/from-vault` | Attach vault document to application |
+| POST | `/applications/:id/payment/order` | Create Razorpay order |
+| POST | `/applications/:id/payment/verify` | Verify payment signature |
+| GET/POST | `/vault` | List / upload vault documents |
+| GET | `/vault/:id/url` | Signed view URL for a vault document |
+| DELETE | `/vault/:id` | Delete vault document |
+| GET | `/payments` | Payment history |
+| GET | `/payments/:id/receipt` | Download PDF receipt |
+| GET | `/notifications` | Notification list + unread count |
+| PUT | `/notifications/:id/read` | Mark single notification read |
+| PUT | `/notifications/read-all` | Mark all read |
+| DELETE | `/notifications/:id` | Delete notification |
+| DELETE | `/notifications/all` | Delete all notifications |
+| GET/PUT | `/profile` | Get / update profile |
+| POST | `/profile/photo` | Upload profile photo |
+| POST | `/ocr/passport` | OCR scan a passport image |
+
 #### Public Routes (`/api/public`)
-Unauthenticated routes for the landing page (countries list, visa types, contact form).
+Unauthenticated routes for the landing page, country pages, and contact form.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/countries` | `isActive: true` **AND** `showOnWebsite: true` — for the public website only |
+| GET | `/countries/:slug` | Country detail + active visa types (by slug) |
+| GET | `/visa-types` | Active visa types (optional `?country=id` filter) |
+| POST | `/contact` | Submit contact form lead |
+
+> **Key distinction — `showOnWebsite` vs `isActive`:**
+> - `isActive` controls whether a country is usable **anywhere** (apply form, admin, public).
+> - `showOnWebsite` is an extra gate for the **public marketing website only** (`/countries` page, landing slider).
+> - A country can be `Active + Hidden` — fully operational for logged-in applications, just not advertised publicly.
 
 ---
 
@@ -171,6 +212,18 @@ Unauthenticated routes for the landing page (countries list, visa types, contact
   code: string                // optional ISO alpha-3 code (e.g. 'IND', 'USA') — used in application reference IDs
   description: string
   isActive: boolean
+  showOnWebsite: boolean      // whether this country appears on the public website
+  slug: string                // auto-generated from name on save (e.g. 'united-states')
+  images: string[]            // Cloudinary URLs for country photos (slider if multiple)
+  webContent: {
+    heroTagline: string       // shown below country name on detail page
+    overview: string          // main description paragraph
+    highlights: string[]      // badge chips (e.g. 'eVisa available')
+    requirements: string      // visa requirements overview
+    processingInfo: string    // processing timeline
+    tips: string              // tips for applicants
+    faqs: { question: string; answer: string }[]  // FAQ accordion items
+  }
 }
 ```
 
@@ -456,14 +509,31 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 
 **Route groups:**
 - `(auth)` — `/login`, `/register`
-- `(public)` — `/about`, `/contact`, `/privacy`, `/terms`
+- `(public)` — `/about`, `/contact`, `/privacy`, `/terms`, `/countries`, `/countries/[slug]`
 - `(dashboard)` — all authenticated pages
+
+**Public Country Pages (no login required):**
+| Route | Description |
+|---|---|
+| `/countries` | Lists all `showOnWebsite: true` countries. Card shows `images[0]` as cover photo (flag fallback), name, description, first highlight chip. Search bar filters by name. |
+| `/countries/[slug]` | Country detail page: photo slider (1 image = static, 2+ = arrows + pagination dots), visa info grid with colored dots (type, stay, entry, validity, processing), overview/requirements/processing/tips cards, FAQ accordion (numbered items, blue active state, smooth expand). Sticky right sidebar: visa type selector, pricing breakdown (govt fees + service fee = total in blue), "Start Application" CTA + "100% Secure" note. |
+
+**FAQ Accordion (user portal):**
+- Numbered circle per question (turns solid blue when open)
+- Question text turns blue when open; answer indented below the number
+- Smooth `max-height` CSS transition — no JS animation library
+- Header shows count: "N questions answered"
+- Renders all FAQs; no limit
+
+**Landing page components:**
+- `CountriesSlider` — `GET /public/countries` (showOnWebsite only). Cards link to `/countries/[slug]`. "Browse All Destinations" → `/countries`.
+- `CountriesSection` — same API + fallback to hardcoded list if empty.
 
 **Dashboard pages:**
 | Route | Description |
 |---|---|
 | `/dashboard` | Stats + recent applications |
-| `/apply` | 5-step visa application wizard |
+| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter) so all 8 active countries appear even if hidden from public website. |
 | `/applications` | Application list |
 | `/applications/[id]` | Application detail with document upload and payment |
 | `/my-visas` | Approved/delivered visas |
@@ -508,7 +578,8 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 - `/dashboard` — live stats
 - `/applications` — list with filters; `/applications/[id]` — full detail, document review, approval
 - `/processing` — Kanban board
-- `/countries` — country management (name, flag, ISO code)
+- `/countries` — country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
+- `/countries/[id]/content` — country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
 - `/visa-types` — visa type management including corporate price field
 - `/users` — customer list; `/users/[id]` — customer detail
 - `/leads` — contact form submissions

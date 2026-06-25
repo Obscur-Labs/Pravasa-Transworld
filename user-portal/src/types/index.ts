@@ -23,11 +23,30 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   visa_delivered: 'Visa Delivered',
 };
 
+export interface CountryFaq {
+  question: string;
+  answer: string;
+}
+
+export interface CountryWebContent {
+  heroTagline?: string;
+  overview?: string;
+  highlights?: string[];
+  requirements?: string;
+  processingInfo?: string;
+  tips?: string;
+  faqs?: CountryFaq[];
+}
+
 export interface Country {
   _id: string;
   name: string;
   flag: string;
   description: string;
+  slug?: string;
+  showOnWebsite?: boolean;
+  images?: string[];
+  webContent?: CountryWebContent;
 }
 
 export type EntryType = 'single' | 'multiple' | 'double';

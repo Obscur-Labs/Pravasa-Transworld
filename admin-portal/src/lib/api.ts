@@ -40,6 +40,12 @@ export const createCountry = (data: object) => api.post('/admin/countries', data
 export const updateCountry = (id: string, data: object) => api.put(`/admin/countries/${id}`, data);
 export const deleteCountry = (id: string) => api.delete(`/admin/countries/${id}`);
 export const toggleCountry = (id: string) => api.patch(`/admin/countries/${id}/toggle`);
+export const toggleCountryWebsite = (id: string) => api.patch(`/admin/countries/${id}/toggle-website`);
+export const updateCountryWebContent = (id: string, data: object) => api.put(`/admin/countries/${id}/web-content`, data);
+export const uploadCountryImage = (id: string, formData: FormData) =>
+  api.post(`/admin/countries/${id}/images`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const removeCountryImage = (id: string, imageUrl: string) =>
+  api.delete(`/admin/countries/${id}/images`, { data: { imageUrl } });
 
 // Visa Types
 export const getVisaTypes = (countryId?: string) =>

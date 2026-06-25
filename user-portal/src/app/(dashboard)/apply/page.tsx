@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getPublicCountries, getPublicVisaTypes, createApplication, uploadDocument,
+  getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
   addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments,
 } from '@/lib/api';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
@@ -648,7 +648,7 @@ export default function ApplyPage() {
   const orderTotal = (v: VisaType) => adults * adultRate(v) + children * childRate(v);
 
   useEffect(() => {
-    getPublicCountries().then((r) => setCountries(r.data.data));
+    getActiveCountries().then((r) => setCountries(r.data.data));
     getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
 
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -1096,31 +1096,118 @@ export default function ApplyPage() {
         {/* ── Step 1: Country ── */}
         {step === 1 && (
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Destination Country</h2>
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-slate-900">Select Destination Country</h2>
+              <p className="text-sm text-slate-400 mt-0.5">All active countries available for visa processing.</p>
+            </div>
+
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input className="pl-9" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {countries.filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase())).map((c) => (
-                <button key={c._id} onClick={() => handleCountrySelect(c)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${selectedCountry?._id === c._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'}`}>
-                  <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-8 h-5 object-cover rounded mb-2" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-                </button>
-              ))}
-              {countries.filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase())).length === 0 && (
-                <p className="col-span-3 text-center text-slate-400 py-6 text-sm">No countries match "{countrySearch}".</p>
-              )}
-            </div>
+
+            {(() => {
+              const filtered = countries.filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()));
+              if (filtered.length === 0) return (
+                <div className="text-center py-12 text-slate-400">
+                  <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+                  <p className="text-sm">No countries match "{countrySearch}".</p>
+                </div>
+              );
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filtered.map((c) => {
+                    const isSelected = selectedCountry?._id === c._id;
+                    const coverImg = c.images?.[0];
+                    return (
+                      <button
+                        key={c._id}
+                        onClick={() => handleCountrySelect(c)}
+                        className={`group rounded-2xl border-2 text-left transition-all duration-200 overflow-hidden ${
+                          isSelected
+                            ? 'border-blue-500 ring-2 ring-blue-100 shadow-md'
+                            : 'border-slate-200 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                      >
+                        {/* Cover photo or flag */}
+                        <div className="relative aspect-video bg-gradient-to-br from-blue-50 to-slate-100 overflow-hidden">
+                          {coverImg ? (
+                            <img
+                              src={coverImg}
+                              alt={c.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <img
+                                src={`https://flagcdn.com/w160/${c.flag}.png`}
+                                alt={c.name}
+                                className="w-20 h-auto object-contain opacity-50 group-hover:scale-105 transition-transform duration-500"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Flag badge when photo exists */}
+                          {coverImg && (
+                            <div className="absolute bottom-2 left-2 rounded-md overflow-hidden w-8 h-5 shadow border border-white/60">
+                              <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+
+                          {/* Selected checkmark */}
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow">
+                              <Check className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="p-3 bg-white">
+                          <p className={`text-sm font-bold leading-tight ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                            {c.name}
+                          </p>
+                          {c.description && (
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-snug">{c.description}</p>
+                          )}
+                          <p className="text-[10px] font-semibold text-blue-500 mt-1.5 flex items-center gap-1">
+                            <Globe className="w-2.5 h-2.5" /> Visa available
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {countries.length === 0 && !countrySearch && (
+              <div className="text-center py-12 text-slate-400">
+                <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+                <p className="text-sm">No countries available for visa processing right now.</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── Step 2: Visa Type ── */}
         {step === 2 && (
           <div>
-            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-              <h2 className="text-lg font-semibold text-slate-900">Select Visa Type</h2>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Select Visa Type</h2>
+                {selectedCountry && (
+                  <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1.5">
+                    <img src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
+                    <span className="font-medium text-slate-700">{selectedCountry.name}</span>
+                    {!loading && visaTypes.length > 0 && (
+                      <span className="text-slate-400">· {visaTypes.length} active visa type{visaTypes.length !== 1 ? 's' : ''}</span>
+                    )}
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {travelStartDate && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
@@ -1135,15 +1222,18 @@ export default function ApplyPage() {
                 <button onClick={() => { setPendingCountry(selectedCountry); setShowTravelModal(true); }} className="text-xs text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2">Edit</button>
               </div>
             </div>
-            <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
-              Visas available for
-              {selectedCountry && <img src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
-              <span className="font-medium">{selectedCountry?.name}</span>
-            </p>
+
             {loading ? (
-              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" /></div>
+              <div className="text-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">Loading visa types…</p>
+              </div>
             ) : visaTypes.length === 0 ? (
-              <p className="text-slate-400 text-sm text-center py-8">No visa types available for this country.</p>
+              <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+                <p className="text-sm font-medium text-slate-500">No active visa types for {selectedCountry?.name}</p>
+                <p className="text-xs mt-1">Contact us for assistance.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {visaTypes.map((v) => (

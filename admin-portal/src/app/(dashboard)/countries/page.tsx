@@ -1,34 +1,35 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Search } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry } from '@/lib/api';
+import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite } from '@/lib/api';
 import type { Country } from '@/types';
 
 interface CountryForm { name: string; flag: string; description: string; }
 const emptyForm: CountryForm = { name: '', flag: '', description: '' };
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+function Toggle({
+  checked, onChange, disabled, color = 'emerald',
+}: {
+  checked: boolean; onChange: () => void; disabled?: boolean; color?: 'emerald' | 'violet';
+}) {
+  const on = color === 'violet'
+    ? 'bg-violet-500 hover:bg-violet-600 shadow-[0_0_12px_rgba(139,92,246,0.25)]'
+    : 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.25)]';
+  const ring = color === 'violet' ? 'focus:ring-violet-500' : 'focus:ring-emerald-500';
   return (
     <button
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-        checked 
-          ? 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.25)]' 
-          : 'bg-slate-200 hover:bg-slate-300'
-      }`}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 ${ring} focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${checked ? on : 'bg-slate-200 hover:bg-slate-300'}`}
     >
-      <span
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 transition duration-300 ease-in-out ${
-          checked ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
+      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 transition duration-300 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
   );
 }
@@ -41,9 +42,9 @@ export default function CountriesPage() {
   const [form, setForm] = useState<CountryForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [togglingWeb, setTogglingWeb] = useState<string | null>(null);
 
-  const fetchCountries = () =>
-    getCountries().then((r) => setCountries(r.data.data));
+  const fetchCountries = () => getCountries().then((r) => setCountries(r.data.data));
 
   useEffect(() => { fetchCountries(); }, []);
 
@@ -76,7 +77,7 @@ export default function CountriesPage() {
     fetchCountries();
   };
 
-  const handleToggle = async (id: string, current: boolean) => {
+  const handleToggle = async (id: string) => {
     setToggling(id);
     try {
       const res = await toggleCountry(id);
@@ -86,6 +87,19 @@ export default function CountriesPage() {
       toast({ title: 'Failed to toggle status', variant: 'destructive' });
     } finally {
       setToggling(null);
+    }
+  };
+
+  const handleToggleWeb = async (id: string) => {
+    setTogglingWeb(id);
+    try {
+      const res = await toggleCountryWebsite(id);
+      setCountries((prev) => prev.map((c) => c._id === id ? { ...c, showOnWebsite: res.data.data.showOnWebsite } : c));
+      toast({ title: res.data.data.showOnWebsite ? 'Shown on website' : 'Hidden from website', variant: 'success' });
+    } catch {
+      toast({ title: 'Failed to toggle website visibility', variant: 'destructive' });
+    } finally {
+      setTogglingWeb(null);
     }
   };
 
@@ -104,7 +118,7 @@ export default function CountriesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Countries</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage available destination countries.</p>
+          <p className="text-slate-500 text-sm mt-1">Manage destination countries and their website pages.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -157,33 +171,48 @@ export default function CountriesPage() {
               <div className="flex items-start justify-between mb-2">
                 <img src={`https://flagcdn.com/w40/${c.flag}.png`} alt={c.name} className="w-10 h-7 object-cover rounded" />
                 <div className="flex gap-1 items-center">
-                  <button onClick={() => startEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <button onClick={() => startEdit(c)} title="Edit basic info" className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(c._id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                  <Link href={`/countries/${c._id}/content`} title="Edit website content">
+                    <span className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors flex items-center">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
+                  </Link>
+                  <button onClick={() => handleDelete(c._id)} title="Move to trash" className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
+
               <p className="font-semibold text-slate-900">{c.name}</p>
               {c.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{c.description}</p>}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    {c.isActive && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${c.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                  </span>
-                  <span className={`text-xs font-semibold ${c.isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
-                    {c.isActive ? 'Active' : 'Inactive'}
-                  </span>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      {c.isActive && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      )}
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${c.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                    </span>
+                    <span className={`text-xs font-semibold ${c.isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
+                      {c.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <Toggle checked={c.isActive} onChange={() => handleToggle(c._id)} disabled={toggling === c._id} color="emerald" />
                 </div>
-                <Toggle
-                  checked={c.isActive}
-                  onChange={() => handleToggle(c._id, c.isActive)}
-                  disabled={toggling === c._id}
-                />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className={`w-3 h-3 ${c.showOnWebsite ? 'text-violet-500' : 'text-slate-300'}`} />
+                    <span className={`text-xs font-semibold ${c.showOnWebsite ? 'text-violet-700' : 'text-slate-500'}`}>
+                      {c.showOnWebsite ? 'On Website' : 'Hidden'}
+                    </span>
+                  </div>
+                  <Toggle checked={!!c.showOnWebsite} onChange={() => handleToggleWeb(c._id)} disabled={togglingWeb === c._id} color="violet" />
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -37,10 +37,14 @@ export const verifyOTP = (data: { email: string; otp: string }) =>
 
 // Public
 export const getPublicCountries = () => api.get('/public/countries');
+export const getPublicCountryBySlug = (slug: string) => api.get(`/public/countries/${slug}`);
 export const getPublicVisaTypes = (countryId?: string) =>
   api.get('/public/visa-types', { params: { country: countryId } });
 export const submitContactLead = (data: { name: string; email: string; phone?: string; message: string }) =>
   api.post('/public/contact', data);
+
+// User — Countries (all active, for the apply form — ignores showOnWebsite)
+export const getActiveCountries = () => api.get('/user/countries');
 
 // User — Applications
 export const getDashboard = () => api.get('/user/dashboard');

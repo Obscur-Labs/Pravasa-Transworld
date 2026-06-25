@@ -72,12 +72,31 @@ export interface DocumentRequirement {
   docType?: DocumentType;
 }
 
+export interface CountryFaq {
+  question: string;
+  answer: string;
+}
+
+export interface CountryWebContent {
+  heroTagline: string;
+  overview: string;
+  highlights: string[];
+  requirements: string;
+  processingInfo: string;
+  tips: string;
+  faqs: CountryFaq[];
+}
+
 export interface Country {
   _id: string;
   name: string;
   flag: string;
   description: string;
   isActive: boolean;
+  showOnWebsite: boolean;
+  slug: string;
+  images: string[];
+  webContent: CountryWebContent;
 }
 
 export type EntryType = 'single' | 'multiple' | 'double';

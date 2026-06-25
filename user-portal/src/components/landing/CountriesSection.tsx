@@ -1,22 +1,38 @@
+'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { getPublicCountries } from '@/lib/api';
+import type { Country } from '@/types';
 
-const countries = [
-  { code: 'ca', name: 'Canada', types: ['Tourist', 'Student', 'Work'] },
-  { code: 'us', name: 'United States', types: ['Tourist', 'Student', 'Business'] },
-  { code: 'gb', name: 'United Kingdom', types: ['Tourist', 'Student', 'Work'] },
-  { code: 'au', name: 'Australia', types: ['Tourist', 'Student', 'Work'] },
-  { code: 'de', name: 'Germany', types: ['Tourist', 'Student', 'Work'] },
-  { code: 'fr', name: 'France', types: ['Tourist', 'Business'] },
-  { code: 'jp', name: 'Japan', types: ['Tourist', 'Business'] },
-  { code: 'ae', name: 'UAE', types: ['Tourist', 'Business', 'Work'] },
+const FALLBACK_COUNTRIES: Country[] = [
+  { _id: 'ca', name: 'Canada', flag: 'ca', description: 'Tourist, Student & Work visas', slug: undefined },
+  { _id: 'us', name: 'United States', flag: 'us', description: 'Tourist, Student & Business visas', slug: undefined },
+  { _id: 'gb', name: 'United Kingdom', flag: 'gb', description: 'Tourist, Student & Work visas', slug: undefined },
+  { _id: 'au', name: 'Australia', flag: 'au', description: 'Tourist, Student & Work visas', slug: undefined },
+  { _id: 'de', name: 'Germany', flag: 'de', description: 'Tourist, Student & Work visas', slug: undefined },
+  { _id: 'fr', name: 'France', flag: 'fr', description: 'Tourist & Business visas', slug: undefined },
+  { _id: 'jp', name: 'Japan', flag: 'jp', description: 'Tourist & Business visas', slug: undefined },
+  { _id: 'ae', name: 'UAE', flag: 'ae', description: 'Tourist, Business & Work visas', slug: undefined },
 ];
 
 export default function CountriesSection() {
+  const [countries, setCountries] = useState<Country[]>([]);
+
+  useEffect(() => {
+    getPublicCountries()
+      .then((r) => {
+        const data: Country[] = r.data.data;
+        setCountries(data.length > 0 ? data.slice(0, 8) : FALLBACK_COUNTRIES);
+      })
+      .catch(() => setCountries(FALLBACK_COUNTRIES));
+  }, []);
+
+  const display = countries.length > 0 ? countries : FALLBACK_COUNTRIES;
+
   return (
     <section id="destinations" className="py-24 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white relative overflow-hidden">
-      {/* Decorative light gradient blobs */}
       <div className="absolute top-0 left-10 w-[400px] h-[400px] bg-blue-200/30 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute bottom-0 right-10 w-[350px] h-[350px] bg-indigo-100/40 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
 
@@ -32,37 +48,44 @@ export default function CountriesSection() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-16">
-          {countries.map((c) => (
-            <div
-              key={c.name}
-              className="glass-light glass-light-interactive rounded-3xl p-6 border border-white/70 shadow-sm hover:border-blue-300/40 hover:bg-white/95 hover:shadow-[0_20px_45px_rgba(59,130,246,0.08)] transition-all duration-300 group"
-            >
-              <div className="relative overflow-hidden rounded-lg w-12 h-8 mb-4 border border-slate-100 shadow-sm transition-transform duration-300 group-hover:scale-110">
-                <img 
-                  src={`https://flagcdn.com/w40/${c.code}.png`} 
-                  alt={c.name} 
-                  className="w-full h-full object-cover" 
-                />
-              </div>
-              <h3 className="font-extrabold text-slate-800 text-base mb-3 group-hover:text-blue-600 transition-colors">
-                {c.name}
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {c.types.map((t) => (
-                  <span 
-                    key={t} 
-                    className="text-[10px] bg-blue-50/60 text-blue-600 font-bold px-2.5 py-0.5 rounded-full border border-blue-100/20"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
+          {display.map((c) => {
+            const href = c.slug ? `/countries/${c.slug}` : '/countries';
+            return (
+              <Link
+                key={c._id}
+                href={href}
+                className="glass-light rounded-3xl p-6 border border-white/70 shadow-sm hover:border-blue-300/40 hover:bg-white/95 hover:shadow-[0_20px_45px_rgba(59,130,246,0.08)] transition-all duration-300 group block"
+              >
+                <div className="relative overflow-hidden rounded-lg w-12 h-8 mb-4 border border-slate-100 shadow-sm transition-transform duration-300 group-hover:scale-110">
+                  <img
+                    src={`https://flagcdn.com/w40/${c.flag}.png`}
+                    alt={c.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="font-extrabold text-slate-800 text-base mb-2 group-hover:text-blue-600 transition-colors">
+                  {c.name}
+                </h3>
+                {c.description && (
+                  <p className="text-xs text-slate-500 font-medium line-clamp-2">{c.description}</p>
+                )}
+              </Link>
+            );
+          })}
         </div>
 
-        <div className="text-center">
-          <Button 
+        <div className="text-center flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            asChild
+            variant="outline"
+            className="group border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-semibold"
+          >
+            <Link href="/countries">
+              View All Destinations
+              <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </Button>
+          <Button
             asChild
             className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xl shadow-blue-500/10 hover:shadow-blue-500/20 hover:scale-105 transition-all duration-300 border-0"
           >
