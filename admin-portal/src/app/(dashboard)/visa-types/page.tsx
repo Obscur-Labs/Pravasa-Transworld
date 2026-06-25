@@ -485,7 +485,7 @@ export default function VisaTypesPage() {
                   <h4 className="font-semibold text-slate-900 text-sm">Application Form Fields</h4>
                   <Button type="button" size="sm" variant="outline" onClick={addField}><Plus className="w-3.5 h-3.5 mr-1" />Add Field</Button>
                 </div>
-                <p className=”text-xs text-slate-400 mb-2”>Use <span className=”font-medium”>”Applies to”</span> to control which traveller type sees each field: Adult (default), Child, or Both.</p>
+                <p className={'text-xs text-slate-400 mb-2'}>Use{' '}<span className={'font-medium'}>Applies to</span>{' '}to control which traveller type sees each field: Adult (default), Child, or Both.</p>
                 <div className="space-y-3">
                   {form.formFields.map((field, i) => (
                     <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">

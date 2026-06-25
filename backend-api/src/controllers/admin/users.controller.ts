@@ -4,6 +4,7 @@ import http from 'http';
 import archiver from 'archiver';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import DocumentVault from '../../models/DocumentVault';
+import User from '../../models/User';
 import { sendSuccess, sendError } from '../../utils/response';
 
 async function fetchBuffer(url: string): Promise<Buffer> {
@@ -64,4 +65,12 @@ export const downloadUserVaultZip = async (req: AdminRequest, res: Response): Pr
 
   archive.finalize();
   await closePromise;
+};
+
+export const togglePromoApplicable = async (req: AdminRequest, res: Response): Promise<void> => {
+  const user = await User.findById(req.params.userId);
+  if (!user) { sendError(res, 'User not found', 404); return; }
+  user.promoApplicable = !user.promoApplicable;
+  await user.save();
+  sendSuccess(res, { _id: user._id, promoApplicable: user.promoApplicable });
 };

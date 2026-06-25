@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Search, ChevronRight, Users, User, Building2 } from 'lucide-react';
+import { Search, ChevronRight, Users, User, Building2, Tag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getUsers } from '@/lib/api';
+import { getUsers, toggleUserPromoApplicable } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { User as IUser } from '@/types';
 
@@ -13,6 +13,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<Tab>('individual');
+  const [toggling, setToggling] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -20,6 +21,14 @@ export default function CustomersPage() {
       .then((r) => setAllUsers(r.data.data))
       .finally(() => setLoading(false));
   }, []);
+
+  const handlePromoToggle = async (e: React.MouseEvent, u: IUser) => {
+    e.stopPropagation();
+    setToggling(u._id);
+    setAllUsers((prev) => prev.map((x) => x._id === u._id ? { ...x, promoApplicable: !x.promoApplicable } : x));
+    try { await toggleUserPromoApplicable(u._id); } catch { setAllUsers((prev) => prev.map((x) => x._id === u._id ? { ...x, promoApplicable: u.promoApplicable } : x)); }
+    setToggling(null);
+  };
 
   const users = allUsers.filter((u) => (u.accountType || 'individual') === tab);
 
@@ -112,16 +121,16 @@ export default function CustomersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {['Customer', 'Email', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Joined', 'Status', ''].map((h) => (
+              {['Customer', 'Email', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Joined', 'Status', 'Promo', ''].map((h) => (
                 <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={tab === 'corporate' ? 7 : 6} className="px-4 py-10 text-center text-slate-400">Loading...</td></tr>
+              <tr><td colSpan={tab === 'corporate' ? 8 : 7} className="px-4 py-10 text-center text-slate-400">Loading...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={tab === 'corporate' ? 7 : 6} className="px-4 py-10 text-center text-slate-400">No {tab} customers found.</td></tr>
+              <tr><td colSpan={tab === 'corporate' ? 8 : 7} className="px-4 py-10 text-center text-slate-400">No {tab} customers found.</td></tr>
             ) : (
               filtered.map((u) => (
                 <tr
@@ -147,6 +156,17 @@ export default function CustomersPage() {
                     <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={(e) => handlePromoToggle(e, u)}
+                      disabled={toggling === u._id}
+                      title={u.promoApplicable !== false ? 'Disable promos for this user' : 'Enable promos for this user'}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${u.promoApplicable !== false ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                    >
+                      <Tag className="w-3 h-3" />
+                      {u.promoApplicable !== false ? 'Eligible' : 'Blocked'}
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <ChevronRight className="w-4 h-4 text-slate-400" />

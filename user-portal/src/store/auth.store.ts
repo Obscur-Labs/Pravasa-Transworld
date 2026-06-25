@@ -9,6 +9,7 @@ interface User {
   accountType?: 'individual' | 'corporate';
   gstNumber?: string;
   profilePhoto?: string;
+  promoApplicable?: boolean;
 }
 
 interface AuthState {

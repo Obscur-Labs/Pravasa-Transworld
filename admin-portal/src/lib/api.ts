@@ -97,6 +97,17 @@ export const getUserApplications = (userId: string) => api.get(`/admin/users/${u
 export const getUserVaultDocuments = (userId: string) => api.get(`/admin/users/${userId}/vault`);
 export const downloadUserVaultZip = (userId: string) =>
   api.get(`/admin/users/${userId}/vault/zip`, { responseType: 'blob' });
+export const toggleUserPromoApplicable = (userId: string) =>
+  api.patch(`/admin/users/${userId}/promo-applicable`);
+
+// Promo Codes
+export const getPromoCodes = () => api.get('/admin/promo-codes');
+export const createPromoCode = (data: object) => api.post('/admin/promo-codes', data);
+export const updatePromoCode = (id: string, data: object) => api.put(`/admin/promo-codes/${id}`, data);
+export const deletePromoCode = (id: string) => api.delete(`/admin/promo-codes/${id}`);
+export const togglePromoActive = (id: string) => api.patch(`/admin/promo-codes/${id}/toggle`);
+export const togglePromoWebsite = (id: string) => api.patch(`/admin/promo-codes/${id}/toggle-website`);
+export const getPromoHistory = (id: string) => api.get(`/admin/promo-codes/${id}/history`);
 
 // Contact Leads
 export const getLeads = () => api.get('/admin/leads');

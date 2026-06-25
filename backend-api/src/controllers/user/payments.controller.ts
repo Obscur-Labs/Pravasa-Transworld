@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import Payment from '../../models/Payment';
 import Application from '../../models/Application';
+import PromoCode from '../../models/PromoCode';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import {
@@ -70,24 +71,48 @@ export const createPaymentOrder = async (req: AuthRequest, res: Response): Promi
   if (!application.paymentAmount || application.paymentAmount <= 0) { sendError(res, 'Invalid payment amount'); return; }
   if (!isRazorpayConfigured()) { sendError(res, 'Payment gateway is not configured. Please contact support.', 503); return; }
 
+  let billAmount = application.paymentAmount;
+  let promoId: string | undefined;
+  let discountApplied = 0;
+
+  const promoCode = req.body?.promoCode;
+  if (promoCode && req.user!.promoApplicable !== false) {
+    const now = new Date();
+    const promo = await PromoCode.findOne({
+      code: String(promoCode).toUpperCase(),
+      isDeleted: false,
+      isActive: true,
+      $or: [{ expiresAt: { $exists: false } }, { expiresAt: null }, { expiresAt: { $gt: now } }],
+    });
+    if (promo && (promo.usageLimit === undefined || promo.usageCount < promo.usageLimit)) {
+      if (promo.discountType === 'percentage') {
+        discountApplied = Math.round((billAmount * promo.discountValue) / 100);
+      } else {
+        discountApplied = Math.min(promo.discountValue, billAmount);
+      }
+      billAmount = Math.max(0, billAmount - discountApplied);
+      promoId = String(promo._id);
+    }
+  }
+
   try {
-    const order = await createRazorpayOrder(application.paymentAmount, `rcpt_${application.referenceId}`, {
+    const order = await createRazorpayOrder(billAmount, `rcpt_${application.referenceId}`, {
       applicationId: String(application._id),
       referenceId: application.referenceId,
     });
 
-    // Reuse the pending record across retries so abandoned checkouts don't pile up
     await Payment.findOneAndUpdate(
       { application: application._id, user: req.user!._id, status: 'pending', gateway: 'razorpay' },
       {
         application: application._id,
         user: req.user!._id,
-        amount: application.paymentAmount,
+        amount: billAmount,
         currency: order.currency,
         method: 'online',
         status: 'pending',
         gateway: 'razorpay',
         razorpayOrderId: order.id,
+        ...(promoId ? { promoCode: promoId, discountApplied } : {}),
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
@@ -104,6 +129,8 @@ export const createPaymentOrder = async (req: AuthRequest, res: Response): Promi
         email: req.user!.email,
         contact: (req.user as any).phone || '',
       },
+      discountApplied,
+      originalAmount: application.paymentAmount,
     });
   } catch (err) {
     console.error('Razorpay order creation failed', err);
@@ -147,6 +174,23 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
 
   application.status = 'payment_completed';
   await application.save();
+
+  if (payment.promoCode) {
+    await PromoCode.findByIdAndUpdate(payment.promoCode, {
+      $inc: { usageCount: 1 },
+      $push: {
+        usedBy: {
+          user: req.user!._id,
+          userName: req.user!.name,
+          userEmail: req.user!.email,
+          applicationId: application._id,
+          applicationRef: application.referenceId,
+          usedAt: new Date(),
+          discountApplied: payment.discountApplied || 0,
+        },
+      },
+    });
+  }
 
   const AdminNotification = (await import('../../models/AdminNotification')).default;
   const Notification = (await import('../../models/Notification')).default;

@@ -159,7 +159,42 @@ export interface User {
   accountType: 'individual' | 'corporate';
   gstNumber?: string;
   isActive: boolean;
+  promoApplicable: boolean;
   createdAt: string;
+}
+
+export type DiscountType = 'percentage' | 'fixed';
+
+export interface PromoCode {
+  _id: string;
+  code: string;
+  description: string;
+  discountType: DiscountType;
+  discountValue: number;
+  isActive: boolean;
+  showOnWebsite: boolean;
+  expiresAt?: string;
+  usageLimit?: number;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromoUsage {
+  user: string;
+  userName: string;
+  userEmail: string;
+  applicationId?: string;
+  applicationRef?: string;
+  usedAt: string;
+  discountApplied: number;
+}
+
+export interface PromoHistory {
+  code: string;
+  usageCount: number;
+  usageLimit?: number;
+  usedBy: PromoUsage[];
 }
 
 export interface Application {

@@ -14,6 +14,7 @@ import { toast } from '@/components/ui/use-toast';
 import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
   addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments,
+  validatePromoCode,
 } from '@/lib/api';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
@@ -633,6 +634,11 @@ export default function ApplyPage() {
   const [pendingCountry, setPendingCountry] = useState<Country | null>(null);
   const [showVisaOverview, setShowVisaOverview] = useState(false);
 
+  const [promoInput, setPromoInput] = useState('');
+  const [promoResult, setPromoResult] = useState<{ code: string; discount: number; finalAmount: number; discountType: string; discountValue: number } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState('');
+
   const travelers = useMemo(() => buildTravelers(adults, children), [adults, children]);
   const orderTotal = (v: VisaType) => adults * adultRate(v) + children * childRate(v);
 
@@ -781,7 +787,7 @@ export default function ApplyPage() {
 
       setSubmitStatus('Initializing secure payment…');
       localStorage.removeItem(DRAFT_KEY);
-      const orderRes = await createPaymentOrder(appId);
+      const orderRes = await createPaymentOrder(appId, promoResult?.code);
       const order = orderRes.data.data;
       await loadRazorpayScript();
 
@@ -812,6 +818,28 @@ export default function ApplyPage() {
 
   const goNext = () => setStep((s) => Math.min(s + 1, 4) as Step);
   const goBack = () => setStep((s) => Math.max(s - 1, 1) as Step);
+
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim() || !selectedVisa) return;
+    setPromoLoading(true);
+    setPromoError('');
+    setPromoResult(null);
+    try {
+      const total = orderTotal(selectedVisa);
+      const r = await validatePromoCode({ code: promoInput.trim().toUpperCase(), orderAmount: total });
+      setPromoResult(r.data.data);
+    } catch (err: any) {
+      setPromoError(err.response?.data?.message || 'Invalid promo code');
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const removePromo = () => {
+    setPromoResult(null);
+    setPromoInput('');
+    setPromoError('');
+  };
 
   const sortedFields = selectedVisa ? [...selectedVisa.formFields].sort((a, b) => a.order - b.order) : [];
   const requirements: DocumentRequirement[] = selectedVisa?.documentRequirements || [];
@@ -1325,9 +1353,58 @@ export default function ApplyPage() {
                 </div>
               </div>
 
+              {/* Promo Code — only for promoApplicable users */}
+              {user?.promoApplicable !== false && (
+                <div className="border border-violet-200 bg-violet-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Tag className="w-3 h-3" /> Promo Code
+                  </p>
+                  {promoResult ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-green-700 flex items-center gap-1.5">
+                          <Check className="w-4 h-4" />
+                          <span className="font-mono tracking-widest">{promoResult.code}</span> applied!
+                        </p>
+                        <p className="text-xs text-green-600 mt-0.5">
+                          You save {promoResult.discountType === 'percentage' ? `${promoResult.discountValue}%` : formatCurrency(promoResult.discountValue)} — {formatCurrency(promoResult.discount)} off
+                        </p>
+                      </div>
+                      <button onClick={removePromo} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                        <X className="w-3 h-3" />Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex gap-2">
+                        <input
+                          value={promoInput}
+                          onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
+                          placeholder="Enter promo code"
+                          className="flex-1 h-9 px-3 text-sm font-mono font-semibold tracking-widest uppercase rounded-lg border border-violet-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+                        />
+                        <button
+                          onClick={handleApplyPromo}
+                          disabled={promoLoading || !promoInput.trim()}
+                          className="px-4 h-9 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-lg flex items-center gap-1.5 transition-colors"
+                        >
+                          {promoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          Apply
+                        </button>
+                      </div>
+                      {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Pricing breakdown */}
               {(() => {
                 const r = rateParts(selectedVisa);
+                const base = orderTotal(selectedVisa);
+                const discount = promoResult?.discount || 0;
+                const finalTotal = promoResult ? promoResult.finalAmount : base;
                 return (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Payment Summary</p>
@@ -1354,13 +1431,24 @@ export default function ApplyPage() {
                           <span className="text-slate-600">{formatCurrency(children * r.childFee)}</span>
                         </div>
                       )}
+                      {discount > 0 && (
+                        <>
+                          <div className="flex items-center justify-between text-xs text-green-700">
+                            <span>Promo discount ({promoResult?.code})</span>
+                            <span className="font-semibold">-{formatCurrency(discount)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="border-t border-blue-200 pt-2" />
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-blue-800">Total</p>
                           {r.corp && <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Corporate</span>}
                         </div>
-                        <p className="text-2xl font-bold text-blue-900">{formatCurrency(orderTotal(selectedVisa))}</p>
+                        <div className="text-right">
+                          {discount > 0 && <p className="text-xs text-slate-400 line-through">{formatCurrency(base)}</p>}
+                          <p className="text-2xl font-bold text-blue-900">{formatCurrency(finalTotal)}</p>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-end mt-3"><CreditCard className="w-6 h-6 text-blue-400" /></div>

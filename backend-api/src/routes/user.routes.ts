@@ -6,6 +6,7 @@ import * as notifs from '../controllers/user/notifications.controller';
 import * as vault from '../controllers/user/documentVault.controller';
 import * as payments from '../controllers/user/payments.controller';
 import * as profile from '../controllers/user/profile.controller';
+import * as promos from '../controllers/user/promoCodes.controller';
 
 const router = Router();
 router.use(protect);
@@ -36,6 +37,9 @@ router.get('/vault', vault.getVaultDocuments);
 router.get('/vault/:id/url', vault.getVaultDocumentUrl);   // signed view URL
 router.post('/vault', upload.single('file'), vault.uploadVaultDocument);
 router.delete('/vault/:id', vault.deleteVaultDocument);
+
+// Promo Codes
+router.post('/promo/validate', promos.validatePromoCode);
 
 // Payment History
 router.get('/payments', payments.getUserPayments);

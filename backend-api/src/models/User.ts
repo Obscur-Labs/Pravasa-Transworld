@@ -9,6 +9,7 @@ export interface IUser extends Document {
   profilePhoto: string;
   profilePhotoPublicId: string;
   isActive: boolean;
+  promoApplicable: boolean;
   createdAt: Date;
 }
 
@@ -22,6 +23,7 @@ const UserSchema = new Schema<IUser>(
     profilePhoto: { type: String, default: '' },
     profilePhotoPublicId: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    promoApplicable: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

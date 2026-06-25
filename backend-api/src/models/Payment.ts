@@ -15,6 +15,8 @@ export interface IPayment extends Document {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
+  promoCode?: mongoose.Types.ObjectId;
+  discountApplied?: number;
   markedByAdmin: boolean;
   adminNote: string;
   receiptUrl: string;
@@ -35,6 +37,8 @@ const PaymentSchema = new Schema<IPayment>(
     razorpayOrderId: { type: String, default: '', index: true },
     razorpayPaymentId: { type: String, default: '' },
     razorpaySignature: { type: String, default: '' },
+    promoCode: { type: Schema.Types.ObjectId, ref: 'PromoCode' },
+    discountApplied: { type: Number, default: 0 },
     markedByAdmin: { type: Boolean, default: false },
     adminNote: { type: String, default: '' },
     receiptUrl: { type: String, default: '' },

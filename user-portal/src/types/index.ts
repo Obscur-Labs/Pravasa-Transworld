@@ -158,3 +158,13 @@ export interface VisaFile {
   _id: string;
   url: string;
 }
+
+export interface PromoCode {
+  _id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  isActive: boolean;
+  showOnWebsite: boolean;
+}

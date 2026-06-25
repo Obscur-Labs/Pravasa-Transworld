@@ -9,6 +9,7 @@ import * as notifications from '../controllers/admin/notifications.controller';
 import * as users from '../controllers/admin/users.controller';
 import * as formPresets from '../controllers/admin/formPresets.controller';
 import * as trash from '../controllers/admin/trash.controller';
+import * as promoCodes from '../controllers/admin/promoCodes.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -61,6 +62,14 @@ router.get('/users', apps.getUsers);
 router.get('/users/:userId/applications', apps.getUserApplications);
 router.get('/users/:userId/vault', users.getUserVaultDocuments);
 router.get('/users/:userId/vault/zip', users.downloadUserVaultZip);
+router.patch('/users/:userId/promo-applicable', users.togglePromoApplicable);
+
+// Promo Codes
+router.route('/promo-codes').get(promoCodes.getPromoCodes).post(promoCodes.createPromoCode);
+router.route('/promo-codes/:id').put(promoCodes.updatePromoCode).delete(promoCodes.deletePromoCode);
+router.patch('/promo-codes/:id/toggle', promoCodes.togglePromoActive);
+router.patch('/promo-codes/:id/toggle-website', promoCodes.togglePromoWebsite);
+router.get('/promo-codes/:id/history', promoCodes.getPromoHistory);
 
 // Contact Leads
 router.get('/leads', leads.getLeads);

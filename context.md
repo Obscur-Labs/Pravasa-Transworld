@@ -113,6 +113,12 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET | `/users/:userId/applications` | Applications for a specific user |
 | GET | `/users/:userId/vault` | A user's vault documents |
 | GET | `/users/:userId/vault/zip` | Download a user's vault as ZIP |
+| PATCH | `/users/:userId/promo-applicable` | Toggle `promoApplicable` flag for a user |
+| GET/POST | `/promo-codes` | List all / create promo code |
+| PUT/DELETE | `/promo-codes/:id` | Update / soft-delete promo code |
+| PATCH | `/promo-codes/:id/toggle` | Toggle `isActive` |
+| PATCH | `/promo-codes/:id/toggle-website` | Toggle `showOnWebsite` |
+| GET | `/promo-codes/:id/history` | Usage history for a promo code |
 | GET | `/leads` | Contact form leads |
 | PATCH | `/leads/:id/read` | Mark lead as read |
 | DELETE | `/leads/:id` | Delete a lead |
@@ -131,7 +137,7 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET | `/applications/:id` | Application detail |
 | POST | `/applications/:id/documents` | Upload document (Multer → Cloudinary) |
 | POST | `/applications/:id/documents/from-vault` | Attach vault document to application |
-| POST | `/applications/:id/payment/order` | Create Razorpay order |
+| POST | `/applications/:id/payment/order` | Create Razorpay order (accepts optional `promoCode` body param) |
 | POST | `/applications/:id/payment/verify` | Verify payment signature |
 | GET/POST | `/vault` | List / upload vault documents |
 | GET | `/vault/:id/url` | Signed view URL for a vault document |
@@ -146,6 +152,7 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET/PUT | `/profile` | Get / update profile |
 | POST | `/profile/photo` | Upload profile photo |
 | POST | `/ocr/passport` | OCR scan a passport image |
+| POST | `/promo/validate` | Validate a promo code — checks promoApplicable, active/expiry/limit, returns discount preview |
 
 #### Public Routes (`/api/public`)
 Unauthenticated routes for the landing page, country pages, and contact form.
@@ -156,6 +163,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 | GET | `/countries/:slug` | Country detail + active visa types (by slug) |
 | GET | `/visa-types` | Active visa types (optional `?country=id` filter) |
 | POST | `/contact` | Submit contact form lead |
+| GET | `/promos` | Active + `showOnWebsite: true` promo codes (for homepage popup) |
 
 > **Key distinction — `showOnWebsite` vs `isActive`:**
 > - `isActive` controls whether a country is usable **anywhere** (apply form, admin, public).
@@ -177,6 +185,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   profilePhoto: string        // Cloudinary URL, default ''
   profilePhotoPublicId: string // Cloudinary public ID for deletion, default ''
   isActive: boolean           // default true
+  promoApplicable: boolean    // default true — admin can disable to block promo access per-user
   createdAt: Date
   updatedAt: Date
 }
@@ -371,6 +380,44 @@ Unauthenticated routes for the landing page, country pages, and contact form.
 }
 ```
 
+### PromoCode
+```typescript
+{
+  code: string                // uppercase alphanumeric, unique (e.g. 'SAVE20', 'VISA2024')
+  description: string         // user-visible description shown in popup and checkout
+  discountType: 'percentage' | 'fixed'
+  discountValue: number       // % for percentage, flat amount for fixed
+  isActive: boolean           // default true — only active codes can be applied
+  showOnWebsite: boolean      // default false — triggers homepage popup after 5s when true
+  expiresAt?: Date            // optional expiry; expired codes are rejected at validation
+  usageLimit?: number         // optional max uses; undefined = unlimited
+  usageCount: number          // auto-incremented on successful payment
+  usedBy: [{                  // history of each use
+    user: ObjectId            // ref User
+    userName: string
+    userEmail: string
+    applicationId?: ObjectId  // ref Application
+    applicationRef?: string   // PRS-IND-4827 style
+    usedAt: Date
+    discountApplied: number   // actual cash discount received
+  }]
+  isDeleted: boolean          // soft delete
+  deletedAt?: Date
+}
+```
+
+**Promo eligibility:** `User.promoApplicable` is the per-user gate. Admin can disable it for any user from the Customers page; if false, the promo field is hidden in apply step 4 and the validate endpoint returns 403.
+
+**Discount calculation:**
+- `percentage`: `discount = round(orderAmount * value / 100)`
+- `fixed`: `discount = min(value, orderAmount)` (never exceeds the order total)
+- `finalAmount = max(0, orderAmount - discount)`
+
+**Promo lifecycle:**
+1. `POST /user/promo/validate` — validates code, checks promoApplicable, active/expired/limit, returns discount preview
+2. `POST /user/applications/:id/payment/order` — accepts optional `promoCode` in body, re-validates, creates Razorpay order with discounted amount, stores `promoCode` + `discountApplied` in pending Payment record
+3. `POST /user/applications/:id/payment/verify` — on successful payment, calls `PromoCode.findByIdAndUpdate` to increment `usageCount` and push to `usedBy[]`
+
 ---
 
 ## Application Status Flow
@@ -533,12 +580,13 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 **Landing page components:**
 - `CountriesSlider` — `GET /public/countries` (showOnWebsite only). Cards link to `/countries/[slug]`. "Browse All Destinations" → `/countries`.
 - `CountriesSection` — same API + fallback to hardcoded list if empty.
+- `PromoPopup` — client component. Fetches `GET /public/promos` on mount; if any active `showOnWebsite` promos exist, shows a sliding bottom-right popup after 5 seconds with code + copy button. Dismissed for the session via `sessionStorage`. Multiple promos show dot navigation.
 
 **Dashboard pages:**
 | Route | Description |
 |---|---|
 | `/dashboard` | Stats + recent applications |
-| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 3 renders one upload slot per document requirement per traveller — **single file per field, no dual-upload**. Field/doc visibility controlled by `applicantType` (adult/child/both). No `PassportScanCard`; OCR runs server-side on upload for passport docTypes. |
+| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 3 renders one upload slot per document requirement per traveller — **single file per field, no dual-upload**. Field/doc visibility controlled by `applicantType` (adult/child/both). No `PassportScanCard`; OCR runs server-side on upload for passport docTypes. Step 4 (Review & Pay) shows a promo code input for users with `promoApplicable: true`; validated discounts update the price display and are passed to the payment order. |
 | `/applications` | Application list |
 | `/applications/[id]` | Application detail with document upload and payment |
 | `/my-visas` | Approved/delivered visas |
@@ -578,6 +626,8 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 
 ### Admin Portal (`admin-portal/`) — Next.js 15 App Router, port 3001
 
+**Auth redirect:** Login and register pages check `localStorage` for the token on mount. If found, `router.replace('/dashboard')` immediately (no flash of form). Admin portal checks `adminToken`; user portal checks `token`.
+
 **Routes:**
 - `/login` — email + password form
 - `/dashboard` — live stats
@@ -586,7 +636,8 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 - `/countries` — country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
 - `/countries/[id]/content` — country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
 - `/visa-types` — visa type management including corporate price field
-- `/users` — customer list; `/users/[id]` — customer detail
+- `/users` — customer list with inline Promo Eligible/Blocked toggle per user (calls `PATCH /admin/users/:id/promo-applicable`)
+- `/promo-codes` — full CRUD for promo codes (code, description, discount type/value, active toggle, show-on-website toggle, expiry date, usage limit, trash). Right-slide history drawer shows per-use breakdown (user, email, discount applied, date, application reference)
 - `/leads` — contact form submissions
 - `/notifications` — admin notifications
 

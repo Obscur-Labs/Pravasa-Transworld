@@ -125,7 +125,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   }
 
   const token = signToken(String(user._id));
-  sendSuccess(res, { token, user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, accountType: user.accountType, gstNumber: user.gstNumber } }, 'Login successful');
+  sendSuccess(res, { token, user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, accountType: user.accountType, gstNumber: user.gstNumber, promoApplicable: user.promoApplicable !== false } }, 'Login successful');
 };
 
 export const sendAdminOtp = async (req: Request, res: Response): Promise<void> => {

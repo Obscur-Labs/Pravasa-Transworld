@@ -8,11 +8,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { getFormPresets, createFormPreset, updateFormPreset, deleteFormPreset } from '@/lib/api';
 import { DOC_TYPE_OPTIONS } from '@/types';
-import type { FormField, DocumentRequirement, FieldType, FormPreset, DocumentType } from '@/types';
+import type { FormField, DocumentRequirement, FieldType, FormPreset, DocumentType, ApplicantType } from '@/types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
-const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, childOnly: false });
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, docType: 'custom' });
+const APPLICANT_OPTS: { value: ApplicantType; label: string; active: string }[] = [
+  { value: 'adult', label: 'Adult', active: 'bg-blue-600 text-white' },
+  { value: 'both', label: 'Both', active: 'bg-violet-600 text-white' },
+  { value: 'child', label: 'Child', active: 'bg-emerald-600 text-white' },
+];
+const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom' });
 
 function OptionListEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
   const [draft, setDraft] = useState('');
@@ -177,6 +182,7 @@ export default function FormConfigPage() {
                   <Button type="button" size="sm" variant="outline" onClick={addField}><Plus className="w-3.5 h-3.5 mr-1" />Add Field</Button>
                 </div>
                 {form.formFields.length === 0 && <p className="text-xs text-slate-400 mb-2">No fields yet. Add the fields applicants should fill.</p>}
+                {form.formFields.length > 0 && <p className="text-xs text-slate-400 mb-2">Use <span className="font-medium">Applies to</span> to control which traveller type sees each field: Adult (default), Child, or Both.</p>}
                 <div className="space-y-3">
                   {form.formFields.map((field, i) => (
                     <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -200,15 +206,23 @@ export default function FormConfigPage() {
                           <Input className="mt-0.5 h-8 text-xs" placeholder="Hint text" value={field.placeholder} onChange={(e) => updateField(i, 'placeholder', e.target.value)} />
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
                         <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                           <input type="checkbox" checked={field.required} onChange={(e) => updateField(i, 'required', e.target.checked)} className="rounded" />
                           Required
                         </label>
-                        <label className="flex items-center gap-1.5 text-xs text-emerald-700 cursor-pointer">
-                          <input type="checkbox" checked={!!field.childOnly} onChange={(e) => updateField(i, 'childOnly', e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500" />
-                          Children only
-                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-500">Applies to:</span>
+                          <div className="flex rounded-md border border-slate-200 overflow-hidden text-[11px] font-semibold">
+                            {APPLICANT_OPTS.map((opt) => (
+                              <button key={opt.value} type="button"
+                                onClick={() => updateField(i, 'applicantType', opt.value)}
+                                className={`px-2.5 py-1 transition-colors ${(field.applicantType || 'adult') === opt.value ? opt.active : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <button type="button" onClick={() => removeField(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                       {(field.type === 'select' || field.type === 'radio') && (
@@ -250,15 +264,23 @@ export default function FormConfigPage() {
                           <Input className="mt-0.5 h-8 text-xs" placeholder="Optional" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
                         <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                           <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} className="rounded" />
                           Required
                         </label>
-                        <label className="flex items-center gap-1.5 text-xs text-emerald-700 cursor-pointer">
-                          <input type="checkbox" checked={!!doc.childOnly} onChange={(e) => updateDocReq(i, 'childOnly', e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500" />
-                          Children only
-                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-500">Applies to:</span>
+                          <div className="flex rounded-md border border-slate-200 overflow-hidden text-[11px] font-semibold">
+                            {APPLICANT_OPTS.map((opt) => (
+                              <button key={opt.value} type="button"
+                                onClick={() => updateDocReq(i, 'applicantType', opt.value)}
+                                className={`px-2.5 py-1 transition-colors ${(doc.applicantType || 'adult') === opt.value ? opt.active : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         {typeOpt?.extracts && (
                           <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Auto-extracts details</span>
                         )}

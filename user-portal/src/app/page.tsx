@@ -9,6 +9,7 @@ import Testimonials from '@/components/landing/Testimonials';
 import FAQ from '@/components/landing/FAQ';
 import ContactSection from '@/components/landing/ContactSection';
 import { JsonLd } from '@/components/seo/JsonLd';
+import PromoPopup from '@/components/landing/PromoPopup';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
@@ -97,6 +98,7 @@ export default function LandingPage() {
       <FAQ />
       <ContactSection />
       <Footer />
+      <PromoPopup />
     </div>
   );
 }

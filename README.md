@@ -32,10 +32,14 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 
 ### For Applicants
 - Passwordless login via 6-digit email OTP (separate register and login flows)
+- **Auth redirect** — login/register pages auto-redirect to dashboard if already logged in
 - Browse countries and available visa types
 - **Corporate pricing** — corporate accounts see their dedicated rate with the regular price struck-through
+- **Promo codes** — eligible users see a promo code field in the Review & Pay step; validates live with discount preview
+- **Promo popup** — homepage shows an auto-dismissing bottom-right popup with active promo codes after 5 seconds (copy button included)
 - Fill dynamic application forms (configured per visa type by admin)
-- Upload required documents; auto-filled from personal document vault where possible
+- Per-field **applicant type** — form fields and doc requirements can be scoped to adults, children, or both
+- Upload required documents; auto-filled from personal document vault where possible; one file per field
 - Real-time 10-stage status timeline
 - In-app notifications (bell dropdown with "View all" link) + email alerts at every status change
 - Personal document vault with OCR data extraction
@@ -48,13 +52,15 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Secure email + password console
 - Dashboard with live application stats
 - Full country and visa type management (including ISO country codes and corporate pricing)
-- No-code dynamic form builder — define custom fields per visa type
+- No-code dynamic form builder — define custom fields per visa type; adult/child/both applicant type per field
+- OCR-only doc types (passport_front, passport_back); OCR runs server-side automatically
 - Per-document review with approve/reject + reason
 - Bulk document approval
 - Manual payment override
 - Upload final visa PDF (Cloudinary delivery)
 - Contact lead management
-- Customer management with vault and application history
+- **Customer management** — inline Promo Eligible/Blocked toggle per customer from the Customers table
+- **Promo Code management** — full CRUD with active/inactive toggle, show-on-website toggle, expiry date, usage limit; right-slide usage history drawer per code
 
 ---
 
