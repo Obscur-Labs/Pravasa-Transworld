@@ -138,9 +138,10 @@ Extract the following from the FRONT page and return ONLY a JSON object (no expl
   "givenNames": "given/first/middle name(s) in CAPITAL LETTERS, English only, letters and spaces only",
   "nationality": "as printed in English (e.g. INDIAN)",
   "dateOfBirth": "DD/MM/YYYY — verify against MRZ",
-  "sex": "Male or Female",
-  "placeOfBirth": "city name in English",
-  "placeOfIssue": "city name in English",
+  "sex": "MALE or FEMALE",
+  "placeOfBirthCity": "city of birth in CAPITAL LETTERS (e.g. MUMBAI)",
+  "placeOfBirthState": "state of birth in CAPITAL LETTERS (e.g. MAHARASHTRA) — look for the state printed alongside the city",
+  "placeOfIssue": "city name in CAPITAL LETTERS",
   "dateOfIssue": "DD/MM/YYYY",
   "dateOfExpiry": "DD/MM/YYYY — verify against MRZ",
   "rawText": "all readable English text including both MRZ lines"
@@ -159,7 +160,7 @@ Extract the following from the BACK page and return ONLY a JSON object (no expla
   "fatherName": "father/legal guardian full name — CAPITAL LETTERS, English only, letters and spaces only",
   "motherName": "mother full name — CAPITAL LETTERS, English only, letters and spaces only",
   "spouseName": "spouse name if present — CAPITAL LETTERS, English only, letters and spaces only; omit if not present",
-  "address": "full residential address exactly as printed in English",
+  "address": "full residential address exactly as printed in English, in CAPITAL LETTERS",
   "rawText": "all readable English text from this page"
 }`;
 
@@ -177,36 +178,33 @@ export async function extractPassport(buffer: Buffer, side: 'front' | 'back'): P
   if (side === 'front') {
     if (str(json.passportNo)) fields['Passport No.'] = json.passportNo.trim().toUpperCase();
     const surname = str(json.surname) ? cleanPassportName(json.surname) : '';
-    if (surname) fields['Surname'] = titleCase(surname);
+    if (surname) fields['Surname'] = surname.toUpperCase();
     const givenNames = str(json.givenNames) ? cleanPassportName(json.givenNames) : '';
-    if (givenNames) fields['Given Name(s)'] = titleCase(givenNames);
-    if (str(json.nationality)) fields['Nationality'] = titleCase(json.nationality);
+    if (givenNames) fields['Given Name(s)'] = givenNames.toUpperCase();
+    if (str(json.nationality)) fields['Nationality'] = json.nationality.trim().toUpperCase();
     if (str(json.dateOfBirth)) fields['Date of Birth'] = json.dateOfBirth.trim();
     if (str(json.sex)) fields['Sex'] = normalizeSex(json.sex);
-    if (str(json.placeOfBirth)) fields['Place of Birth'] = titleCase(json.placeOfBirth);
-    if (str(json.placeOfIssue)) fields['Place of Issue'] = titleCase(json.placeOfIssue);
+    if (str(json.placeOfBirthCity)) fields['Place of Birth (City)'] = json.placeOfBirthCity.trim().toUpperCase();
+    if (str(json.placeOfBirthState)) fields['Place of Birth (State)'] = json.placeOfBirthState.trim().toUpperCase();
+    if (str(json.placeOfIssue)) fields['Place of Issue'] = json.placeOfIssue.trim().toUpperCase();
     if (str(json.dateOfIssue)) fields['Date of Issue'] = json.dateOfIssue.trim();
     if (str(json.dateOfExpiry)) fields['Date of Expiry'] = json.dateOfExpiry.trim();
   } else {
     const fatherName = str(json.fatherName) ? cleanPassportName(json.fatherName) : '';
-    if (fatherName) fields['Father / Legal Guardian'] = titleCase(fatherName);
+    if (fatherName) fields['Father / Legal Guardian'] = fatherName.toUpperCase();
     const motherName = str(json.motherName) ? cleanPassportName(json.motherName) : '';
-    if (motherName) fields['Mother'] = titleCase(motherName);
+    if (motherName) fields['Mother'] = motherName.toUpperCase();
     const spouseName = str(json.spouseName) ? cleanPassportName(json.spouseName) : '';
-    if (spouseName) fields['Spouse'] = titleCase(spouseName);
-    if (str(json.address)) fields['Address'] = json.address.trim();
+    if (spouseName) fields['Spouse'] = spouseName.toUpperCase();
+    if (str(json.address)) fields['Address'] = json.address.trim().toUpperCase();
   }
 
   const rawText = str(json.rawText) || raw;
   return { fields, rawText, confidence: confidenceFromFields(fields) };
 }
 
-function titleCase(s: string): string {
-  return s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\s+/g, ' ');
-}
-
 function normalizeSex(s: string): string {
-  return /^m/i.test(s.trim()) ? 'Male' : 'Female';
+  return /^m/i.test(s.trim()) ? 'MALE' : 'FEMALE';
 }
 
 // Strips artifacts that commonly appear in Indian passport OCR:

@@ -5,7 +5,7 @@ import { scanPassport } from '@/lib/api';
 
 export const PASSPORT_FRONT_FIELDS = [
   'Passport No.', 'Surname', 'Given Name(s)', 'Nationality', 'Date of Birth',
-  'Sex', 'Place of Birth', 'Place of Issue', 'Date of Issue', 'Date of Expiry',
+  'Sex', 'Place of Birth (City)', 'Place of Birth (State)', 'Place of Issue', 'Date of Issue', 'Date of Expiry',
 ];
 export const PASSPORT_BACK_FIELDS = ['Father / Legal Guardian', 'Mother', 'Spouse', 'Address'];
 export const PASSPORT_FIELDS = [...PASSPORT_FRONT_FIELDS, ...PASSPORT_BACK_FIELDS];
