@@ -114,6 +114,7 @@ export interface DocumentRequirement {
   required: boolean;
   applicantType?: ApplicantType;
   docType?: string;
+  ocrEnabled?: boolean;
 }
 
 export interface Application {

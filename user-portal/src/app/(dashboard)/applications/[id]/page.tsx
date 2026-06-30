@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -41,6 +41,15 @@ function getVaultType(reqName: string): string | null {
   return null;
 }
 
+function getTravelerLabel(name: string): string {
+  const m = name.match(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i);
+  return m ? m[1] : '';
+}
+
+function stripTravelerPrefix(name: string): string {
+  return name.replace(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i, '');
+}
+
 const docStatusIcon = (status: string) => {
   if (status === 'approved') return <CheckCircle2 className="w-4 h-4 text-green-500" />;
   if (status === 'rejected') return <XCircle className="w-4 h-4 text-red-500" />;
@@ -58,11 +67,10 @@ function triggerFileUpload(onFile: (file: File) => void) {
   input.click();
 }
 
-// Renders the details we read automatically from an uploaded document (e.g. passport OCR).
 function ExtractedDetails({ data }: { data?: Record<string, string> }) {
   if (!data || Object.keys(data).length === 0) return null;
   return (
-    <div className="mt-2.5 ml-7 p-3 bg-blue-50/60 rounded-lg border border-blue-100">
+    <div className="mx-3.5 mb-3.5 p-3 bg-blue-50/60 rounded-lg border border-blue-100">
       <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wide mb-2">We read these details from your document</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
         {Object.entries(data).map(([k, v]) => (
@@ -88,10 +96,11 @@ export default function ApplicationDetailPage() {
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
 
-  // Extra doc upload
   const [extraDocName, setExtraDocName] = useState('');
   const [showExtraUpload, setShowExtraUpload] = useState(false);
   const [extraVaultOpen, setExtraVaultOpen] = useState(false);
+
+  const [activeTravelerTab, setActiveTravelerTab] = useState('');
 
   const fetchData = async () => {
     try {
@@ -108,6 +117,54 @@ export default function ApplicationDetailPage() {
     fetchData();
     getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
   }, [id]);
+
+  // Sorted traveller tabs derived from uploaded docs + form response keys
+  const travelerTabs = useMemo(() => {
+    const set = new Set<string>();
+    for (const doc of documents) {
+      const t = getTravelerLabel(doc.requirementName);
+      if (t) set.add(t);
+    }
+    for (const k of Object.keys(application?.formResponses || {})) {
+      const t = getTravelerLabel(k);
+      if (t) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => {
+      const aAdult = a.toLowerCase().startsWith('adult');
+      const bAdult = b.toLowerCase().startsWith('adult');
+      if (aAdult !== bAdult) return aAdult ? -1 : 1;
+      const aNum = parseInt(a.match(/\d+/)?.[0] || '0');
+      const bNum = parseInt(b.match(/\d+/)?.[0] || '0');
+      return aNum - bNum;
+    });
+  }, [documents, application]);
+
+  useEffect(() => {
+    if (travelerTabs.length > 0 && !travelerTabs.includes(activeTravelerTab)) {
+      setActiveTravelerTab(travelerTabs[0]);
+    }
+  }, [travelerTabs.join(',')]);
+
+  const activeTravelerDocs = documents.filter((d) => getTravelerLabel(d.requirementName) === activeTravelerTab);
+  const nonTravelerDocs = documents.filter((d) => !getTravelerLabel(d.requirementName));
+
+  const activeTravelerResponses = useMemo(() => {
+    if (!application) return {} as Record<string, string>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(application.formResponses)) {
+      if (getTravelerLabel(k) === activeTravelerTab) out[stripTravelerPrefix(k)] = v;
+    }
+    return out;
+  }, [application, activeTravelerTab]);
+
+  const generalResponses = useMemo(() => {
+    if (!application) return {} as Record<string, string>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(application.formResponses)) {
+      if (!getTravelerLabel(k)) out[k] = v;
+    }
+    return out;
+  }, [application]);
 
   const handleUpload = async (file: File, requirementName: string) => {
     setUploading(requirementName);
@@ -169,10 +226,11 @@ export default function ApplicationDetailPage() {
   if (loading) return <div className="p-6 text-center text-slate-400">Loading application...</div>;
   if (!application) return <div className="p-6 text-center text-slate-400">Application not found.</div>;
 
-  const docMap = Object.fromEntries(documents.map((d) => [d.requirementName, d]));
   const canUploadDocs = ['payment_completed', 'documents_under_review'].includes(application.status);
   const requirements: DocumentRequirement[] = application.visaType?.documentRequirements || [];
-  const extraDocs = documents.filter((d) => !requirements.some((r) => r.name === d.requirementName));
+
+  // Use traveller tabs when docs/responses have traveller prefixes; otherwise fall back to requirements
+  const hasTravelerData = travelerTabs.length > 0;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -187,7 +245,6 @@ export default function ApplicationDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
         <div className="lg:col-span-2 space-y-5">
 
           {/* Application Info */}
@@ -227,7 +284,7 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Awaiting payment (fresh submission or admin-requested) */}
+          {/* Awaiting payment */}
           {['submitted', 'payment_pending'].includes(application.status) && (
             <Card className="border-blue-200 bg-blue-50">
               <CardContent className="p-5">
@@ -277,7 +334,7 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Visa Submission — embassy details shared by our team during processing */}
+          {/* Visa Submission — embassy details */}
           {['visa_processing', 'embassy_review'].includes(application.status) &&
             (application.processingReferenceNumber || application.embassyName || application.submissionDate) && (
             <Card className="border-blue-200 bg-blue-50">
@@ -310,210 +367,82 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Documents Section */}
-          {(canUploadDocs || documents.length > 0) && (
+          {/* ── Traveller-tabbed documents + responses ── */}
+          {hasTravelerData && (
             <Card>
               <div className="p-5 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-slate-900">Documents</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {canUploadDocs ? 'Upload or import required documents.' : 'Documents submitted for this application.'}
+                    {canUploadDocs ? 'Upload or replace documents for each traveller.' : 'Documents submitted for this application.'}
                   </p>
                 </div>
                 <Badge variant="secondary">{documents.length} uploaded</Badge>
               </div>
 
-              <CardContent className="p-0">
-                {requirements.length > 0 ? (
-                  <div className="divide-y divide-slate-100">
-                    {requirements.map((req) => {
-                      const doc = docMap[req.name];
-                      const isUploading = uploading === req.name;
-                      const pickerOpen = vaultPickerFor === req.name;
-                      const suggestedType = getVaultType(req.name);
-                      const suggested = suggestedType ? vaultDocs.filter((v) => v.type === suggestedType) : [];
-                      const others = vaultDocs.filter((v) => !suggested.includes(v));
+              {/* Traveller tabs */}
+              <div className="flex gap-1 px-5 pt-3 border-b border-slate-100 overflow-x-auto">
+                {travelerTabs.map((tab) => {
+                  const isChild = tab.toLowerCase().startsWith('child');
+                  const tabDocCount = documents.filter((d) => getTravelerLabel(d.requirementName) === tab).length;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTravelerTab(tab)}
+                      className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                        activeTravelerTab === tab
+                          ? isChild
+                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50'
+                            : 'border-blue-500 text-blue-700 bg-blue-50'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {tab}
+                      {tabDocCount > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          activeTravelerTab === tab
+                            ? isChild ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                            : 'bg-slate-200 text-slate-500'
+                        }`}>{tabDocCount}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-                      return (
-                        <div key={req._id || req.name}>
-                          <div className="p-4 flex items-center justify-between gap-4">
-                            {/* Doc info */}
-                            <div className="flex items-start gap-3 flex-1 min-w-0">
-                              <div className="mt-0.5 flex-shrink-0">
-                                {doc ? docStatusIcon(doc.status) : <div className="w-4 h-4 rounded-full border-2 border-slate-300" />}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-slate-900">
-                                  {req.name}
-                                  {req.required && <span className="text-red-400 ml-1">*</span>}
-                                </p>
-                                {req.description && <p className="text-xs text-slate-400">{req.description}</p>}
-                                {doc?.status === 'rejected' && doc.rejectionReason && (
-                                  <p className="text-xs text-red-500 mt-1">Reason: {doc.rejectionReason}</p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {doc?.status === 'approved' ? (
-                                <Badge variant="success">Approved</Badge>
-                              ) : canUploadDocs ? (
-                                isUploading ? (
-                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1.5">
-                                    {/* Import from Vault */}
-                                    <button
-                                      onClick={() => setVaultPickerFor(pickerOpen ? null : req.name)}
-                                      className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
-                                        pickerOpen
-                                          ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
-                                      }`}
-                                    >
-                                      <Archive className="w-3.5 h-3.5" />
-                                      From Vault
-                                      <ChevronDown className={`w-3 h-3 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    {/* Upload New */}
-                                    <button
-                                      onClick={() => triggerFileUpload((file) => handleUpload(file, req.name))}
-                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
-                                    >
-                                      <Upload className="w-3.5 h-3.5" />
-                                      {doc ? 'Replace' : 'Upload New'}
-                                    </button>
-                                  </div>
-                                )
-                              ) : doc ? (
-                                <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
-                                  {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">Not Uploaded</Badge>
+              <CardContent className="p-5 space-y-5">
+                {/* Docs for active traveller */}
+                {activeTravelerDocs.length > 0 ? (
+                  <div className="space-y-3">
+                    {activeTravelerDocs.map((doc) => (
+                      <div key={doc._id} className={`rounded-xl border overflow-hidden ${
+                        doc.status === 'approved' ? 'border-green-200 bg-green-50/30' :
+                        doc.status === 'rejected' ? 'border-red-200 bg-red-50/30' : 'border-slate-200'
+                      }`}>
+                        <div className="p-3.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            {docStatusIcon(doc.status)}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-900 truncate">{stripTravelerPrefix(doc.requirementName)}</p>
+                              {doc.status === 'rejected' && doc.rejectionReason && (
+                                <p className="text-xs text-red-500 mt-0.5">Reason: {doc.rejectionReason}</p>
                               )}
                             </div>
-                          </div>
-
-                          {/* Inline Vault Picker */}
-                          {pickerOpen && (
-                            <div className="mx-4 mb-4 rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
-                              <div className="flex items-center justify-between px-4 py-2.5 border-b border-purple-200 bg-purple-100/60">
-                                <p className="text-xs font-semibold text-purple-800 flex items-center gap-1.5">
-                                  <Archive className="w-3.5 h-3.5" /> Select from Document Vault
-                                </p>
-                                <button onClick={() => setVaultPickerFor(null)} className="text-purple-400 hover:text-purple-700">
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              {vaultDocs.length === 0 ? (
-                                <p className="text-xs text-slate-500 text-center py-4">No documents in vault.</p>
-                              ) : (
-                                <div className="divide-y divide-purple-100 max-h-56 overflow-y-auto">
-                                  {/* Suggested (matched) docs first */}
-                                  {suggested.length > 0 && (
-                                    <>
-                                      <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide px-4 pt-2.5 pb-1">
-                                        Suggested for "{req.name}"
-                                      </p>
-                                      {suggested.map((vd) => (
-                                        <button
-                                          key={vd._id}
-                                          onClick={() => handleVaultImport(vd, req.name)}
-                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left"
-                                        >
-                                          <div className="flex items-center gap-2.5 min-w-0">
-                                            <div className="w-7 h-7 rounded-lg bg-purple-200 flex items-center justify-center flex-shrink-0">
-                                              <FileText className="w-3.5 h-3.5 text-purple-700" />
-                                            </div>
-                                            <div className="min-w-0">
-                                              <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
-                                              <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
-                                            </div>
-                                          </div>
-                                          <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                                            Use this
-                                          </span>
-                                        </button>
-                                      ))}
-                                    </>
-                                  )}
-
-                                  {/* Other vault docs */}
-                                  {others.length > 0 && (
-                                    <>
-                                      {suggested.length > 0 && (
-                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-2.5 pb-1">
-                                          Other Documents
-                                        </p>
-                                      )}
-                                      {others.map((vd) => (
-                                        <button
-                                          key={vd._id}
-                                          onClick={() => handleVaultImport(vd, req.name)}
-                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left"
-                                        >
-                                          <div className="flex items-center gap-2.5 min-w-0">
-                                            <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
-                                              <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                            </div>
-                                            <div className="min-w-0">
-                                              <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
-                                              <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
-                                            </div>
-                                          </div>
-                                          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                                            Use this
-                                          </span>
-                                        </button>
-                                      ))}
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-5 py-4 flex items-start gap-3 bg-slate-50 border-b border-slate-100">
-                    <FileText className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-slate-500">
-                      No specific document requirements for this visa type.
-                      {canUploadDocs && ' You can upload any supporting documents below.'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Extra uploaded docs */}
-                {extraDocs.length > 0 && (
-                  <div className="border-t border-slate-100">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 pt-3 pb-1">Additional Documents</p>
-                    {extraDocs.map((doc) => (
-                      <div key={doc._id} className="px-4 py-3 border-b border-slate-50">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex-shrink-0">{docStatusIcon(doc.status)}</div>
-                            <p className="text-sm font-medium text-slate-900 truncate">{doc.requirementName}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {doc.status === 'approved' ? (
                               <Badge variant="success">Approved</Badge>
                             ) : canUploadDocs ? (
                               uploading === doc.requirementName ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                                </div>
                               ) : (
                                 <button
                                   onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
-                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
                                 >
-                                  <Upload className="w-3.5 h-3.5" /> Replace
+                                  <Upload className="w-3.5 h-3.5" /> Replace file
                                 </button>
                               )
                             ) : (
@@ -527,11 +456,28 @@ export default function ApplicationDetailPage() {
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-4">No documents uploaded for {activeTravelerTab} yet.</p>
                 )}
 
-                {/* Add extra document */}
+                {/* Form responses for active traveller */}
+                {Object.keys(activeTravelerResponses).length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Object.entries(activeTravelerResponses).map(([k, v]) => (
+                        <div key={k}>
+                          <p className="text-xs text-slate-400">{k}</p>
+                          <p className="text-sm font-medium text-slate-900 mt-0.5">{String(v)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add additional document */}
                 {canUploadDocs && (
-                  <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+                  <div className="border-t border-slate-100 pt-4">
                     {!showExtraUpload ? (
                       <button
                         onClick={() => setShowExtraUpload(true)}
@@ -559,7 +505,6 @@ export default function ApplicationDetailPage() {
                         </div>
                         {extraDocName.trim() && (
                           <div className="flex items-center gap-2">
-                            {/* From Vault option */}
                             <button
                               onClick={() => setExtraVaultOpen(!extraVaultOpen)}
                               className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
@@ -572,7 +517,6 @@ export default function ApplicationDetailPage() {
                               From Vault
                               <ChevronDown className={`w-3 h-3 transition-transform ${extraVaultOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            {/* Upload New */}
                             <button
                               disabled={!extraDocName.trim() || uploading !== null}
                               onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
@@ -584,8 +528,6 @@ export default function ApplicationDetailPage() {
                             </button>
                           </div>
                         )}
-
-                        {/* Extra vault picker */}
                         {extraVaultOpen && extraDocName.trim() && (
                           <div className="rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
                             <div className="px-4 py-2 border-b border-purple-200 bg-purple-100/60">
@@ -629,17 +571,209 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* Form Responses */}
-          {Object.keys(application.formResponses).length > 0 && (
+          {/* ── Fallback: flat requirements list (no traveller-prefixed data yet) ── */}
+          {!hasTravelerData && (canUploadDocs || documents.length > 0) && (
+            <Card>
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Documents</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {canUploadDocs ? 'Upload or import required documents.' : 'Documents submitted for this application.'}
+                  </p>
+                </div>
+                <Badge variant="secondary">{documents.length} uploaded</Badge>
+              </div>
+              <CardContent className="p-0">
+                {requirements.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {requirements.map((req) => {
+                      const docMap = Object.fromEntries(documents.map((d) => [d.requirementName, d]));
+                      const doc = docMap[req.name];
+                      const isUploading = uploading === req.name;
+                      const pickerOpen = vaultPickerFor === req.name;
+                      const suggestedType = getVaultType(req.name);
+                      const suggested = suggestedType ? vaultDocs.filter((v) => v.type === suggestedType) : [];
+                      const others = vaultDocs.filter((v) => !suggested.includes(v));
+
+                      return (
+                        <div key={req._id || req.name}>
+                          <div className="p-4 flex items-center justify-between gap-4">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <div className="mt-0.5 flex-shrink-0">
+                                {doc ? docStatusIcon(doc.status) : <div className="w-4 h-4 rounded-full border-2 border-slate-300" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-900">{req.name}{req.required && <span className="text-red-400 ml-1">*</span>}</p>
+                                {req.description && <p className="text-xs text-slate-400">{req.description}</p>}
+                                {doc?.status === 'rejected' && doc.rejectionReason && (
+                                  <p className="text-xs text-red-500 mt-1">Reason: {doc.rejectionReason}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {doc?.status === 'approved' ? (
+                                <Badge variant="success">Approved</Badge>
+                              ) : canUploadDocs ? (
+                                isUploading ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => setVaultPickerFor(pickerOpen ? null : req.name)}
+                                      className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                                        pickerOpen ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
+                                      }`}
+                                    >
+                                      <Archive className="w-3.5 h-3.5" />
+                                      From Vault
+                                      <ChevronDown className={`w-3 h-3 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <button
+                                      onClick={() => triggerFileUpload((file) => handleUpload(file, req.name))}
+                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                    >
+                                      <Upload className="w-3.5 h-3.5" />
+                                      {doc ? 'Replace' : 'Upload New'}
+                                    </button>
+                                  </div>
+                                )
+                              ) : doc ? (
+                                <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                  {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Not Uploaded</Badge>
+                              )}
+                            </div>
+                          </div>
+                          {pickerOpen && (
+                            <div className="mx-4 mb-4 rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2.5 border-b border-purple-200 bg-purple-100/60">
+                                <p className="text-xs font-semibold text-purple-800 flex items-center gap-1.5">
+                                  <Archive className="w-3.5 h-3.5" /> Select from Document Vault
+                                </p>
+                                <button onClick={() => setVaultPickerFor(null)} className="text-purple-400 hover:text-purple-700">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              {vaultDocs.length === 0 ? (
+                                <p className="text-xs text-slate-500 text-center py-4">No documents in vault.</p>
+                              ) : (
+                                <div className="divide-y divide-purple-100 max-h-56 overflow-y-auto">
+                                  {suggested.length > 0 && (
+                                    <>
+                                      <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide px-4 pt-2.5 pb-1">Suggested for &quot;{req.name}&quot;</p>
+                                      {suggested.map((vd) => (
+                                        <button key={vd._id} onClick={() => handleVaultImport(vd, req.name)}
+                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left">
+                                          <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-7 h-7 rounded-lg bg-purple-200 flex items-center justify-center flex-shrink-0">
+                                              <FileText className="w-3.5 h-3.5 text-purple-700" />
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
+                                              <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
+                                            </div>
+                                          </div>
+                                          <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full flex-shrink-0">Use this</span>
+                                        </button>
+                                      ))}
+                                    </>
+                                  )}
+                                  {others.length > 0 && (
+                                    <>
+                                      {suggested.length > 0 && <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-2.5 pb-1">Other Documents</p>}
+                                      {others.map((vd) => (
+                                        <button key={vd._id} onClick={() => handleVaultImport(vd, req.name)}
+                                          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-purple-100 transition-colors text-left">
+                                          <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+                                              <FileText className="w-3.5 h-3.5 text-slate-500" />
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="text-sm font-medium text-slate-900 truncate">{vd.label}</p>
+                                              <p className="text-xs text-slate-500">{VAULT_TYPE_LABELS[vd.type] || vd.type}</p>
+                                            </div>
+                                          </div>
+                                          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">Use this</span>
+                                        </button>
+                                      ))}
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-5 py-4 flex items-start gap-3 bg-slate-50 border-b border-slate-100">
+                    <FileText className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-slate-500">No specific document requirements for this visa type.</p>
+                  </div>
+                )}
+                {canUploadDocs && (
+                  <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+                    {!showExtraUpload ? (
+                      <button onClick={() => setShowExtraUpload(true)} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                        <PlusCircle className="w-4 h-4" />Add additional document
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input type="text" placeholder="Document name" value={extraDocName} onChange={(e) => setExtraDocName(e.target.value)}
+                            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <button onClick={() => { setShowExtraUpload(false); setExtraDocName(''); }} className="text-xs text-slate-400 hover:text-slate-600 px-2">Cancel</button>
+                        </div>
+                        {extraDocName.trim() && (
+                          <button disabled={uploading !== null} onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            {uploading === extraDocName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Upload className="w-3.5 h-3.5" /> Upload New</>}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Non-traveller docs (uploaded without prefix) */}
+          {nonTravelerDocs.length > 0 && (
             <Card>
               <div className="p-5 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-900">Application Responses</h3>
+                <h3 className="font-semibold text-slate-900">Additional Documents</h3>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {nonTravelerDocs.map((doc) => (
+                  <div key={doc._id} className="p-4 flex items-center gap-3">
+                    {docStatusIcon(doc.status)}
+                    <p className="text-sm font-medium text-slate-900 flex-1">{doc.requirementName}</p>
+                    <Badge variant={doc.status === 'approved' ? 'success' : doc.status === 'rejected' ? 'destructive' : 'secondary'}>
+                      {doc.status === 'approved' ? 'Approved' : doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* General (non-traveller) form responses — e.g. travel dates */}
+          {Object.keys(generalResponses).length > 0 && (
+            <Card>
+              <div className="p-5 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">Travel Information</h3>
               </div>
               <CardContent className="p-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {Object.entries(application.formResponses).map(([k, v]) => (
+                  {Object.entries(generalResponses).map(([k, v]) => (
                     <div key={k}>
-                      <p className="text-xs text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
+                      <p className="text-xs text-slate-400">{k}</p>
                       <p className="text-sm font-medium text-slate-900 mt-0.5">{String(v)}</p>
                     </div>
                   ))}

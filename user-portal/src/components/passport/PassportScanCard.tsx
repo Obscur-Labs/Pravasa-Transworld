@@ -5,7 +5,7 @@ import { scanPassport } from '@/lib/api';
 
 export const PASSPORT_FRONT_FIELDS = [
   'Passport No.', 'Surname', 'Given Name(s)', 'Nationality', 'Date of Birth',
-  'Sex', 'Place of Birth (City)', 'Place of Birth (State)', 'Place of Issue', 'Date of Issue', 'Date of Expiry',
+  'Sex', 'Place of Birth', 'Place of Issue', 'Date of Issue', 'Date of Expiry',
 ];
 export const PASSPORT_BACK_FIELDS = ['Father / Legal Guardian', 'Mother', 'Spouse', 'Address'];
 export const PASSPORT_FIELDS = [...PASSPORT_FRONT_FIELDS, ...PASSPORT_BACK_FIELDS];
@@ -191,6 +191,14 @@ function ImageViewerModal({ src, title, onClose }: { src: string; title: string;
   );
 }
 
+function readPreview(file: File, set: (url: string | null) => void) {
+  if (file.type.startsWith('image/')) {
+    const r = new FileReader();
+    r.onload = (e) => set(e.target?.result as string);
+    r.readAsDataURL(file);
+  } else set(null);
+}
+
 // ── Single-side card ──────────────────────────────────────────────────────────
 function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onDragOver, onDragLeave, onClear }: SideProps) {
   const isFront = side === 'front';
@@ -307,13 +315,16 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
   const frontRef = useRef<HTMLInputElement>(null);
   const backRef = useRef<HTMLInputElement>(null);
 
-  const readPreview = (file: File, set: (url: string | null) => void) => {
-    if (file.type.startsWith('image/')) {
-      const r = new FileReader();
-      r.onload = (e) => set(e.target?.result as string);
-      r.readAsDataURL(file);
-    } else set(null);
-  };
+  // Regenerate preview when a file is already present (e.g. after tab switch remounts this component)
+  useEffect(() => {
+    if (frontFile) readPreview(frontFile, setFrontPreview);
+    else setFrontPreview(null);
+  }, [frontFile]);
+
+  useEffect(() => {
+    if (backFile) readPreview(backFile, setBackPreview);
+    else setBackPreview(null);
+  }, [backFile]);
 
   const handleFile = useCallback(async (side: 'front' | 'back', file: File) => {
     side === 'front' ? onFrontChange(file) : onBackChange(file);

@@ -21,7 +21,8 @@ const APPLICANT_OPTS: { value: ApplicantType; label: string; color: string; acti
   { value: 'child', label: 'Child', color: 'text-slate-600', active: 'bg-emerald-600 text-white' },
 ];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom' });
+const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
 
 const ENTRY_OPTIONS: { value: EntryType; label: string }[] = [
   { value: 'single', label: 'Single' },
@@ -212,7 +213,7 @@ export default function VisaTypesPage() {
       const opt = DOC_TYPE_OPTIONS.find((o) => o.value === value);
       const prevDefault = DOC_TYPE_OPTIONS.find((o) => o.value === (d.docType || 'custom'))?.defaultName;
       const name = (!d.name.trim() || d.name === prevDefault) && opt?.defaultName ? opt.defaultName : d.name;
-      return { ...d, docType: value, name };
+      return { ...d, docType: value, name, ocrEnabled: isOcrDocType(value) };
     }) }));
 
   // ── Form Presets ──
@@ -584,9 +585,10 @@ export default function VisaTypesPage() {
                             ))}
                           </div>
                         </div>
-                        {typeOpt?.extracts && (
-                          <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Auto-extracts details</span>
-                        )}
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Run OCR to auto-extract details when applicant uploads this document">
+                          <input type="checkbox" checked={doc.ocrEnabled !== false} onChange={(e) => updateDocReq(i, 'ocrEnabled', e.target.checked)} className="rounded" />
+                          OCR extraction
+                        </label>
                         <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                     </div>

@@ -139,8 +139,7 @@ Extract the following from the FRONT page and return ONLY a JSON object (no expl
   "nationality": "as printed in English (e.g. INDIAN)",
   "dateOfBirth": "DD/MM/YYYY — verify against MRZ",
   "sex": "MALE or FEMALE",
-  "placeOfBirthCity": "city of birth in CAPITAL LETTERS (e.g. MUMBAI)",
-  "placeOfBirthState": "state of birth in CAPITAL LETTERS (e.g. MAHARASHTRA) — look for the state printed alongside the city",
+  "placeOfBirth": "city and state of birth in CAPITAL LETTERS, separated by a comma (e.g. MUMBAI, MAHARASHTRA) — include both the city and the state/district as printed",
   "placeOfIssue": "city name in CAPITAL LETTERS",
   "dateOfIssue": "DD/MM/YYYY",
   "dateOfExpiry": "DD/MM/YYYY — verify against MRZ",
@@ -184,8 +183,7 @@ export async function extractPassport(buffer: Buffer, side: 'front' | 'back'): P
     if (str(json.nationality)) fields['Nationality'] = json.nationality.trim().toUpperCase();
     if (str(json.dateOfBirth)) fields['Date of Birth'] = json.dateOfBirth.trim();
     if (str(json.sex)) fields['Sex'] = normalizeSex(json.sex);
-    if (str(json.placeOfBirthCity)) fields['Place of Birth (City)'] = json.placeOfBirthCity.trim().toUpperCase();
-    if (str(json.placeOfBirthState)) fields['Place of Birth (State)'] = json.placeOfBirthState.trim().toUpperCase();
+    if (str(json.placeOfBirth)) fields['Place of Birth'] = json.placeOfBirth.trim().toUpperCase();
     if (str(json.placeOfIssue)) fields['Place of Issue'] = json.placeOfIssue.trim().toUpperCase();
     if (str(json.dateOfIssue)) fields['Date of Issue'] = json.dateOfIssue.trim();
     if (str(json.dateOfExpiry)) fields['Date of Expiry'] = json.dateOfExpiry.trim();

@@ -33,6 +33,7 @@ export interface IDocumentRequirement {
   required: boolean;
   applicantType: ApplicantType;
   docType: DocumentType;
+  ocrEnabled: boolean;
 }
 
 export type EntryType = 'single' | 'multiple' | 'double';
@@ -92,6 +93,7 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
     enum: ['custom', 'passport', 'passport_front', 'passport_back', 'photo', 'aadhaar', 'pan'],
     default: 'custom',
   },
+  ocrEnabled: { type: Boolean },
 });
 
 const VisaTypeSchema = new Schema<IVisaType>(

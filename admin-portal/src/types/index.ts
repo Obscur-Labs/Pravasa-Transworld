@@ -67,6 +67,7 @@ export interface DocumentRequirement {
   required: boolean;
   applicantType?: ApplicantType;
   docType?: DocumentType;
+  ocrEnabled?: boolean;
 }
 
 export interface CountryFaq {

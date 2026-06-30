@@ -43,7 +43,7 @@ const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
 const isPassportPair = (req: DocumentRequirement) =>
   req.docType === 'passport' || ((!req.docType || req.docType === 'custom') && isPassportReq(req.name));
 const PASSPORT_DEFAULT_REQ: DocumentRequirement = {
-  _id: '__passport_default__', name: 'Passport', description: '', required: true, applicantType: 'both', docType: 'passport',
+  _id: '__passport_default__', name: 'Passport', description: '', required: true, applicantType: 'both', docType: 'passport', ocrEnabled: true,
 };
 const withDefaultPassport = (docs: DocumentRequirement[]): DocumentRequirement[] => {
   const hasPassport = docs.some((d) => (!!d.docType && d.docType.startsWith('passport')) || isPassportReq(d.name));
@@ -807,7 +807,7 @@ export default function ApplyPage() {
       for (const tr of travelers) {
         for (const req of docsForTraveler(reqs, tr)) {
           const label = `${tr.label} - ${req.name}`;
-          if (isPassportPair(req)) {
+          if (isPassportPair(req) && req.ocrEnabled !== false) {
             const frontSrc = docSources[docKey(tr, req.name, '__front')];
             const backSrc = docSources[docKey(tr, req.name, '__back')];
             const pv = passportValues[tr.key] || {};
@@ -822,9 +822,10 @@ export default function ApplyPage() {
               await addDocumentFromVault(appId, { vaultDocId: source.vaultDocId, requirementName: label });
             } else {
               const pv = passportValues[tr.key] || {};
-              const ocrData =
-                req.docType === 'passport_front' ? pickFields(pv, PASSPORT_FRONT_FIELDS)
-                : req.docType === 'passport_back' ? pickFields(pv, PASSPORT_BACK_FIELDS)
+              const ocrData = req.ocrEnabled !== false
+                ? (req.docType === 'passport_front' ? pickFields(pv, PASSPORT_FRONT_FIELDS)
+                  : req.docType === 'passport_back' ? pickFields(pv, PASSPORT_BACK_FIELDS)
+                  : undefined)
                 : undefined;
               await doUpload(source.file, label, req.docType || '', ocrData);
             }
@@ -894,7 +895,7 @@ export default function ApplyPage() {
   const travelerComplete = (tr: Traveler) => {
     const fieldsOk = fieldsForTraveler(sortedFields, tr).filter((f) => f.required).every((f) => !!formData[`${tr.key}__${f.fieldName}`]?.trim());
     const docsOk = docsForTraveler(requirements, tr).filter((r) => r.required).every((r) => {
-      if (isPassportPair(r)) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
+      if (isPassportPair(r) && r.ocrEnabled !== false) return !!docSources[docKey(tr, r.name, '__front')] && !!docSources[docKey(tr, r.name, '__back')];
       return !!docSources[docKey(tr, r.name)];
     });
     return fieldsOk && docsOk;
@@ -963,13 +964,13 @@ export default function ApplyPage() {
   };
 
   const renderDocCard = (tr: Traveler, req: DocumentRequirement) => {
-    if (isPassportPair(req)) {
+    if (isPassportPair(req) && req.ocrEnabled !== false) {
       const frontSrc = docSources[docKey(tr, req.name, '__front')];
       const backSrc = docSources[docKey(tr, req.name, '__back')];
       return (
         <PassportScanCard
-          key={req._id || req.name}
-          requirementName={`${tr.label} — ${req.name}`}
+          key={`${tr.key}::${req._id || req.name}`}
+          requirementName={req.name}
           frontFile={frontSrc?.type === 'file' ? frontSrc.file : null}
           backFile={backSrc?.type === 'file' ? backSrc.file : null}
           values={passportValues[tr.key] || {}}
@@ -986,7 +987,7 @@ export default function ApplyPage() {
       );
     }
 
-    if (req.docType === 'passport_front' || req.docType === 'passport_back') {
+    if ((req.docType === 'passport_front' || req.docType === 'passport_back') && req.ocrEnabled !== false) {
       const side = req.docType === 'passport_back' ? 'back' : 'front';
       const sk = docKey(tr, req.name);
       const src = docSources[sk];
@@ -997,9 +998,9 @@ export default function ApplyPage() {
       };
       return (
         <PassportScanCard
-          key={req._id || req.name}
+          key={`${tr.key}::${req._id || req.name}`}
           mode={side}
-          requirementName={`${tr.label} — ${req.name}`}
+          requirementName={req.name}
           frontFile={side === 'front' ? file : null}
           backFile={side === 'back' ? file : null}
           values={passportValues[tr.key] || {}}
@@ -1314,7 +1315,7 @@ export default function ApplyPage() {
               <div className="space-y-6">
                 {fieldsForTraveler(sortedFields, activeTr).length > 0 && (
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">{activeTr.label} · Details</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Details</p>
                     <div className="space-y-4">
                       {fieldsForTraveler(sortedFields, activeTr).map((field) => (
                         <div key={field._id || field.fieldName}>
@@ -1430,7 +1431,7 @@ export default function ApplyPage() {
                         {docsForTraveler(requirements, tr).length > 0 && (
                           <div className="mt-2 space-y-1">
                             {docsForTraveler(requirements, tr).map((req) => {
-                              if (isPassportPair(req)) {
+                              if (isPassportPair(req) && req.ocrEnabled !== false) {
                                 const f = docSources[docKey(tr, req.name, '__front')];
                                 const b = docSources[docKey(tr, req.name, '__back')];
                                 const ok = f && b;
