@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite } from '@/lib/api';
 import type { Country } from '@/types';
@@ -37,6 +38,9 @@ function Toggle({
 export default function CountriesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'active-first' | 'inactive-first' | 'website-first'>('name-asc');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterWeb, setFilterWeb] = useState<'all' | 'shown' | 'hidden'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<CountryForm>(emptyForm);
@@ -109,13 +113,22 @@ export default function CountriesPage() {
     setShowForm(true);
   };
 
-  const filtered = countries.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = countries
+    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((c) => filterStatus === 'all' ? true : filterStatus === 'active' ? c.isActive : !c.isActive)
+    .filter((c) => filterWeb === 'all' ? true : filterWeb === 'shown' ? c.showOnWebsite : !c.showOnWebsite)
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+      if (sortBy === 'active-first') return (b.isActive ? 1 : 0) - (a.isActive ? 1 : 0);
+      if (sortBy === 'inactive-first') return (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0);
+      if (sortBy === 'website-first') return (b.showOnWebsite ? 1 : 0) - (a.showOnWebsite ? 1 : 0);
+      return 0;
+    });
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Countries</h1>
           <p className="text-slate-500 text-sm mt-1">Manage destination countries and their website pages.</p>
@@ -134,6 +147,73 @@ export default function CountriesPage() {
             <Plus className="w-4 h-4 mr-2" /> Add Country
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6 p-3 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="w-4 h-4 text-slate-400" />
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Sort</span>
+        </div>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+          <SelectTrigger className="w-40 h-8 text-sm bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name-asc">Name A–Z</SelectItem>
+            <SelectItem value="name-desc">Name Z–A</SelectItem>
+            <SelectItem value="active-first">Active First</SelectItem>
+            <SelectItem value="inactive-first">Inactive First</SelectItem>
+            <SelectItem value="website-first">On Website First</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="w-px h-5 bg-slate-200 mx-1" />
+
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Status</span>
+        {(['all', 'active', 'inactive'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setFilterStatus(v)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              filterStatus === v
+                ? v === 'active' ? 'bg-emerald-500 text-white' : v === 'inactive' ? 'bg-slate-500 text-white' : 'bg-slate-900 text-white'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {v === 'all' ? 'All' : v === 'active' ? 'Active' : 'Inactive'}
+          </button>
+        ))}
+
+        <div className="w-px h-5 bg-slate-200 mx-1" />
+
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Website</span>
+        {(['all', 'shown', 'hidden'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setFilterWeb(v)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              filterWeb === v
+                ? v === 'shown' ? 'bg-violet-500 text-white' : v === 'hidden' ? 'bg-slate-500 text-white' : 'bg-slate-900 text-white'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {v === 'all' ? 'All' : v === 'shown' ? 'On Website' : 'Hidden'}
+          </button>
+        ))}
+
+        {(filterStatus !== 'all' || filterWeb !== 'all' || sortBy !== 'name-asc') && (
+          <>
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+            <button
+              onClick={() => { setFilterStatus('all'); setFilterWeb('all'); setSortBy('name-asc'); }}
+              className="px-3 py-1 rounded-full text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
+            >
+              Reset
+            </button>
+          </>
+        )}
+
+        <span className="ml-auto text-xs text-slate-400">{filtered.length} of {countries.length}</span>
       </div>
 
       {showForm && (
