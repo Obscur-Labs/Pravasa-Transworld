@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,6 +91,22 @@ function OptionListEditor({ options, onChange }: { options: string[]; onChange: 
   );
 }
 
+function TabButton({ step, label, active, done, onClick }: { step: number; label: string; active: boolean; done: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+        active ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+      }`}>
+      <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold flex-shrink-0 transition-colors ${
+        done ? 'bg-emerald-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+      }`}>
+        {done ? <Check className="w-3 h-3" /> : step}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onChange} disabled={disabled}
@@ -126,6 +142,8 @@ export default function VisaTypesPage() {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [activeTab, setActiveTab] = useState<'info' | 'form'>('info');
+  const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
 
   // Form presets
   const [presets, setPresets] = useState<FormPreset[]>([]);
@@ -142,9 +160,42 @@ export default function VisaTypesPage() {
     getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
   }, [selectedCountry]);
 
+  // Fields that live on the Information tab still need to be validated when the Form
+  // tab is active — hidden/unmounted fields don't participate in native HTML validation,
+  // so this replaces reliance on the `required` attribute across tab boundaries.
+  const validateInfo = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!form.country) errs.country = 'Select a country';
+    if (!form.name.trim()) errs.name = 'Visa name is required';
+    if (!form.adultPrice) errs.adultPrice = 'Adult price is required';
+    if (!form.processingTime.trim()) errs.processingTime = 'Processing time is required';
+    return errs;
+  };
+
+  // Clears a single field's sticky error as soon as the admin edits it, instead of
+  // leaving stale red text/borders until the next validation attempt.
+  const clearInfoError = (key: string) =>
+    setInfoErrors((prev) => (prev[key] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
+
+  const goToFormTab = () => {
+    const errs = validateInfo();
+    setInfoErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
+      return;
+    }
+    setActiveTab('form');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.adultPrice) { toast({ title: 'Adult price is required', variant: 'destructive' }); return; }
+    const errs = validateInfo();
+    if (Object.keys(errs).length > 0) {
+      setInfoErrors(errs);
+      setActiveTab('info');
+      toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -293,6 +344,8 @@ export default function VisaTypesPage() {
     setEditId(null);
     setApplyPresetId('');
     setPresetName('');
+    setActiveTab('info');
+    setInfoErrors({});
     setShowForm(!showForm);
   };
 
@@ -321,6 +374,8 @@ export default function VisaTypesPage() {
       documentRequirements: (vt.documentRequirements || []).map((d) => ({ ...d })),
     });
     setEditId(vt._id);
+    setActiveTab('info');
+    setInfoErrors({});
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -338,25 +393,33 @@ export default function VisaTypesPage() {
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditId(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="border-b border-slate-100">
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col gap-0">
+          <DialogHeader className="border-b border-slate-100 pb-0 flex-shrink-0">
             <DialogTitle>{editId ? 'Edit Visa Type' : 'Create Visa Type'}</DialogTitle>
+            <div className="flex gap-1 -mb-px">
+              <TabButton step={1} label="Information" active={activeTab === 'info'} done={Object.keys(validateInfo()).length === 0} onClick={() => setActiveTab('info')} />
+              <TabButton step={2} label="Form" active={activeTab === 'form'} done={false} onClick={goToFormTab} />
+            </div>
           </DialogHeader>
-          <div className="p-6 pt-4">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
+              <div className={activeTab === 'info' ? 'space-y-6' : 'hidden'}>
               {/* ── Basic Info ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Country</Label>
-                  <select value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} required className="mt-1 w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select value={form.country} onChange={(e) => { setForm({ ...form, country: e.target.value }); clearInfoError('country'); }} required
+                    className={`mt-1 w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 ${infoErrors.country ? 'border-red-400 focus:ring-red-400' : 'border-slate-200 focus:ring-blue-500'}`}>
                     <option value="">Select country...</option>
                     {countries.map((c) => <option key={c._id} value={c._id}>{c.flag} {c.name}</option>)}
                   </select>
+                  {infoErrors.country && <p className="text-xs text-red-500 mt-1">{infoErrors.country}</p>}
                 </div>
                 <div>
                   <Label>Visa Name</Label>
-                  <Input className="mt-1" placeholder="e.g. 14 Days Single Tourist" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                  <Input className={`mt-1 ${infoErrors.name ? 'border-red-400 focus-visible:ring-red-400' : ''}`} placeholder="e.g. 14 Days Single Tourist" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); clearInfoError('name'); }} required />
+                  {infoErrors.name && <p className="text-xs text-red-500 mt-1">{infoErrors.name}</p>}
                 </div>
                 <div>
                   <Label>Description</Label>
@@ -371,7 +434,8 @@ export default function VisaTypesPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Adult Price (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 5000" value={form.adultPrice} onChange={(e) => setForm({ ...form, adultPrice: e.target.value })} required />
+                      <Input className={`mt-1 ${infoErrors.adultPrice ? 'border-red-400 focus-visible:ring-red-400' : ''}`} type="number" min="0" placeholder="e.g. 5000" value={form.adultPrice} onChange={(e) => { setForm({ ...form, adultPrice: e.target.value }); clearInfoError('adultPrice'); }} required />
+                      {infoErrors.adultPrice && <p className="text-xs text-red-500 mt-1">{infoErrors.adultPrice}</p>}
                     </div>
                     <div>
                       <Label>Adult Service Fee (₹)</Label>
@@ -418,7 +482,8 @@ export default function VisaTypesPage() {
                 </div>
                 <div>
                   <Label>Processing Time</Label>
-                  <Input className="mt-1" type="text" placeholder="e.g. 2 Working Days" value={form.processingTime} onChange={(e) => setForm({ ...form, processingTime: e.target.value })} required />
+                  <Input className={`mt-1 ${infoErrors.processingTime ? 'border-red-400 focus-visible:ring-red-400' : ''}`} type="text" placeholder="e.g. 2 Working Days" value={form.processingTime} onChange={(e) => { setForm({ ...form, processingTime: e.target.value }); clearInfoError('processingTime'); }} required />
+                  {infoErrors.processingTime && <p className="text-xs text-red-500 mt-1">{infoErrors.processingTime}</p>}
                 </div>
                 <div>
                   <Label>Validity</Label>
@@ -470,7 +535,9 @@ export default function VisaTypesPage() {
                   </select>
                 </div>
               </div>
+              </div>
 
+              <div className={activeTab === 'form' ? 'space-y-6' : 'hidden'}>
               {/* ── Form Presets ── */}
               <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 space-y-3">
                 <div className="flex items-center gap-2">
@@ -583,9 +650,7 @@ export default function VisaTypesPage() {
                   <Button type="button" size="sm" variant="outline" onClick={addDocReq}><Plus className="w-3.5 h-3.5 mr-1" />Add Document</Button>
                 </div>
                 <div className="space-y-2">
-                  {form.documentRequirements.map((doc, i) => {
-                    const typeOpt = DOC_TYPE_OPTIONS.find((o) => o.value === (doc.docType || 'custom'));
-                    return (
+                  {form.documentRequirements.map((doc, i) => (
                     <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                         <div>
@@ -630,19 +695,33 @@ export default function VisaTypesPage() {
                         <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                     </div>
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
               </div>
-            </form>
-          </div>
+
+            </div>
+
+            <div className="flex items-center gap-2 px-6 py-4 border-t border-slate-100 flex-shrink-0">
+              {activeTab === 'form' && (
+                <Button type="button" variant="outline" onClick={() => setActiveTab('info')}>
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Back
+                </Button>
+              )}
+              <div className="ml-auto flex gap-2">
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
+                {activeTab === 'info' ? (
+                  <Button type="button" onClick={goToFormTab}>
+                    Continue to Form <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
