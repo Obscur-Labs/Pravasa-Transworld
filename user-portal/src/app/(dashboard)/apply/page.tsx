@@ -40,8 +40,10 @@ function formatBytes(bytes: number) {
 
 
 const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
-const isPassportPair = (req: DocumentRequirement) =>
-  req.docType === 'passport' || ((!req.docType || req.docType === 'custom') && isPassportReq(req.name));
+// Only the explicit 'passport' docType renders the 2-slot front+back uploader — a
+// document merely named "passport ..." (e.g. an extra/external page) should not be
+// swept into the pair card, it just needs a single simple upload.
+const isPassportPair = (req: DocumentRequirement) => req.docType === 'passport';
 const PASSPORT_DEFAULT_REQ: DocumentRequirement = {
   _id: '__passport_default__', name: 'Passport', description: '', required: true, applicantType: 'both', docType: 'passport', ocrEnabled: true,
 };

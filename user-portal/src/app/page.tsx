@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import Hero from '@/components/landing/Hero';
-import HowItWorks from '@/components/landing/HowItWorks';
-import CountriesSlider from '@/components/landing/CountriesSlider';
-import Benefits from '@/components/landing/Benefits';
-import Testimonials from '@/components/landing/Testimonials';
-import FAQ from '@/components/landing/FAQ';
-import ContactSection from '@/components/landing/ContactSection';
-import { JsonLd } from '@/components/seo/JsonLd';
 import PromoPopup from '@/components/landing/PromoPopup';
+import DestinationsExplorer from '@/components/landing/DestinationsExplorer';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { getPublicCountries } from '@/lib/api';
+import type { Country } from '@/types';
+import { ArrowRight } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
@@ -83,20 +81,38 @@ const serviceSchema = {
   },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  let countries: Country[] = [];
+  try {
+    const r = await getPublicCountries();
+    countries = r.data.data;
+  } catch {
+    countries = [];
+  }
+
   return (
-    <div className="min-h-screen bg-blue-950">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd data={serviceSchema} />
       <Navbar />
-      <Hero />
-      <HowItWorks />
-      <CountriesSlider />
-      <Benefits />
-      <Testimonials />
-      <FAQ />
-      <ContactSection />
+
+      <DestinationsExplorer initialCountries={countries} />
+
+      {/* ── CTA ── */}
+      <section className="py-14 px-4 bg-white border-t border-slate-100">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Ready to apply?</h2>
+          <p className="text-slate-500 font-medium mb-6">Create a free account and track your visa in real time.</p>
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 hover:scale-105 duration-200"
+          >
+            Get Started Free <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
       <Footer />
       <PromoPopup />
     </div>

@@ -28,9 +28,10 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   applicantType: { type: String, enum: ['adult', 'child', 'both'], default: 'adult' },
   docType: {
     type: String,
-    enum: ['custom', 'passport', 'passport_front', 'passport_back', 'photo', 'aadhaar', 'pan'],
+    enum: ['custom', 'passport', 'passport_front', 'passport_back', 'page', 'photo', 'aadhaar', 'pan'],
     default: 'custom',
   },
+  ocrEnabled: { type: Boolean },
 });
 
 const FormPresetSchema = new Schema<IFormPreset>(

@@ -15,9 +15,9 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: '#how-it-works', label: 'How It Works' },
-    { href: '#destinations', label: 'Destinations' },
-    { href: '#contact', label: 'Contact' },
+    { href: '/', label: 'Destinations' },
+    { href: '/about', label: 'About' },
+    { href: '/contact', label: 'Contact' },
   ];
 
   return (
@@ -37,13 +37,13 @@ export default function Navbar() {
 
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((l) => (
-              <a
+              <Link
                 key={l.href}
                 href={l.href}
                 className="text-sm font-semibold text-slate-600 hover:text-blue-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200"
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -77,14 +77,14 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden bg-white/98 backdrop-blur-xl border-t border-slate-100 px-4 py-4 space-y-1">
           {navLinks.map((l) => (
-            <a
+            <Link
               key={l.href}
               href={l.href}
               className="block text-sm font-semibold text-slate-600 hover:text-blue-600 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
               onClick={() => setOpen(false)}
             >
               {l.label}
-            </a>
+            </Link>
           ))}
           <div className="pt-3 border-t border-slate-100 space-y-2">
             <Button variant="outline" size="sm" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold" asChild>

@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import {
   getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
@@ -261,6 +261,33 @@ export default function VisaTypesPage() {
     reloadPresets();
   };
 
+  // Clicking the chip's "x" only clears the current selection — it never deletes the
+  // saved preset. Deleting is a separate, deliberate action via the trash icon.
+  const deselectPreset = (id: string) => {
+    if (applyPresetId === id) setApplyPresetId('');
+  };
+
+  const duplicatePreset = async (p: FormPreset) => {
+    try {
+      await createFormPreset({
+        name: `${p.name} (Copy)`,
+        description: p.description,
+        formFields: p.formFields,
+        documentRequirements: p.documentRequirements,
+      });
+      toast({ title: `Duplicated "${p.name}"`, variant: 'success' });
+      reloadPresets();
+    } catch (err: any) {
+      toast({ title: 'Failed to duplicate preset', description: err.response?.data?.message, variant: 'destructive' });
+    }
+  };
+
+  // Clears only the Fields/Documents sections of the current form — does not touch any saved preset.
+  const clearFormFields = () => {
+    setForm((f) => ({ ...f, formFields: [], documentRequirements: [] }));
+    setApplyPresetId('');
+  };
+
   const openCreate = () => {
     setForm(emptyForm());
     setEditId(null);
@@ -310,10 +337,12 @@ export default function VisaTypesPage() {
         </Button>
       </div>
 
-      {showForm && (
-        <Card className="mb-6 border-blue-200">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-5">{editId ? 'Edit Visa Type' : 'Create Visa Type'}</h3>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditId(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-100">
+            <DialogTitle>{editId ? 'Edit Visa Type' : 'Create Visa Type'}</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-4">
             <form onSubmit={handleSubmit} className="space-y-6">
 
               {/* ── Basic Info ── */}
@@ -459,6 +488,9 @@ export default function VisaTypesPage() {
                   <Button type="button" variant="outline" disabled={!applyPresetId} onClick={applyPreset}>
                     <Check className="w-3.5 h-3.5 mr-1" /> Apply Preset
                   </Button>
+                  <Button type="button" variant="outline" onClick={clearFormFields} title="Clear the current fields & documents (does not delete any saved preset)">
+                    <Eraser className="w-3.5 h-3.5 mr-1" /> Clear Form
+                  </Button>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -471,9 +503,13 @@ export default function VisaTypesPage() {
                 {presets.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {presets.map((p) => (
-                      <span key={p._id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-violet-200 text-xs text-violet-800 font-medium">
+                      <span key={p._id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border text-xs font-medium ${applyPresetId === p._id ? 'border-violet-400 text-violet-900 ring-1 ring-violet-200' : 'border-violet-200 text-violet-800'}`}>
                         {p.name}
-                        <button type="button" onClick={() => handleDeletePreset(p._id)} className="text-violet-300 hover:text-red-500 ml-0.5"><X className="w-3 h-3" /></button>
+                        <button type="button" title="Duplicate preset" onClick={() => duplicatePreset(p)} className="text-violet-300 hover:text-violet-600 ml-0.5"><Copy className="w-3 h-3" /></button>
+                        <button type="button" title="Delete preset (moves to Trash)" onClick={() => handleDeletePreset(p._id)} className="text-violet-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                        {applyPresetId === p._id && (
+                          <button type="button" title="Deselect" onClick={() => deselectPreset(p._id)} className="text-violet-300 hover:text-violet-700"><X className="w-3 h-3" /></button>
+                        )}
                       </span>
                     ))}
                   </div>
@@ -585,10 +621,12 @@ export default function VisaTypesPage() {
                             ))}
                           </div>
                         </div>
-                        <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Run OCR to auto-extract details when applicant uploads this document">
-                          <input type="checkbox" checked={doc.ocrEnabled !== false} onChange={(e) => updateDocReq(i, 'ocrEnabled', e.target.checked)} className="rounded" />
-                          OCR extraction
-                        </label>
+                        {isOcrDocType(doc.docType || 'custom') && (
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Run OCR to auto-extract details when applicant uploads this document">
+                            <input type="checkbox" checked={doc.ocrEnabled !== false} onChange={(e) => updateDocReq(i, 'ocrEnabled', e.target.checked)} className="rounded" />
+                            OCR extraction
+                          </label>
+                        )}
                         <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
                       </div>
                     </div>
@@ -604,9 +642,9 @@ export default function VisaTypesPage() {
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center gap-3 mb-4">
         <label className="text-sm text-slate-500">Filter by country:</label>

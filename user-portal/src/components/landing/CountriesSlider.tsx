@@ -129,7 +129,7 @@ export default function CountriesSlider() {
 
         <div className="text-center mt-10">
           <Link
-            href="/countries"
+            href="/"
             className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium px-6 py-3 rounded-xl transition-all duration-200"
           >
             Browse All Destinations <ArrowRight className="w-4 h-4" />

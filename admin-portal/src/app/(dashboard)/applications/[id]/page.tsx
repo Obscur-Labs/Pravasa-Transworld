@@ -63,6 +63,7 @@ export default function AdminApplicationDetailPage() {
   const [processingRef, setProcessingRef] = useState('');
   const [embassyName, setEmbassyName] = useState('');
   const [submissionDate, setSubmissionDate] = useState('');
+  const [expectedDate, setExpectedDate] = useState('');
   const [activeDocTab, setActiveDocTab] = useState('');
   const [activeFormTab, setActiveFormTab] = useState('');
 
@@ -77,6 +78,7 @@ export default function AdminApplicationDetailPage() {
       setProcessingRef(app.processingReferenceNumber || '');
       setEmbassyName(app.embassyName || '');
       setSubmissionDate(app.submissionDate || '');
+      setExpectedDate(app.expectedDate || '');
     } finally {
       setLoading(false);
     }
@@ -198,6 +200,7 @@ export default function AdminApplicationDetailPage() {
         processingReferenceNumber: processingRef,
         embassyName,
         submissionDate,
+        expectedDate,
       });
       toast({ title: 'Status updated', variant: 'success' });
       fetchData();
@@ -218,6 +221,7 @@ export default function AdminApplicationDetailPage() {
         processingReferenceNumber: processingRef,
         embassyName,
         submissionDate,
+        expectedDate,
       });
       toast({ title: 'Visa submission details saved', variant: 'success' });
       fetchData();
@@ -553,6 +557,15 @@ export default function AdminApplicationDetailPage() {
                       type="date"
                       value={submissionDate}
                       onChange={(e) => setSubmissionDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-blue-800 block mb-1">Expected Date</label>
+                    <input
+                      type="date"
+                      value={expectedDate}
+                      onChange={(e) => setExpectedDate(e.target.value)}
                       className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     />
                   </div>

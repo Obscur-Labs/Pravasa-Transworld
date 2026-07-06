@@ -163,7 +163,7 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
 };
 
 export const updateStatus = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { status, rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate } = req.body;
+  const { status, rejectionReason, adminNotes, processingReferenceNumber, embassyName, submissionDate, expectedDate } = req.body;
   if (!status) { sendError(res, 'Status is required'); return; }
 
   const application = await Application.findById(req.params.id).populate('user', 'name email');
@@ -175,6 +175,7 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   if (processingReferenceNumber !== undefined) application.processingReferenceNumber = processingReferenceNumber;
   if (embassyName !== undefined) application.embassyName = embassyName;
   if (submissionDate !== undefined) application.submissionDate = submissionDate;
+  if (expectedDate !== undefined) application.expectedDate = expectedDate;
   await application.save();
 
   const user = application.user as unknown as { name: string; email: string };

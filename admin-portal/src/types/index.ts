@@ -50,14 +50,15 @@ export interface FormField {
 }
 
 export type DocumentType =
-  | 'custom' | 'passport' | 'passport_front' | 'passport_back' | 'photo' | 'aadhaar' | 'pan';
+  | 'custom' | 'passport' | 'passport_front' | 'passport_back' | 'page' | 'photo' | 'aadhaar' | 'pan';
 
-// Saved document kinds an admin can pick in form config. Passport kinds auto-extract
-// details from the uploaded image. `defaultName` pre-fills the requirement name.
+// Saved document kinds an admin can pick in form config. Passport front/back kinds
+// auto-extract details from the uploaded image. `defaultName` pre-fills the requirement name.
 export const DOC_TYPE_OPTIONS: { value: DocumentType; label: string; defaultName: string; extracts?: boolean }[] = [
   { value: 'custom', label: 'Custom (no OCR)', defaultName: '' },
   { value: 'passport_front', label: 'Passport Front (OCR)', defaultName: 'Passport Front', extracts: true },
   { value: 'passport_back', label: 'Passport Back (OCR)', defaultName: 'Passport Back', extracts: true },
+  { value: 'page', label: 'Page', defaultName: 'Additional Page' },
 ];
 
 export interface DocumentRequirement {
@@ -214,6 +215,7 @@ export interface Application {
   processingReferenceNumber?: string;
   embassyName?: string;
   submissionDate?: string;
+  expectedDate?: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: string;

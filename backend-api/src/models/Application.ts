@@ -53,6 +53,7 @@ export interface IApplication extends Document {
   processingReferenceNumber: string;
   embassyName: string;
   submissionDate: string;
+  expectedDate: string;
   paymentAmount: number;
   referenceId: string;
   createdAt: Date;
@@ -79,6 +80,7 @@ const ApplicationSchema = new Schema<IApplication>(
     processingReferenceNumber: { type: String, default: '' },
     embassyName: { type: String, default: '' },
     submissionDate: { type: String, default: '' },
+    expectedDate: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },
     referenceId: { type: String, unique: true },
   },
