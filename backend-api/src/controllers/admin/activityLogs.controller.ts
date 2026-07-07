@@ -7,3 +7,8 @@ export const getActivityLogs = async (_req: AdminRequest, res: Response): Promis
   const logs = await ActivityLog.find().sort({ createdAt: -1 }).limit(100);
   sendSuccess(res, logs);
 };
+
+export const deleteAllActivityLogs = async (_req: AdminRequest, res: Response): Promise<void> => {
+  await ActivityLog.deleteMany({});
+  sendSuccess(res, null, 'Activity logs cleared');
+};

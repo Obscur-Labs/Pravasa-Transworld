@@ -78,6 +78,7 @@ router.delete('/leads/:id', leads.deleteLead);
 
 // Activity Logs
 router.get('/activity-logs', activityLogs.getActivityLogs);
+router.delete('/activity-logs', activityLogs.deleteAllActivityLogs);
 
 // Notifications
 router.get('/notifications', notifications.getNotifications);

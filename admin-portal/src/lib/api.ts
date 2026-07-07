@@ -64,6 +64,7 @@ export const deleteFormPreset = (id: string) => api.delete(`/admin/form-presets/
 
 // Activity Logs
 export const getActivityLogs = () => api.get('/admin/activity-logs');
+export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');
 
 // Trash
 export const getTrash = () => api.get('/admin/trash');
