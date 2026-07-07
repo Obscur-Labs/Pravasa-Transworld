@@ -98,11 +98,23 @@ export interface Country {
   webContent: CountryWebContent;
 }
 
-export type EntryType = 'single' | 'multiple' | 'double';
-export type VisaSubType = 'e-visa' | 'sticker';
-export type JurisdictionType = 'pan-india' | 'mumbai' | 'delhi';
-export type VisaCategoryType = 'tourist' | 'business' | 'transit' | 'student';
+// Widened to plain string — these value sets are admin-configurable on the Visa Config page.
+export type EntryType = string;
+export type VisaSubType = string;
+export type JurisdictionType = string;
+export type VisaCategoryType = string;
 export type ProcessType = 'normal' | 'express';
+
+export type VisaConfigCategory = 'jurisdiction' | 'visaCategory' | 'visaSubType' | 'entryType';
+
+export interface VisaConfigOption {
+  _id: string;
+  category: VisaConfigCategory;
+  value: string;
+  label: string;
+  order: number;
+  isActive: boolean;
+}
 
 export interface VisaType {
   _id: string;

@@ -4,6 +4,12 @@ import PromoCode from '../../models/PromoCode';
 import { sendSuccess, sendError } from '../../utils/response';
 import { logActivity } from '../../utils/activityLog';
 
+// Only one promo code may be shown on the website at a time — turning one on
+// silently turns every other one off.
+const enforceSingleWebsitePromo = async (exceptId: unknown): Promise<void> => {
+  await PromoCode.updateMany({ _id: { $ne: exceptId }, showOnWebsite: true }, { showOnWebsite: false });
+};
+
 export const getPromoCodes = async (req: AdminRequest, res: Response): Promise<void> => {
   const promos = await PromoCode.find({ isDeleted: false }).sort({ createdAt: -1 }).select('-usedBy');
   sendSuccess(res, promos);
@@ -31,6 +37,7 @@ export const createPromoCode = async (req: AdminRequest, res: Response): Promise
     expiresAt: expiresAt || undefined,
     usageLimit: usageLimit ? Number(usageLimit) : undefined,
   });
+  if (promo.showOnWebsite) await enforceSingleWebsitePromo(promo._id);
   logActivity(req, 'create', 'Promo Code', upper);
   sendSuccess(res, promo, 'Promo code created', 201);
 };
@@ -56,6 +63,7 @@ export const updatePromoCode = async (req: AdminRequest, res: Response): Promise
   promo.usageLimit = usageLimit ? Number(usageLimit) : undefined;
 
   await promo.save();
+  if (promo.showOnWebsite) await enforceSingleWebsitePromo(promo._id);
   logActivity(req, 'update', 'Promo Code', promo.code);
   sendSuccess(res, promo);
 };
@@ -73,6 +81,7 @@ export const togglePromoWebsite = async (req: AdminRequest, res: Response): Prom
   if (!promo) { sendError(res, 'Promo code not found', 404); return; }
   promo.showOnWebsite = !promo.showOnWebsite;
   await promo.save();
+  if (promo.showOnWebsite) await enforceSingleWebsitePromo(promo._id);
   sendSuccess(res, promo);
 };
 

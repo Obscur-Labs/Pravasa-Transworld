@@ -135,8 +135,12 @@ export default function PromoCodesPage() {
   };
 
   const handleToggleWebsite = async (p: PromoCode) => {
-    setPromos((prev) => prev.map((x) => x._id === p._id ? { ...x, showOnWebsite: !x.showOnWebsite } : x));
-    try { await togglePromoWebsite(p._id); } catch { load(); }
+    // Turning one promo's website visibility on turns every other one off server-side,
+    // so a single-row optimistic patch isn't enough — reload the whole list instead.
+    try {
+      await togglePromoWebsite(p._id);
+      load();
+    } catch { load(); }
   };
 
   const handleDelete = async () => {

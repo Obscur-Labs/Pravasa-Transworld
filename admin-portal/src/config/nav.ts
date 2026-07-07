@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, FileText, Globe2, CreditCard, Users, Kanban,
-  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History,
+  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -21,6 +21,7 @@ export const topNavItems: NavItem[] = [
 export const configNavItems: NavItem[] = [
   { href: '/countries', label: 'Countries', icon: Globe2 },
   { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate },
+  { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal },
 ];
 
 export const bottomNavItems: NavItem[] = [

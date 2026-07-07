@@ -11,6 +11,7 @@ import * as formPresets from '../controllers/admin/formPresets.controller';
 import * as trash from '../controllers/admin/trash.controller';
 import * as promoCodes from '../controllers/admin/promoCodes.controller';
 import * as activityLogs from '../controllers/admin/activityLogs.controller';
+import * as visaConfig from '../controllers/admin/visaConfig.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -35,6 +36,10 @@ router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 // Form Presets
 router.route('/form-presets').get(formPresets.getFormPresets).post(formPresets.createFormPreset);
 router.route('/form-presets/:id').put(formPresets.updateFormPreset).delete(formPresets.deleteFormPreset);
+
+// Visa Config
+router.route('/visa-config').get(visaConfig.getVisaConfigOptions).post(visaConfig.createVisaConfigOption);
+router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(visaConfig.deleteVisaConfigOption);
 
 // Trash
 router.get('/trash', trash.getTrash);

@@ -62,6 +62,12 @@ export const createFormPreset = (data: object) => api.post('/admin/form-presets'
 export const updateFormPreset = (id: string, data: object) => api.put(`/admin/form-presets/${id}`, data);
 export const deleteFormPreset = (id: string) => api.delete(`/admin/form-presets/${id}`);
 
+// Visa Config
+export const getVisaConfig = () => api.get('/admin/visa-config');
+export const createVisaConfigOption = (data: object) => api.post('/admin/visa-config', data);
+export const updateVisaConfigOption = (id: string, data: object) => api.put(`/admin/visa-config/${id}`, data);
+export const deleteVisaConfigOption = (id: string) => api.delete(`/admin/visa-config/${id}`);
+
 // Activity Logs
 export const getActivityLogs = () => api.get('/admin/activity-logs');
 export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');

@@ -37,10 +37,12 @@ export interface IDocumentRequirement {
   ocrEnabled: boolean;
 }
 
-export type EntryType = 'single' | 'multiple' | 'double';
-export type VisaSubType = 'e-visa' | 'sticker';
-export type JurisdictionType = 'pan-india' | 'mumbai' | 'delhi';
-export type VisaCategoryType = 'tourist' | 'business' | 'transit' | 'student';
+// Widened to plain string — these value sets are now admin-configurable via VisaConfigOption
+// (see visaConfig.controller.ts), not fixed at build time.
+export type EntryType = string;
+export type VisaSubType = string;
+export type JurisdictionType = string;
+export type VisaCategoryType = string;
 export type ProcessType = 'normal' | 'express';
 
 export interface IVisaType extends Document {
@@ -112,11 +114,11 @@ const VisaTypeSchema = new Schema<IVisaType>(
     corporateChildServiceFee: { type: Number, min: 0 },
     processingTime: { type: String, required: true, default: '' },
     validity: { type: String, default: '' },
-    entry: [{ type: String, enum: ['single', 'multiple', 'double'] }],
-    visaSubType: { type: String, enum: ['e-visa', 'sticker'], default: 'e-visa' },
+    entry: [{ type: String }],
+    visaSubType: { type: String, default: 'e-visa' },
     stayDuration: { type: String, default: '' },
-    jurisdiction: { type: String, enum: ['pan-india', 'mumbai', 'delhi'], default: 'pan-india' },
-    visaCategory: { type: String, enum: ['tourist', 'business', 'transit', 'student'], default: 'tourist' },
+    jurisdiction: { type: String, default: 'pan-india' },
+    visaCategory: { type: String, default: 'tourist' },
     process: { type: String, enum: ['normal', 'express'], default: 'normal' },
     formFields: [FormFieldSchema],
     documentRequirements: [DocumentRequirementSchema],

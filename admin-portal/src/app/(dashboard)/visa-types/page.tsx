@@ -14,39 +14,15 @@ import { FormFieldEditor } from '@/components/shared/form-field-editor';
 import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
 import {
   getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
-  getFormPresets, createFormPreset, deleteFormPreset,
+  getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { DOC_TYPE_OPTIONS } from '@/types';
-import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType } from '@/types';
+import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory } from '@/types';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
-
-const ENTRY_OPTIONS: { value: EntryType; label: string }[] = [
-  { value: 'single', label: 'Single' },
-  { value: 'multiple', label: 'Multiple' },
-  { value: 'double', label: 'Double' },
-];
-
-const VISA_SUB_TYPES = [
-  { value: 'e-visa', label: 'E-Visa' },
-  { value: 'sticker', label: 'Sticker Visa' },
-];
-
-const JURISDICTIONS = [
-  { value: 'pan-india', label: 'Pan India' },
-  { value: 'mumbai', label: 'Mumbai' },
-  { value: 'delhi', label: 'Delhi' },
-];
-
-const VISA_CATEGORIES = [
-  { value: 'tourist', label: 'Tourist Visa' },
-  { value: 'business', label: 'Business Visa' },
-  { value: 'transit', label: 'Transit Visa' },
-  { value: 'student', label: 'Student Visa' },
-];
 
 function TabButton({ step, label, active, done, onClick }: { step: number; label: string; active: boolean; done: boolean; onClick: () => void }) {
   return (
@@ -99,10 +75,27 @@ export default function VisaTypesPage() {
   const [presetName, setPresetName] = useState('');
   const [savingPreset, setSavingPreset] = useState(false);
 
+  // Jurisdiction / category / sub-type / entry option lists — managed on the Visa Config page.
+  const [configOptions, setConfigOptions] = useState<VisaConfigOption[]>([]);
+
   useEffect(() => {
     getCountries().then((r) => setCountries(r.data.data));
     getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
+    getVisaConfig().then((r) => setConfigOptions(r.data.data)).catch(() => {});
   }, []);
+
+  // Active options for a category, plus the currently-selected value even if it's since
+  // been deactivated — so editing an older visa type never silently resets the field.
+  const optionsFor = (category: VisaConfigCategory, currentValue?: string) => {
+    const active = configOptions
+      .filter((o) => o.category === category && o.isActive)
+      .sort((a, b) => a.order - b.order);
+    if (currentValue && !active.some((o) => o.value === currentValue)) {
+      const stale = configOptions.find((o) => o.category === category && o.value === currentValue);
+      if (stale) return [...active, { ...stale, label: `${stale.label} (inactive)` }];
+    }
+    return active;
+  };
 
   useEffect(() => {
     getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
@@ -438,14 +431,10 @@ export default function VisaTypesPage() {
 
                 <div>
                   <Label>Visa Type</Label>
-                  <div className="mt-1 flex gap-3 h-10 items-center">
-                    {VISA_SUB_TYPES.map((opt) => (
-                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="visaSubType" value={opt.value} checked={form.visaSubType === opt.value} onChange={() => setForm({ ...form, visaSubType: opt.value })} className="text-primary focus:ring-ring" />
-                        <span className="text-sm text-foreground/90">{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <select value={form.visaSubType} onChange={(e) => setForm({ ...form, visaSubType: e.target.value })}
+                    className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    {optionsFor('visaSubType', form.visaSubType).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
 
                 <div>
@@ -453,7 +442,7 @@ export default function VisaTypesPage() {
                   <select value={form.entry[0] || ''} onChange={(e) => setForm({ ...form, entry: e.target.value ? [e.target.value as EntryType] : [] })}
                     className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Select entry…</option>
-                    {ENTRY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {optionsFor('entryType', form.entry[0]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
 
@@ -469,7 +458,7 @@ export default function VisaTypesPage() {
                   <Label>Jurisdiction</Label>
                   <select value={form.jurisdiction} onChange={(e) => setForm({ ...form, jurisdiction: e.target.value })}
                     className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    {JURISDICTIONS.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
+                    {optionsFor('jurisdiction', form.jurisdiction).map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
                   </select>
                 </div>
 
@@ -477,7 +466,7 @@ export default function VisaTypesPage() {
                   <Label>Visa Category</Label>
                   <select value={form.visaCategory} onChange={(e) => setForm({ ...form, visaCategory: e.target.value })}
                     className="mt-1 w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    {VISA_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    {optionsFor('visaCategory', form.visaCategory).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
               </div>
@@ -586,7 +575,7 @@ export default function VisaTypesPage() {
                     {vt.description && <p className="text-xs text-muted-foreground">{vt.description}</p>}
                     {vt.visaSubType && (
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                        {vt.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
+                        {configOptions.find((o) => o.category === 'visaSubType' && o.value === vt.visaSubType)?.label || vt.visaSubType}
                       </span>
                     )}
                   </TableCell>
