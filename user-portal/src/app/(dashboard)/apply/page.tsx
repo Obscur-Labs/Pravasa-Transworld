@@ -1517,25 +1517,13 @@ export default function ApplyPage() {
                     <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Payment Summary</p>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-600">{adults} × Adult @ {formatCurrency(r.adultBase)}</span>
-                        <span className="font-medium text-slate-800">{formatCurrency(adults * r.adultBase)}</span>
+                        <span className="text-slate-600">{adults} × Adult @ {formatCurrency(adultRate(selectedVisa))}</span>
+                        <span className="font-medium text-slate-800">{formatCurrency(adults * adultRate(selectedVisa))}</span>
                       </div>
-                      {r.adultFee > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">{adults} × Adult service fee @ {formatCurrency(r.adultFee)}</span>
-                          <span className="text-slate-600">{formatCurrency(adults * r.adultFee)}</span>
-                        </div>
-                      )}
                       {children > 0 && (
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-600">{children} × Child @ {formatCurrency(r.childBase)}</span>
-                          <span className="font-medium text-slate-800">{formatCurrency(children * r.childBase)}</span>
-                        </div>
-                      )}
-                      {children > 0 && r.childFee > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">{children} × Child service fee @ {formatCurrency(r.childFee)}</span>
-                          <span className="text-slate-600">{formatCurrency(children * r.childFee)}</span>
+                          <span className="text-slate-600">{children} × Child @ {formatCurrency(childRate(selectedVisa))}</span>
+                          <span className="font-medium text-slate-800">{formatCurrency(children * childRate(selectedVisa))}</span>
                         </div>
                       )}
                       {discount > 0 && (

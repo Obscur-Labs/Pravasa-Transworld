@@ -238,9 +238,8 @@ export default function CountryDetailPage() {
   const vt = visaTypes[selectedVt];
   const faqs = wc?.faqs ?? [];
 
-  const adultTotal = vt ? vt.adultPrice : 0;
-  const govtFees  = vt ? vt.visaCharges : 0;
-  const serviceFee = vt ? vt.serviceFee : 0;
+  const adultTotal = vt ? vt.adultPrice + (vt.adultServiceFee || 0) : 0;
+  const childTotal = vt ? vt.childPrice + (vt.childServiceFee || 0) : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -421,25 +420,13 @@ export default function CountryDetailPage() {
                 </div>
                 <div className="p-5">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Standard (Per Adult)</p>
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600 font-medium">Government Fees</span>
-                      <span className="text-sm font-semibold text-slate-800">
-                        {govtFees > 0 ? `₹${govtFees.toLocaleString('en-IN')}` : 'As Applicable'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600 font-medium">Service Fees</span>
-                      <span className="text-sm font-semibold text-slate-800">₹{serviceFee.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="border-t border-slate-100 pt-2.5 flex items-center justify-between">
-                      <span className="text-sm font-extrabold text-blue-600">Total</span>
-                      <span className="text-base font-extrabold text-blue-600">₹{adultTotal.toLocaleString('en-IN')}</span>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-extrabold text-blue-600">Total</span>
+                    <span className="text-base font-extrabold text-blue-600">₹{adultTotal.toLocaleString('en-IN')}</span>
                   </div>
-                  {vt.childPrice && vt.childPrice !== vt.adultPrice && (
+                  {vt.childPrice > 0 && childTotal !== adultTotal && (
                     <p className="text-xs text-slate-400 mt-3 font-medium">
-                      Child price: ₹{vt.childPrice.toLocaleString('en-IN')} per child
+                      Child price: ₹{childTotal.toLocaleString('en-IN')} per child
                     </p>
                   )}
                 </div>

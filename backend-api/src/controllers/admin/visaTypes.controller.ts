@@ -82,21 +82,6 @@ export const deleteVisaType = async (req: AdminRequest, res: Response): Promise<
   sendSuccess(res, null, 'Visa type moved to trash');
 };
 
-export const updateCorporatePrice = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { corporatePrice } = req.body;
-  if (corporatePrice === undefined || corporatePrice === null) {
-    sendError(res, 'corporatePrice is required');
-    return;
-  }
-  const visaType = await VisaType.findByIdAndUpdate(
-    req.params.id,
-    { corporatePrice: corporatePrice === '' ? undefined : Number(corporatePrice) },
-    { new: true, runValidators: true }
-  ).populate('country', 'name flag');
-  if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
-  sendSuccess(res, visaType, 'Corporate price updated');
-};
-
 export const toggleVisaTypeStatus = async (req: AdminRequest, res: Response): Promise<void> => {
   const visaType = await VisaType.findById(req.params.id).populate('country', 'name flag');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }

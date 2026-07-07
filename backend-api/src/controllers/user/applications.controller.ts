@@ -8,6 +8,7 @@ import Country from '../../models/Country';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { extractPassport } from '../../services/ocr.service';
 import { sendSuccess, sendError } from '../../utils/response';
+import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!._id;
@@ -63,14 +64,8 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   const numAdults = Math.max(1, Number(adults) || 1);
   const numChildren = Math.max(0, Number(children) || 0);
 
-  // Per-traveler pricing = base price + service fee. Falls back to legacy single price for older visa types.
-  const useCorpAdult = isCorporate && (visaType.corporateAdultPrice != null || visaType.corporateAdultServiceFee != null);
-  const useCorpChild = isCorporate && (visaType.corporateChildPrice != null || visaType.corporateChildServiceFee != null);
-  const adultBase = useCorpAdult && visaType.corporateAdultPrice != null ? visaType.corporateAdultPrice : (visaType.adultPrice || visaType.price);
-  const adultFee = useCorpAdult && visaType.corporateAdultServiceFee != null ? visaType.corporateAdultServiceFee : (visaType.adultServiceFee || 0);
-  const childBase = useCorpChild && visaType.corporateChildPrice != null ? visaType.corporateChildPrice : (visaType.childPrice || 0);
-  const childFee = useCorpChild && visaType.corporateChildServiceFee != null ? visaType.corporateChildServiceFee : (visaType.childServiceFee || 0);
-  const paymentAmount = numAdults * (adultBase + adultFee) + numChildren * (childBase + childFee);
+  const { adultBase, adultFee, childBase, childFee } = computeVisaPricing(visaType, isCorporate);
+  const paymentAmount = computePaymentAmount({ adultBase, adultFee, childBase, childFee }, numAdults, numChildren);
 
   const application = await Application.create({
     user: req.user!._id,
@@ -82,6 +77,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     children: numChildren,
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
     paymentAmount,
+    adultBase, adultFee, childBase, childFee,
     referenceId,
   });
 
@@ -224,18 +220,30 @@ export const getActiveCountries = async (_req: AuthRequest, res: Response): Prom
   sendSuccess(res, countries);
 };
 
+// Corporate pricing is only meant for logged-in corporate accounts — strip it from
+// responses to anonymous visitors and individual accounts on these public endpoints.
+const CORPORATE_PRICE_FIELDS = ['corporateAdultPrice', 'corporateChildPrice', 'corporateAdultServiceFee', 'corporateChildServiceFee', 'corporatePrice'];
+function sanitizeVisaType(visaType: Record<string, unknown>, includeCorporate: boolean) {
+  if (includeCorporate) return visaType;
+  const sanitized = { ...visaType };
+  for (const field of CORPORATE_PRICE_FIELDS) delete sanitized[field];
+  return sanitized;
+}
+
 export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
   const country = await Country.findOne({ slug: req.params.slug, isActive: true, showOnWebsite: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
-  const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ name: 1 });
-  sendSuccess(res, { country, visaTypes });
+  const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ name: 1 }).lean();
+  const includeCorporate = req.user?.accountType === 'corporate';
+  sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)) });
 };
 
 export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promise<void> => {
   const filter: Record<string, unknown> = { isActive: true };
   if (req.query.country) filter.country = req.query.country;
-  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 });
-  sendSuccess(res, visaTypes);
+  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 }).lean();
+  const includeCorporate = req.user?.accountType === 'corporate';
+  sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));
 };
 
 import DocumentVault from '../../models/DocumentVault';

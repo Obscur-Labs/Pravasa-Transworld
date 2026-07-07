@@ -29,7 +29,8 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
       path: 'application',
       populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }],
     })
-    .populate('user', 'name email');
+    .populate('user', 'name email')
+    .populate('promoCode', 'code');
 
   if (!payment) { sendError(res, 'Payment not found', 404); return; }
 
@@ -53,6 +54,12 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
       visaType: app.visaType?.name || 'N/A',
       country: app.country?.name || 'N/A',
       receiptNumber,
+      adults: app.adults || 1,
+      children: app.children || 0,
+      adultBase: app.adultBase || 0,
+      adultFee: app.adultFee || 0,
+      childBase: app.childBase || 0,
+      childFee: app.childFee || 0,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -198,7 +205,7 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
   
   const adminNotif = await AdminNotification.create({
     title: 'Payment Received',
-    message: `Payment of $${payment.amount} received for application ${application.referenceId}.`,
+    message: `Payment of ₹${payment.amount.toLocaleString('en-IN')} received for application ${application.referenceId}.`,
     type: 'payment_received',
     application: application._id,
   });
@@ -206,7 +213,7 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
   const userNotif = await Notification.create({
     user: req.user!._id,
     title: 'Payment Successful',
-    message: `Your payment of $${payment.amount} for application ${application.referenceId} was successful.`,
+    message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} for application ${application.referenceId} was successful.`,
     type: 'status_update',
     application: application._id,
   });

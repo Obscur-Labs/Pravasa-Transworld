@@ -2,12 +2,18 @@ import PDFDocument from 'pdfkit';
 import { IPayment } from '../models/Payment';
 
 interface ReceiptData {
-  payment: IPayment & { application: any; user: any };
+  payment: IPayment & { application: any; user: any; promoCode?: { code: string } | null };
   appRef: string;
   userName: string;
   visaType: string;
   country: string;
   receiptNumber?: string;
+  adults: number;
+  children: number;
+  adultBase: number;
+  adultFee: number;
+  childBase: number;
+  childFee: number;
 }
 
 export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
@@ -54,6 +60,42 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
       doc.fillColor('#0f172a').font('Helvetica-Bold').text(value, { align: 'right' });
       doc.moveDown(0.6);
     });
+
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(1);
+
+    // Price breakdown
+    doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('Price Breakdown');
+    doc.moveDown(0.6);
+
+    const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+    const breakdownRow = (label: string, value: string, muted = false) => {
+      doc.fillColor(muted ? '#94a3b8' : '#475569').fontSize(10).font('Helvetica').text(label, 60, doc.y, { continued: true, width: 380 });
+      doc.fillColor(muted ? '#94a3b8' : '#0f172a').font('Helvetica-Bold').text(value, { align: 'right' });
+      doc.moveDown(0.5);
+    };
+
+    breakdownRow(`Adult visa fee (${inr(data.adultBase)} x ${data.adults})`, inr(data.adultBase * data.adults));
+    if (data.adultFee > 0) {
+      breakdownRow(`Adult service charge (${inr(data.adultFee)} x ${data.adults})`, inr(data.adultFee * data.adults));
+    }
+    if (data.children > 0) {
+      breakdownRow(`Child visa fee (${inr(data.childBase)} x ${data.children})`, inr(data.childBase * data.children));
+      if (data.childFee > 0) {
+        breakdownRow(`Child service charge (${inr(data.childFee)} x ${data.children})`, inr(data.childFee * data.children));
+      }
+    }
+
+    const subtotal = data.adults * (data.adultBase + data.adultFee) + data.children * (data.childBase + data.childFee);
+    doc.moveDown(0.2);
+    breakdownRow('Subtotal', inr(subtotal));
+
+    const discount = data.payment.discountApplied || 0;
+    if (discount > 0) {
+      const code = data.payment.promoCode?.code;
+      breakdownRow(`Discount${code ? ` (${code})` : ''}`, `-${inr(discount)}`, true);
+    }
 
     doc.moveDown(0.5);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');

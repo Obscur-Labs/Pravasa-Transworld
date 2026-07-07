@@ -55,6 +55,12 @@ export interface IApplication extends Document {
   submissionDate: string;
   expectedDate: string;
   paymentAmount: number;
+  // Per-traveler pricing snapshot at submission time, so receipts stay accurate even if
+  // the visa type's price is edited later.
+  adultBase: number;
+  adultFee: number;
+  childBase: number;
+  childFee: number;
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -82,6 +88,10 @@ const ApplicationSchema = new Schema<IApplication>(
     submissionDate: { type: String, default: '' },
     expectedDate: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },
+    adultBase: { type: Number, default: 0 },
+    adultFee: { type: Number, default: 0 },
+    childBase: { type: Number, default: 0 },
+    childFee: { type: Number, default: 0 },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

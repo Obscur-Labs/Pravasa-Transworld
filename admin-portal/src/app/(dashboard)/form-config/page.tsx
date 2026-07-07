@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, LayoutTemplate, FileText, FileStack } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, LayoutTemplate, FileText, FileStack, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -145,11 +145,26 @@ export default function FormConfigPage() {
     load();
   };
 
+  const duplicatePreset = async (p: FormPreset) => {
+    try {
+      await createFormPreset({
+        name: `${p.name} (Copy)`,
+        description: p.description,
+        formFields: p.formFields,
+        documentRequirements: p.documentRequirements,
+      });
+      toast({ title: `Duplicated "${p.name}"`, variant: 'success' });
+      load();
+    } catch (err: any) {
+      toast({ title: 'Failed to duplicate preset', description: err.response?.data?.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Form Config</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Form Presets</h1>
           <p className="text-slate-500 text-sm mt-1">Build reusable form layouts (fields + documents) and apply them to any visa type in one click.</p>
         </div>
         <Button onClick={() => (showForm ? (setShowForm(false), setEditId(null)) : openCreate())}>
@@ -324,8 +339,9 @@ export default function FormConfigPage() {
                   {p.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{p.description}</p>}
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDelete(p._id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => duplicatePreset(p)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg" title="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDelete(p._id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
               <div className="flex gap-3 mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">

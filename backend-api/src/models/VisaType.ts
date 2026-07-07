@@ -48,8 +48,6 @@ export interface IVisaType extends Document {
   name: string;
   description: string;
   price: number;
-  visaCharges: number;
-  serviceFee: number;
   corporatePrice?: number;
   // Per-traveler pricing
   adultPrice: number;
@@ -103,8 +101,6 @@ const VisaTypeSchema = new Schema<IVisaType>(
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     price: { type: Number, required: true, min: 0 },
-    visaCharges: { type: Number, default: 0, min: 0 },
-    serviceFee: { type: Number, default: 0, min: 0 },
     corporatePrice: { type: Number, min: 0 },
     adultPrice: { type: Number, default: 0, min: 0 },
     childPrice: { type: Number, default: 0, min: 0 },

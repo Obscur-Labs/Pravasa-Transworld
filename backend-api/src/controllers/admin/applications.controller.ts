@@ -13,6 +13,7 @@ import Trash from '../../models/Trash';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
+import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
 import { sendSuccess, sendError } from '../../utils/response';
 
 async function fetchBuffer(url: string): Promise<Buffer> {
@@ -126,16 +127,15 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   const visaType = await (await import('../../models/VisaType')).default.findById(application.visaType);
   application.status = 'documents_approved';
   // Preserve the per-traveler total locked at creation; only recompute if it was never set.
-  if (!application.paymentAmount || application.paymentAmount <= 0) {
+  if (visaType && (!application.paymentAmount || application.paymentAmount <= 0)) {
     const fullUser = await (await import('../../models/User')).default.findById(application.user);
     const isCorporate = fullUser?.accountType === 'corporate';
-    const useCorpAdult = isCorporate && (visaType?.corporateAdultPrice != null || visaType?.corporateAdultServiceFee != null);
-    const useCorpChild = isCorporate && (visaType?.corporateChildPrice != null || visaType?.corporateChildServiceFee != null);
-    const adultBase = useCorpAdult && visaType?.corporateAdultPrice != null ? visaType.corporateAdultPrice : (visaType?.adultPrice || visaType?.price || 0);
-    const adultFee = useCorpAdult && visaType?.corporateAdultServiceFee != null ? visaType.corporateAdultServiceFee : (visaType?.adultServiceFee || 0);
-    const childBase = useCorpChild && visaType?.corporateChildPrice != null ? visaType.corporateChildPrice : (visaType?.childPrice || 0);
-    const childFee = useCorpChild && visaType?.corporateChildServiceFee != null ? visaType.corporateChildServiceFee : (visaType?.childServiceFee || 0);
-    application.paymentAmount = (application.adults || 1) * (adultBase + adultFee) + (application.children || 0) * (childBase + childFee);
+    const { adultBase, adultFee, childBase, childFee } = computeVisaPricing(visaType, isCorporate);
+    application.paymentAmount = computePaymentAmount({ adultBase, adultFee, childBase, childFee }, application.adults || 1, application.children || 0);
+    application.adultBase = adultBase;
+    application.adultFee = adultFee;
+    application.childBase = childBase;
+    application.childFee = childFee;
   }
   await application.save();
 
@@ -339,7 +339,8 @@ export const getUserApplications = async (req: AdminRequest, res: Response): Pro
 export const downloadApplicationReceipt = async (req: AdminRequest, res: Response): Promise<void> => {
   const payment = await Payment.findOne({ application: req.params.id, status: 'completed' })
     .populate({ path: 'application', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
-    .populate('user', 'name email');
+    .populate('user', 'name email')
+    .populate('promoCode', 'code');
 
   if (!payment) { sendError(res, 'No completed payment found for this application', 404); return; }
 
@@ -363,6 +364,12 @@ export const downloadApplicationReceipt = async (req: AdminRequest, res: Respons
       visaType: app.visaType?.name || 'N/A',
       country: app.country?.name || 'N/A',
       receiptNumber,
+      adults: app.adults || 1,
+      children: app.children || 0,
+      adultBase: app.adultBase || 0,
+      adultFee: app.adultFee || 0,
+      childBase: app.childBase || 0,
+      childFee: app.childFee || 0,
     });
 
     res.setHeader('Content-Type', 'application/pdf');

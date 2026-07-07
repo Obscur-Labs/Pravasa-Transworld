@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Search, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getApplications } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application, ApplicationStatus } from '@/types';
 import { STATUS_LABELS, ALL_STATUSES } from '@/types';
 
@@ -103,7 +103,7 @@ export default function ApplicationsPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{app.visaType?.name}</td>
                     <td className="px-4 py-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><img src={`https://flagcdn.com/w20/${app.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />{app.country?.name}</span></td>
-                    <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">${app.paymentAmount}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(app.paymentAmount)}</td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(app.createdAt)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={statusVariant(app.status) as any} className="text-xs whitespace-nowrap">

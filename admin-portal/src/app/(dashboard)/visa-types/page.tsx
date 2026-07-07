@@ -764,20 +764,18 @@ export default function VisaTypesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-bold text-blue-700">
-                    {formatCurrency(vt.adultPrice || vt.price)}
-                    {!!vt.adultServiceFee && <span className="block text-[10px] font-normal text-slate-400">+{formatCurrency(vt.adultServiceFee)} fee</span>}
+                    {formatCurrency((vt.adultPrice || vt.price) + (vt.adultServiceFee || 0))}
                   </td>
                   <td className="px-4 py-3 text-slate-600 text-xs">
-                    {vt.childPrice ? formatCurrency(vt.childPrice) : '—'}
-                    {!!vt.childServiceFee && <span className="block text-[10px] text-slate-400">+{formatCurrency(vt.childServiceFee)} fee</span>}
+                    {vt.childPrice ? formatCurrency(vt.childPrice + (vt.childServiceFee || 0)) : '—'}
                   </td>
                   <td className="px-4 py-3 text-xs">
                     <span className={vt.corporateAdultPrice != null ? 'text-amber-700 font-semibold' : 'text-slate-300'}>
-                      {vt.corporateAdultPrice != null ? formatCurrency(vt.corporateAdultPrice) : '—'}
+                      {vt.corporateAdultPrice != null ? formatCurrency(vt.corporateAdultPrice + (vt.corporateAdultServiceFee || 0)) : '—'}
                     </span>
                     <span className="text-slate-300"> / </span>
                     <span className={vt.corporateChildPrice != null ? 'text-amber-700 font-semibold' : 'text-slate-300'}>
-                      {vt.corporateChildPrice != null ? formatCurrency(vt.corporateChildPrice) : '—'}
+                      {vt.corporateChildPrice != null ? formatCurrency(vt.corporateChildPrice + (vt.corporateChildServiceFee || 0)) : '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3">

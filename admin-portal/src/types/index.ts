@@ -110,8 +110,6 @@ export interface VisaType {
   name: string;
   description: string;
   price: number;
-  visaCharges: number;
-  serviceFee: number;
   corporatePrice?: number;
   adultPrice: number;
   childPrice: number;
