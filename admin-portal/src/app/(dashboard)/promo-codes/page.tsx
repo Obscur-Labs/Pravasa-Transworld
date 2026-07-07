@@ -2,10 +2,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Tag, ToggleLeft, ToggleRight, Globe, GlobeLock, Trash2,
-  Pencil, History, X, Check, Copy, Loader2, AlertCircle, Percent, DollarSign,
-  Calendar, Users, TrendingUp, Search, ChevronRight,
+  Pencil, History, Check, Loader2, AlertCircle, Percent, DollarSign,
+  Users, TrendingUp, Search,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PageHeader } from '@/components/ui/page-header';
+import { StatTile } from '@/components/ui/stat-tile';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode,
   togglePromoActive, togglePromoWebsite, getPromoHistory,
@@ -30,8 +40,8 @@ const empty = (): Partial<PromoCode> => ({
 
 function StatusBadge({ active }: { active: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-green-500' : 'bg-slate-400'}`} />
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-success' : 'bg-muted-foreground/50'}`} />
       {active ? 'Active' : 'Inactive'}
     </span>
   );
@@ -39,7 +49,7 @@ function StatusBadge({ active }: { active: boolean }) {
 
 function DiscountBadge({ type, value }: { type: string; value: number }) {
   return (
-    <span className={`inline-flex items-center gap-0.5 text-sm font-bold px-2.5 py-0.5 rounded-full ${type === 'percentage' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-sm font-bold px-2.5 py-0.5 rounded-full ${type === 'percentage' ? 'bg-violet-500/10 text-violet-600' : 'bg-primary/10 text-primary'}`}>
       {type === 'percentage' ? <Percent className="w-3 h-3" /> : <span>₹</span>}
       {value}{type === 'percentage' ? ' off' : ' off'}
     </span>
@@ -65,7 +75,6 @@ export default function PromoCodesPage() {
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -132,14 +141,9 @@ export default function PromoCodesPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await deletePromoCode(deleteTarget._id);
-      setDeleteTarget(null);
-      load();
-    } finally {
-      setDeleting(false);
-    }
+    await deletePromoCode(deleteTarget._id);
+    setDeleteTarget(null);
+    load();
   };
 
   const openHistory = async (p: PromoCode) => {
@@ -164,345 +168,299 @@ export default function PromoCodesPage() {
   const activeCount = promos.filter((p) => p.isActive).length;
   const websiteCount = promos.filter((p) => p.showOnWebsite).length;
 
+  const stats = [
+    { label: 'Total Codes', value: promos.length, icon: Tag, tone: 'text-primary bg-primary/10' },
+    { label: 'Active', value: activeCount, icon: ToggleRight, tone: 'text-success bg-success/10' },
+    { label: 'On Website', value: websiteCount, icon: Globe, tone: 'text-violet-600 bg-violet-500/10' },
+    { label: 'Total Uses', value: totalUsage, icon: TrendingUp, tone: 'text-warning bg-warning/10' },
+  ];
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Promo Codes</h1>
-          <p className="text-slate-500 text-sm mt-1">{promos.length} codes total</p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
-        >
-          <Plus className="w-4 h-4" /> New Promo Code
-        </button>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <PageHeader
+        title="Promo Codes"
+        description={`${promos.length} codes total`}
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" /> New Promo Code
+          </Button>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total Codes', value: promos.length, icon: Tag, color: 'blue' },
-          { label: 'Active', value: activeCount, icon: ToggleRight, color: 'green' },
-          { label: 'On Website', value: websiteCount, icon: Globe, color: 'violet' },
-          { label: 'Total Uses', value: totalUsage, icon: TrendingUp, color: 'amber' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-${color}-100`}>
-              <Icon className={`w-5 h-5 text-${color}-600`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{value}</p>
-              <p className="text-xs text-slate-500">{label}</p>
-            </div>
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => <StatTile key={i} loading label="" value="" icon={Tag} tone="" />)
+          : stats.map((s) => <StatTile key={s.label} {...s} />)}
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by code or description…"
-          className="w-full pl-9 pr-3 h-9 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="pl-9"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent bg-muted/40">
               {['Code', 'Description', 'Discount', 'Status', 'Website', 'Expiry', 'Uses', 'Actions'].map((h) => (
-                <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
+                <TableHead key={h}>{h}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">Loading…</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>)}
+                </TableRow>
+              ))
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">
-                {search ? 'No matching promo codes.' : 'No promo codes yet. Create your first one!'}
-              </td></tr>
+              <TableRow><TableCell colSpan={8} className="p-0">
+                <EmptyState icon={Tag} title={search ? 'No matching promo codes' : 'No promo codes yet'} description={search ? 'Try a different search.' : 'Create your first promo code to get started.'} />
+              </TableCell></TableRow>
             ) : filtered.map((p) => (
-              <tr key={p._id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg tracking-widest text-xs">{p.code}</span>
-                </td>
-                <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate">{p.description || <span className="text-slate-300 italic">No description</span>}</td>
-                <td className="px-4 py-3">
+              <TableRow key={p._id}>
+                <TableCell>
+                  <span className="font-mono font-bold text-foreground bg-muted px-2 py-0.5 rounded-lg tracking-widest text-xs">{p.code}</span>
+                </TableCell>
+                <TableCell className="text-muted-foreground max-w-[180px] truncate">{p.description || <span className="text-muted-foreground/50 italic">No description</span>}</TableCell>
+                <TableCell>
                   <DiscountBadge type={p.discountType} value={p.discountValue} />
-                </td>
-                <td className="px-4 py-3"><StatusBadge active={p.isActive} /></td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell><StatusBadge active={p.isActive} /></TableCell>
+                <TableCell>
                   {p.showOnWebsite
-                    ? <span className="text-xs font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Globe className="w-3 h-3" />Visible</span>
-                    : <span className="text-xs text-slate-400">Hidden</span>}
-                </td>
-                <td className="px-4 py-3 text-slate-500 text-xs">
-                  {p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="text-slate-300">Never</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <span className="font-semibold text-slate-800">{p.usageCount}</span>
-                  {p.usageLimit && <span className="text-slate-400 text-xs"> / {p.usageLimit}</span>}
-                </td>
-                <td className="px-4 py-3">
+                    ? <span className="text-xs font-semibold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"><Globe className="w-3 h-3" />Visible</span>
+                    : <span className="text-xs text-muted-foreground">Hidden</span>}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs">
+                  {p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="text-muted-foreground/50">Never</span>}
+                </TableCell>
+                <TableCell>
+                  <span className="font-semibold text-foreground">{p.usageCount}</span>
+                  {p.usageLimit && <span className="text-muted-foreground text-xs"> / {p.usageLimit}</span>}
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-1">
                     <button onClick={() => handleToggle(p)} title={p.isActive ? 'Deactivate' : 'Activate'}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-                      {p.isActive ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4" />}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+                      {p.isActive ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                     </button>
                     <button onClick={() => handleToggleWebsite(p)} title={p.showOnWebsite ? 'Hide from website' : 'Show on website'}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       {p.showOnWebsite ? <Globe className="w-4 h-4 text-violet-600" /> : <GlobeLock className="w-4 h-4" />}
                     </button>
                     <button onClick={() => openEdit(p)} title="Edit"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => openHistory(p)} title="Usage history"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-primary/10 text-primary transition-colors">
                       <History className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => setDeleteTarget(p)} title="Delete"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-red-400 transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-destructive/70 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* ── Create / Edit Modal ── */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.6)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-900">{editTarget ? 'Edit Promo Code' : 'New Promo Code'}</h2>
-              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <DialogTitle>{editTarget ? 'Edit Promo Code' : 'New Promo Code'}</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 space-y-4">
+            {/* Code */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Promo Code *</label>
+              <input
+                value={form.code || ''}
+                onChange={(e) => { setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }); setCodeError(''); }}
+                placeholder="e.g. SAVE20 or 2024PROMO"
+                className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm font-mono font-bold tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {codeError && <p className="text-xs text-destructive mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{codeError}</p>}
+              <p className="text-xs text-muted-foreground mt-1">Only letters and numbers. Auto-uppercased.</p>
             </div>
-            <div className="p-6 space-y-4">
-              {/* Code */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Promo Code *</label>
-                <input
-                  value={form.code || ''}
-                  onChange={(e) => { setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }); setCodeError(''); }}
-                  placeholder="e.g. SAVE20 or 2024PROMO"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono font-bold tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {codeError && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{codeError}</p>}
-                <p className="text-xs text-slate-400 mt-1">Only letters and numbers. Auto-uppercased.</p>
-              </div>
 
-              {/* Description */}
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Description</label>
+              <input
+                value={form.description || ''}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="e.g. 20% off on all visa applications"
+                className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Discount type + value */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Description</label>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Discount Type *</label>
+                <div className="flex rounded-xl border border-input overflow-hidden">
+                  {DISCOUNT_TYPES.map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setForm({ ...form, discountType: value as any })}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${form.discountType === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />{value === 'percentage' ? '%' : '₹'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  Value {form.discountType === 'percentage' ? '(%)' : '(₹)'} *
+                </label>
                 <input
-                  value={form.description || ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="e.g. 20% off on all visa applications"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  type="number"
+                  min={1}
+                  max={form.discountType === 'percentage' ? 100 : undefined}
+                  value={form.discountValue || ''}
+                  onChange={(e) => setForm({ ...form, discountValue: Number(e.target.value) })}
+                  className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
+            </div>
 
-              {/* Discount type + value */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Discount Type *</label>
-                  <div className="flex rounded-xl border border-slate-200 overflow-hidden">
-                    {DISCOUNT_TYPES.map(({ value, label, icon: Icon }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setForm({ ...form, discountType: value as any })}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${form.discountType === value ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />{value === 'percentage' ? '%' : '₹'}
-                      </button>
-                    ))}
+            {/* Expiry + Usage limit */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Expiry Date</label>
+                <input
+                  type="date"
+                  value={form.expiresAt || ''}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setForm({ ...form, expiresAt: e.target.value || undefined })}
+                  className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Usage Limit</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Unlimited"
+                  value={form.usageLimit || ''}
+                  onChange={(e) => setForm({ ...form, usageLimit: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full h-10 px-3 rounded-xl border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="flex gap-3">
+              {([
+                { key: 'isActive' as const, label: 'Active', desc: 'Users can apply this code', tone: 'success' as const },
+                { key: 'showOnWebsite' as const, label: 'Show on Website', desc: 'Popup on homepage after 5s', tone: 'violet' as const },
+              ]).map(({ key, label, desc, tone }) => (
+                <div key={key} className="flex-1 flex items-center gap-3 p-3 rounded-xl border border-border">
+                  <Switch checked={!!form[key]} onChange={() => setForm({ ...form, [key]: !form[key] })} tone={tone} />
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{label}</p>
+                    <p className="text-[10px] text-muted-foreground">{desc}</p>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
-                    Value {form.discountType === 'percentage' ? '(%)' : '(₹)'} *
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={form.discountType === 'percentage' ? 100 : undefined}
-                    value={form.discountValue || ''}
-                    onChange={(e) => setForm({ ...form, discountValue: Number(e.target.value) })}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Expiry + Usage limit */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Expiry Date</label>
-                  <input
-                    type="date"
-                    value={form.expiresAt || ''}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setForm({ ...form, expiresAt: e.target.value || undefined })}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Usage Limit</label>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Unlimited"
-                    value={form.usageLimit || ''}
-                    onChange={(e) => setForm({ ...form, usageLimit: e.target.value ? Number(e.target.value) : undefined })}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Toggles */}
-              <div className="flex gap-3">
-                {[
-                  { key: 'isActive' as const, label: 'Active', desc: 'Users can apply this code', on: 'bg-green-600', off: 'bg-slate-300' },
-                  { key: 'showOnWebsite' as const, label: 'Show on Website', desc: 'Popup on homepage after 5s', on: 'bg-violet-600', off: 'bg-slate-300' },
-                ].map(({ key, label, desc, on, off }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setForm({ ...form, [key]: !form[key] })}
-                    className="flex-1 flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 relative ${form[key] ? on : off}`}>
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form[key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{label}</p>
-                      <p className="text-[10px] text-slate-400">{desc}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
-              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !form.code || !form.discountValue}
-                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {saving ? 'Saving…' : editTarget ? 'Update Code' : 'Create Code'}
-              </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/40">
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving || !form.code || !form.discountValue}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+              {saving ? 'Saving…' : editTarget ? 'Update Code' : 'Create Code'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── History Drawer ── */}
-      {historyPromo && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setHistoryPromo(null)} />
-          <div className="relative w-full max-w-md bg-white h-full flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div>
-                <h2 className="font-bold text-slate-900">Usage History</h2>
-                <p className="text-xs text-slate-400 mt-0.5 font-mono font-semibold tracking-wider">{historyPromo.code}</p>
-              </div>
-              <button onClick={() => setHistoryPromo(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
-            </div>
+      <Sheet open={!!historyPromo} onOpenChange={(open) => !open && setHistoryPromo(null)}>
+        <SheetContent side="right" className="w-full max-w-md p-0 flex flex-col">
+          <div className="px-5 py-4 border-b border-border">
+            <SheetTitle>Usage History</SheetTitle>
+            {historyPromo && <p className="text-xs text-muted-foreground mt-0.5 font-mono font-semibold tracking-wider">{historyPromo.code}</p>}
+          </div>
 
-            {histLoading ? (
-              <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>
-            ) : history ? (
-              <div className="flex-1 overflow-y-auto">
-                {/* Stats row */}
-                <div className="grid grid-cols-3 gap-0 border-b border-slate-100">
-                  {[
-                    { label: 'Total Uses', value: history.usageCount },
-                    { label: 'Limit', value: history.usageLimit ?? '∞' },
-                    { label: 'Remaining', value: history.usageLimit ? Math.max(0, history.usageLimit - history.usageCount) : '∞' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="px-5 py-3 text-center border-r border-slate-100 last:border-r-0">
-                      <p className="text-xl font-bold text-slate-900">{value}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>
+          {histLoading ? (
+            <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : history ? (
+            <div className="flex-1 overflow-y-auto">
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-0 border-b border-border">
+                {[
+                  { label: 'Total Uses', value: history.usageCount },
+                  { label: 'Limit', value: history.usageLimit ?? '∞' },
+                  { label: 'Remaining', value: history.usageLimit ? Math.max(0, history.usageLimit - history.usageCount) : '∞' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="px-5 py-3 text-center border-r border-border last:border-r-0">
+                    <p className="text-xl font-bold text-foreground">{value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {history.usedBy.length === 0 ? (
+                <EmptyState icon={Users} title="No uses yet" description="Usage will appear here once customers apply this code." />
+              ) : (
+                <div className="divide-y divide-border">
+                  {history.usedBy.map((entry, i) => (
+                    <div key={i} className="px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-primary text-xs font-bold">{entry.userName?.[0]?.toUpperCase() || '?'}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{entry.userName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{entry.userEmail}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold text-success">-₹{entry.discountApplied}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(entry.usedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      {entry.applicationRef && (
+                        <div className="mt-1.5 ml-10.5">
+                          <span className="text-[10px] font-mono text-muted-foreground">App: {entry.applicationRef}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-
-                {history.usedBy.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-slate-300">
-                    <Users className="w-10 h-10 mb-3" />
-                    <p className="text-sm font-medium text-slate-400">No uses yet</p>
-                    <p className="text-xs text-slate-300 mt-1">Usage will appear here once customers apply this code</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {history.usedBy.map((entry, i) => (
-                      <div key={i} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                              <span className="text-blue-700 text-xs font-bold">{entry.userName?.[0]?.toUpperCase() || '?'}</span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate">{entry.userName}</p>
-                              <p className="text-xs text-slate-400 truncate">{entry.userEmail}</p>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold text-green-700">-₹{entry.discountApplied}</p>
-                            <p className="text-xs text-slate-400">{new Date(entry.usedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                          </div>
-                        </div>
-                        {entry.applicationRef && (
-                          <div className="mt-1.5 ml-10.5">
-                            <span className="text-[10px] font-mono text-slate-400">App: {entry.applicationRef}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-
-      {/* ── Delete Confirm ── */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(2,6,23,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
-              <Trash2 className="w-6 h-6 text-red-600" />
+              )}
             </div>
-            <h3 className="font-bold text-slate-900 mb-1">Delete Promo Code?</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              <span className="font-mono font-bold text-slate-800">{deleteTarget.code}</span> will be removed. This cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50">Cancel</button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl flex items-center justify-center gap-2 transition-colors"
-              >
-                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                {deleting ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete Promo Code?"
+        description={deleteTarget ? `"${deleteTarget.code}" will be removed. This cannot be undone.` : undefined}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

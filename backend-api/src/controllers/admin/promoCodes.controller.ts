@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import PromoCode from '../../models/PromoCode';
 import { sendSuccess, sendError } from '../../utils/response';
+import { logActivity } from '../../utils/activityLog';
 
 export const getPromoCodes = async (req: AdminRequest, res: Response): Promise<void> => {
   const promos = await PromoCode.find({ isDeleted: false }).sort({ createdAt: -1 }).select('-usedBy');
@@ -30,6 +31,7 @@ export const createPromoCode = async (req: AdminRequest, res: Response): Promise
     expiresAt: expiresAt || undefined,
     usageLimit: usageLimit ? Number(usageLimit) : undefined,
   });
+  logActivity(req, 'create', 'Promo Code', upper);
   sendSuccess(res, promo, 'Promo code created', 201);
 };
 
@@ -54,6 +56,7 @@ export const updatePromoCode = async (req: AdminRequest, res: Response): Promise
   promo.usageLimit = usageLimit ? Number(usageLimit) : undefined;
 
   await promo.save();
+  logActivity(req, 'update', 'Promo Code', promo.code);
   sendSuccess(res, promo);
 };
 
@@ -79,6 +82,7 @@ export const deletePromoCode = async (req: AdminRequest, res: Response): Promise
   promo.isDeleted = true;
   promo.deletedAt = new Date();
   await promo.save();
+  logActivity(req, 'delete', 'Promo Code', promo.code);
   sendSuccess(res, null, 'Promo code deleted');
 };
 

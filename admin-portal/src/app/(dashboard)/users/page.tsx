@@ -2,6 +2,12 @@
 import { useEffect, useState } from 'react';
 import { Search, ChevronRight, Users, User, Building2, Tag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { StatTile } from '@/components/ui/stat-tile';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { getUsers, toggleUserPromoApplicable } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { User as IUser } from '@/types';
@@ -41,141 +47,125 @@ export default function CustomersPage() {
   const individualCount = allUsers.filter((u) => (u.accountType || 'individual') === 'individual').length;
   const corporateCount = allUsers.filter((u) => u.accountType === 'corporate').length;
 
+  const columns = ['Customer', 'Email', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Joined', 'Status', 'Promo', ''];
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
-        <p className="text-slate-500 text-sm mt-1">{allUsers.length} registered customers</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <PageHeader title="Customers" description={`${allUsers.length} registered customers`} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <Users className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">{allUsers.length}</p>
-            <p className="text-xs text-slate-500">Total Customers</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-            <User className="w-5 h-5 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">{individualCount}</p>
-            <p className="text-xs text-slate-500">Individual</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">{corporateCount}</p>
-            <p className="text-xs text-slate-500">Corporate</p>
-          </div>
-        </div>
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => <StatTile key={i} loading label="" value="" icon={Users} tone="" />)
+        ) : (
+          <>
+            <StatTile label="Total Customers" value={allUsers.length} icon={Users} tone="text-primary bg-primary/10" />
+            <StatTile label="Individual" value={individualCount} icon={User} tone="text-info bg-info/10" />
+            <StatTile label="Corporate" value={corporateCount} icon={Building2} tone="text-warning bg-warning/10" />
+          </>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-5">
+      <div className="flex gap-1 bg-muted rounded-xl p-1 w-fit mb-5">
         <button
           onClick={() => { setTab('individual'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            tab === 'individual' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            tab === 'individual' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <User className="w-4 h-4" />
           Individual
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === 'individual' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
+          <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === 'individual' ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
             {individualCount}
           </span>
         </button>
         <button
           onClick={() => { setTab('corporate'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            tab === 'corporate' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            tab === 'corporate' ? 'bg-card text-warning shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Building2 className="w-4 h-4" />
           Corporate
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === 'corporate' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
+          <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === 'corporate' ? 'bg-warning/10 text-warning' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
             {corporateCount}
           </span>
         </button>
       </div>
 
       <div className="relative max-w-sm mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
           placeholder="Search by name, email or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 h-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="pl-9"
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              {['Customer', 'Email', 'Phone', ...(tab === 'corporate' ? ['GST Number'] : []), 'Joined', 'Status', 'Promo', ''].map((h) => (
-                <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent bg-muted/40">
+              {columns.map((h) => <TableHead key={h}>{h}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr><td colSpan={tab === 'corporate' ? 8 : 7} className="px-4 py-10 text-center text-slate-400">Loading...</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  {columns.map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>)}
+                </TableRow>
+              ))
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={tab === 'corporate' ? 8 : 7} className="px-4 py-10 text-center text-slate-400">No {tab} customers found.</td></tr>
+              <TableRow><TableCell colSpan={columns.length} className="p-0">
+                <EmptyState icon={Users} title={`No ${tab} customers found`} description={search ? 'Try a different search.' : 'Customers will appear here once they register.'} />
+              </TableCell></TableRow>
             ) : (
               filtered.map((u) => (
-                <tr
+                <TableRow
                   key={u._id}
                   onClick={() => router.push(`/users/${u._id}`)}
-                  className="hover:bg-blue-50 cursor-pointer transition-colors"
+                  className="hover:bg-accent cursor-pointer"
                 >
-                  <td className="px-4 py-3">
+                  <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tab === 'corporate' ? 'bg-amber-100' : 'bg-blue-100'}`}>
-                        <span className={`text-xs font-semibold ${tab === 'corporate' ? 'text-amber-700' : 'text-blue-700'}`}>{u.name?.[0]?.toUpperCase()}</span>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tab === 'corporate' ? 'bg-warning/10' : 'bg-primary/10'}`}>
+                        <span className={`text-xs font-semibold ${tab === 'corporate' ? 'text-warning' : 'text-primary'}`}>{u.name?.[0]?.toUpperCase()}</span>
                       </div>
-                      <span className="font-medium text-slate-900">{u.name}</span>
+                      <span className="font-medium text-foreground">{u.name}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{u.phone}</td>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.phone}</TableCell>
                   {tab === 'corporate' && (
-                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.gstNumber || '—'}</td>
+                    <TableCell className="text-muted-foreground font-mono text-xs">{u.gstNumber || '—'}</TableCell>
                   )}
-                  <td className="px-4 py-3 text-slate-500">{formatDate(u.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${u.isActive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>
                     <button
                       onClick={(e) => handlePromoToggle(e, u)}
                       disabled={toggling === u._id}
                       title={u.promoApplicable !== false ? 'Disable promos for this user' : 'Enable promos for this user'}
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${u.promoApplicable !== false ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${u.promoApplicable !== false ? 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20' : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'}`}
                     >
                       <Tag className="w-3 h-3" />
                       {u.promoApplicable !== false ? 'Eligible' : 'Blocked'}
                     </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

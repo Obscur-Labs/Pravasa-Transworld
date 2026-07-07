@@ -1,61 +1,24 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, LayoutTemplate, FileText, FileStack, Copy } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Pencil, Trash2, Loader2, LayoutTemplate, FileText, FileStack, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
+import { FormFieldEditor } from '@/components/shared/form-field-editor';
+import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
 import { getFormPresets, createFormPreset, updateFormPreset, deleteFormPreset } from '@/lib/api';
 import { DOC_TYPE_OPTIONS } from '@/types';
-import type { FormField, DocumentRequirement, FieldType, FormPreset, DocumentType, ApplicantType } from '@/types';
+import type { FormField, DocumentRequirement, FormPreset, DocumentType } from '@/types';
 
-const FIELD_TYPES: FieldType[] = ['text', 'number', 'email', 'date', 'select', 'radio', 'textarea', 'file'];
-const APPLICANT_OPTS: { value: ApplicantType; label: string; active: string }[] = [
-  { value: 'adult', label: 'Adult', active: 'bg-blue-600 text-white' },
-  { value: 'both', label: 'Both', active: 'bg-violet-600 text-white' },
-  { value: 'child', label: 'Child', active: 'bg-emerald-600 text-white' },
-];
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
-
-function OptionListEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
-  const [draft, setDraft] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const add = () => {
-    const val = draft.trim();
-    if (!val || options.includes(val)) return;
-    onChange([...options, val]);
-    setDraft('');
-    inputRef.current?.focus();
-  };
-  const remove = (idx: number) => onChange(options.filter((_, i) => i !== idx));
-  const handleKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); add(); } };
-
-  return (
-    <div className="mt-2 space-y-2">
-      {options.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {options.map((opt, idx) => (
-            <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800 font-medium">
-              {opt}
-              <button type="button" onClick={() => remove(idx)} className="text-blue-400 hover:text-blue-700 ml-0.5"><X className="w-3 h-3" /></button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-1">
-        <Input ref={inputRef} className="h-7 text-xs flex-1" placeholder="Add option…" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={handleKey} />
-        <button type="button" onClick={add} disabled={!draft.trim()}
-          className="h-7 px-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 const emptyForm = () => ({
   name: '', description: '',
@@ -70,6 +33,7 @@ export default function FormConfigPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -139,7 +103,6 @@ export default function FormConfigPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Move this preset to Trash? You can restore it later from the Trash page.')) return;
     await deleteFormPreset(id);
     toast({ title: 'Moved to Trash' });
     load();
@@ -161,22 +124,22 @@ export default function FormConfigPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Form Presets</h1>
-          <p className="text-slate-500 text-sm mt-1">Build reusable form layouts (fields + documents) and apply them to any visa type in one click.</p>
-        </div>
-        <Button onClick={() => (showForm ? (setShowForm(false), setEditId(null)) : openCreate())}>
-          <Plus className="w-4 h-4 mr-2" /> New Preset
-        </Button>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <PageHeader
+        title="Form Presets"
+        description="Build reusable form layouts (fields + documents) and apply them to any visa type in one click."
+        action={
+          <Button onClick={() => (showForm ? (setShowForm(false), setEditId(null)) : openCreate())}>
+            <Plus className="w-4 h-4 mr-2" /> New Preset
+          </Button>
+        }
+      />
 
       {showForm && (
-        <Card className="mb-6 border-violet-200">
+        <Card className="mb-6 border-primary/20">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-5 flex items-center gap-2">
-              <LayoutTemplate className="w-4 h-4 text-violet-600" />
+            <h3 className="font-semibold text-foreground mb-5 flex items-center gap-2">
+              <LayoutTemplate className="w-4 h-4 text-primary" />
               {editId ? 'Edit Preset' : 'Create Preset'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -191,123 +154,8 @@ export default function FormConfigPage() {
                 </div>
               </div>
 
-              {/* ── Application Form Fields ── */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-slate-900 text-sm">Application Form Fields</h4>
-                  <Button type="button" size="sm" variant="outline" onClick={addField}><Plus className="w-3.5 h-3.5 mr-1" />Add Field</Button>
-                </div>
-                {form.formFields.length === 0 && <p className="text-xs text-slate-400 mb-2">No fields yet. Add the fields applicants should fill.</p>}
-                {form.formFields.length > 0 && <p className="text-xs text-slate-400 mb-2">Use <span className="font-medium">Applies to</span> to control which traveller type sees each field: Adult (default), Child, or Both.</p>}
-                <div className="space-y-3">
-                  {form.formFields.map((field, i) => (
-                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-                        <div>
-                          <label className="text-xs text-slate-500">Label</label>
-                          <Input className="mt-0.5 h-8 text-xs" placeholder="Field label" value={field.label} onChange={(e) => updateField(i, 'label', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500">Field Name</label>
-                          <Input className="mt-0.5 h-8 text-xs" placeholder="camelCase" value={field.fieldName} onChange={(e) => updateField(i, 'fieldName', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500">Type</label>
-                          <select value={field.type} onChange={(e) => updateField(i, 'type', e.target.value)} className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500">Placeholder</label>
-                          <Input className="mt-0.5 h-8 text-xs" placeholder="Hint text" value={field.placeholder} onChange={(e) => updateField(i, 'placeholder', e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                          <input type="checkbox" checked={field.required} onChange={(e) => updateField(i, 'required', e.target.checked)} className="rounded" />
-                          Required
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-slate-500">Applies to:</span>
-                          <div className="flex rounded-md border border-slate-200 overflow-hidden text-[11px] font-semibold">
-                            {APPLICANT_OPTS.map((opt) => (
-                              <button key={opt.value} type="button"
-                                onClick={() => updateField(i, 'applicantType', opt.value)}
-                                className={`px-2.5 py-1 transition-colors ${(field.applicantType || 'adult') === opt.value ? opt.active : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <button type="button" onClick={() => removeField(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
-                      </div>
-                      {(field.type === 'select' || field.type === 'radio') && (
-                        <div className="mt-2 pt-2 border-t border-slate-200">
-                          <p className="text-xs text-slate-500 font-medium mb-1">Selection Options</p>
-                          <OptionListEditor options={field.options} onChange={(opts) => updateField(i, 'options', opts)} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Document Requirements ── */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-slate-900 text-sm">Document Requirements</h4>
-                  <Button type="button" size="sm" variant="outline" onClick={addDocReq}><Plus className="w-3.5 h-3.5 mr-1" />Add Document</Button>
-                </div>
-                <div className="space-y-2">
-                  {form.documentRequirements.map((doc, i) => {
-                    const typeOpt = DOC_TYPE_OPTIONS.find((o) => o.value === (doc.docType || 'custom'));
-                    return (
-                    <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-                        <div>
-                          <label className="text-xs text-slate-500">Type</label>
-                          <select value={doc.docType || 'custom'} onChange={(e) => updateDocType(i, e.target.value as DocumentType)}
-                            className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            {DOC_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500">Name</label>
-                          <Input className="mt-0.5 h-8 text-xs" placeholder="Document name" value={doc.name} onChange={(e) => updateDocReq(i, 'name', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500">Description</label>
-                          <Input className="mt-0.5 h-8 text-xs" placeholder="Optional" value={doc.description} onChange={(e) => updateDocReq(i, 'description', e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input type="checkbox" checked={doc.required} onChange={(e) => updateDocReq(i, 'required', e.target.checked)} className="rounded" />
-                          Required
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-slate-500">Applies to:</span>
-                          <div className="flex rounded-md border border-slate-200 overflow-hidden text-[11px] font-semibold">
-                            {APPLICANT_OPTS.map((opt) => (
-                              <button key={opt.value} type="button"
-                                onClick={() => updateDocReq(i, 'applicantType', opt.value)}
-                                className={`px-2.5 py-1 transition-colors ${(doc.applicantType || 'adult') === opt.value ? opt.active : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Run OCR to auto-extract details when applicant uploads this document">
-                          <input type="checkbox" checked={doc.ocrEnabled !== false} onChange={(e) => updateDocReq(i, 'ocrEnabled', e.target.checked)} className="rounded" />
-                          OCR extraction
-                        </label>
-                        <button type="button" onClick={() => removeDocReq(i)} className="text-red-400 hover:text-red-600 ml-auto"><X className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <FormFieldEditor fields={form.formFields} onAdd={addField} onUpdate={updateField} onRemove={removeField} />
+              <DocumentRequirementEditor docs={form.documentRequirements} onAdd={addDocReq} onUpdate={updateDocReq} onUpdateType={updateDocType} onRemove={removeDocReq} />
 
               <div className="flex gap-2 pt-2">
                 <Button type="submit" disabled={saving}>
@@ -322,41 +170,52 @@ export default function FormConfigPage() {
 
       {/* Preset list */}
       {loading ? (
-        <div className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" /></div>
-      ) : presets.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <LayoutTemplate className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-500 font-medium">No form presets yet</p>
-          <p className="text-slate-400 text-sm mt-1">Create a layout to reuse across visa types.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-5 space-y-3"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-2/3" /></CardContent></Card>
+          ))}
         </div>
+      ) : presets.length === 0 ? (
+        <EmptyState icon={LayoutTemplate} title="No form presets yet" description="Create a layout to reuse across visa types." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {presets.map((p) => (
-            <div key={p._id} className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{p.name}</p>
-                  {p.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{p.description}</p>}
+            <Card key={p._id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-5 flex flex-col h-full">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground truncate">{p.name}</p>
+                    {p.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{p.description}</p>}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => openEdit(p)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => duplicatePreset(p)} className="p-1.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-500/10 rounded-lg" title="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setDeleteId(p._id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => duplicatePreset(p)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg" title="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDelete(p._id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                <div className="flex gap-3 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-muted-foreground" /> {p.formFields?.length || 0} field{(p.formFields?.length || 0) !== 1 ? 's' : ''}</span>
+                  <span className="flex items-center gap-1.5"><FileStack className="w-3.5 h-3.5 text-muted-foreground" /> {p.documentRequirements?.length || 0} doc{(p.documentRequirements?.length || 0) !== 1 ? 's' : ''}</span>
                 </div>
-              </div>
-              <div className="flex gap-3 mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400" /> {p.formFields?.length || 0} field{(p.formFields?.length || 0) !== 1 ? 's' : ''}</span>
-                <span className="flex items-center gap-1.5"><FileStack className="w-3.5 h-3.5 text-slate-400" /> {p.documentRequirements?.length || 0} doc{(p.documentRequirements?.length || 0) !== 1 ? 's' : ''}</span>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      <p className="text-xs text-slate-400 mt-6 flex items-center gap-1.5">
+      <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1.5">
         <LayoutTemplate className="w-3.5 h-3.5" />
-        Apply these presets from the Visa Types form using the “Form Presets” panel.
+        Apply these presets from the Visa Types form using the "Form Presets" panel.
       </p>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Move this preset to Trash?"
+        description="You can restore it later from the Trash page."
+        confirmLabel="Move to Trash"
+        onConfirm={async () => { if (deleteId) await handleDelete(deleteId); }}
+      />
     </div>
   );
 }

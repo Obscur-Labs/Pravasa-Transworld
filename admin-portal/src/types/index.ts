@@ -249,6 +249,17 @@ export interface TrashItem {
   deletedAt: string;
 }
 
+export type ActivityAction = 'create' | 'update' | 'delete';
+
+export interface ActivityLog {
+  _id: string;
+  adminName: string;
+  action: ActivityAction;
+  entityType: string;
+  entityLabel: string;
+  createdAt: string;
+}
+
 export interface ContactLead {
   _id: string;
   name: string;

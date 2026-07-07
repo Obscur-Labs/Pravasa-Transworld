@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react';
 import { Bell, CheckCheck, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
 import {
   getAdminNotifications,
@@ -23,6 +27,7 @@ interface AdminNotification {
 export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -53,7 +58,6 @@ export default function AdminNotificationsPage() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm('Delete all notifications?')) return;
     await deleteAllAdminNotifications();
     setNotifications([]);
     toast({ title: 'All notifications deleted', variant: 'success' });
@@ -62,67 +66,64 @@ export default function AdminNotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const typeColor: Record<string, string> = {
-    new_application: 'bg-blue-500',
-    payment_received: 'bg-emerald-500',
-    status_update: 'bg-amber-500',
-    general: 'bg-slate-400',
+    new_application: 'bg-primary',
+    payment_received: 'bg-success',
+    status_update: 'bg-warning',
+    general: 'bg-muted-foreground',
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={handleMarkAll}>
-              <CheckCheck className="w-4 h-4 mr-2" />Mark all read
-            </Button>
-          )}
-          {notifications.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDeleteAll}
-              className="text-red-500 hover:text-red-700 hover:border-red-300"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />Delete all
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+      <PageHeader
+        title="Notifications"
+        description={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+        action={
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button variant="outline" size="sm" onClick={handleMarkAll}>
+                <CheckCheck className="w-4 h-4 mr-2" />Mark all read
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmDeleteAll(true)}
+                className="text-destructive hover:text-destructive hover:border-destructive/30"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />Delete all
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {loading ? (
-        <div className="text-center py-8 text-slate-400">Loading...</div>
-      ) : notifications.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-          <Bell className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500">No notifications yet.</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
+      ) : notifications.length === 0 ? (
+        <EmptyState icon={Bell} title="No notifications yet" />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
           {notifications.map((n) => (
             <div
               key={n._id}
               onClick={() => !n.read && handleMarkRead(n._id)}
               className={`group p-4 transition-colors cursor-pointer ${
-                n.read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/60'
+                n.read ? 'hover:bg-muted/40' : 'bg-primary/5 hover:bg-primary/10'
               }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${typeColor[n.type] ?? 'bg-slate-400'} ${n.read ? 'opacity-30' : ''}`} />
+                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${typeColor[n.type] ?? 'bg-muted-foreground'} ${n.read ? 'opacity-30' : ''}`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>{n.title}</p>
-                  <p className="text-sm text-slate-500 mt-0.5">{n.message}</p>
-                  <p className="text-xs text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                  <p className={`text-sm font-semibold ${n.read ? 'text-muted-foreground' : 'text-foreground'}`}>{n.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{n.message}</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                 </div>
                 <button
                   onClick={(e) => handleDelete(n._id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all flex-shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all flex-shrink-0"
                   title="Delete notification"
                 >
                   <X className="w-4 h-4" />
@@ -132,6 +133,15 @@ export default function AdminNotificationsPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteAll}
+        onOpenChange={setConfirmDeleteAll}
+        title="Delete all notifications?"
+        description="This cannot be undone."
+        confirmLabel="Delete all"
+        onConfirm={handleDeleteAll}
+      />
     </div>
   );
 }

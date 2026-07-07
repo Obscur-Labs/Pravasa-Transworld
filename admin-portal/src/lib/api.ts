@@ -62,6 +62,9 @@ export const createFormPreset = (data: object) => api.post('/admin/form-presets'
 export const updateFormPreset = (id: string, data: object) => api.put(`/admin/form-presets/${id}`, data);
 export const deleteFormPreset = (id: string) => api.delete(`/admin/form-presets/${id}`);
 
+// Activity Logs
+export const getActivityLogs = () => api.get('/admin/activity-logs');
+
 // Trash
 export const getTrash = () => api.get('/admin/trash');
 export const restoreTrashItem = (id: string) => api.put(`/admin/trash/${id}/restore`);

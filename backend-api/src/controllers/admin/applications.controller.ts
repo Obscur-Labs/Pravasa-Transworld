@@ -4,6 +4,7 @@ import http from 'http';
 import archiver from 'archiver';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Application, { ApplicationStatus, STATUS_LABELS } from '../../models/Application';
+import Country from '../../models/Country';
 import Document from '../../models/Document';
 import Notification from '../../models/Notification';
 import VisaFile from '../../models/VisaFile';
@@ -14,6 +15,7 @@ import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
+import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
 
 async function fetchBuffer(url: string): Promise<Buffer> {
@@ -71,7 +73,47 @@ export const getDashboardStats = async (_req: AdminRequest, res: Response): Prom
     Application.countDocuments({ status: 'visa_approved' }),
     Application.countDocuments({ status: 'visa_rejected' }),
   ]);
-  sendSuccess(res, { total, pending, processing, approved, rejected });
+
+  // 14-day applications trend for the dashboard analytics widget.
+  const days = 14;
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  since.setHours(0, 0, 0, 0);
+
+  const raw = await Application.aggregate([
+    { $match: { createdAt: { $gte: since } } },
+    { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+  ]);
+  const countByDate = new Map<string, number>(raw.map((r) => [r._id as string, r.count as number]));
+
+  const trend: { date: string; count: number }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(since.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    trend.push({ date: key, count: countByDate.get(key) || 0 });
+  }
+
+  // Applications-by-country breakdown for the dashboard pie chart.
+  const byCountryRaw = await Application.aggregate([
+    { $group: { _id: '$country', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+  ]);
+  const countryIds = byCountryRaw.map((r) => r._id).filter(Boolean);
+  const countryDocs = await Country.find({ _id: { $in: countryIds } }).select('name flag');
+  const countryMap = new Map(countryDocs.map((c) => [String(c._id), c]));
+
+  const TOP_N = 7;
+  const sortedByCountry = byCountryRaw.map((r) => ({
+    country: countryMap.get(String(r._id))?.name || 'Unknown',
+    flag: countryMap.get(String(r._id))?.flag || '',
+    count: r.count as number,
+  }));
+  const byCountry = sortedByCountry.slice(0, TOP_N);
+  const otherCount = sortedByCountry.slice(TOP_N).reduce((sum, r) => sum + r.count, 0);
+  if (otherCount > 0) byCountry.push({ country: 'Other', flag: '', count: otherCount });
+
+  sendSuccess(res, { total, pending, processing, approved, rejected, trend, byCountry });
 };
 
 export const reviewDocument = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -180,6 +222,7 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
 
   const user = application.user as unknown as { name: string; email: string };
   const label = STATUS_LABELS[status as ApplicationStatus] || status;
+  logActivity(req, 'update', 'Application', `${application.referenceId} → ${label}`);
 
   const notif = await Notification.create({
     user: application.user,
@@ -318,6 +361,7 @@ export const deleteApplication = async (req: AdminRequest, res: Response): Promi
     data: raw,
   });
   await Application.deleteOne({ _id: app._id });
+  logActivity(req, 'delete', 'Application', app.referenceId || 'Application');
   sendSuccess(res, null, 'Application moved to trash');
 };
 

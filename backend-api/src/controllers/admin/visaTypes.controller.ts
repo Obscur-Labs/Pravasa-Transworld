@@ -3,6 +3,7 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import VisaType from '../../models/VisaType';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
+import { logActivity } from '../../utils/activityLog';
 
 export const getVisaTypes = async (req: AdminRequest, res: Response): Promise<void> => {
   const filter = req.query.country ? { country: req.query.country } : {};
@@ -49,6 +50,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     jurisdiction, visaCategory, process, validity,
   });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
+  logActivity(req, 'create', 'Visa Type', name);
   sendSuccess(res, populated, 'Visa type created', 201);
 };
 
@@ -72,6 +74,7 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
   const visaType = await VisaType.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('country', 'name flag');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
+  logActivity(req, 'update', 'Visa Type', visaType.name);
   sendSuccess(res, visaType, 'Visa type updated');
 };
 
@@ -79,6 +82,7 @@ export const deleteVisaType = async (req: AdminRequest, res: Response): Promise<
   const visaType = await VisaType.findById(req.params.id);
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
   await moveToTrash('visaType', visaType);
+  logActivity(req, 'delete', 'Visa Type', visaType.name);
   sendSuccess(res, null, 'Visa type moved to trash');
 };
 

@@ -3,6 +3,7 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Country from '../../models/Country';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
+import { logActivity } from '../../utils/activityLog';
 import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary.service';
 
 export const getCountries = async (_req: AdminRequest, res: Response): Promise<void> => {
@@ -17,12 +18,14 @@ export const createCountry = async (req: AdminRequest, res: Response): Promise<v
     return;
   }
   const country = await Country.create({ name, flag, description });
+  logActivity(req, 'create', 'Country', name);
   sendSuccess(res, country, 'Country created', 201);
 };
 
 export const updateCountry = async (req: AdminRequest, res: Response): Promise<void> => {
   const country = await Country.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
+  logActivity(req, 'update', 'Country', country.name);
   sendSuccess(res, country, 'Country updated');
 };
 
@@ -30,6 +33,7 @@ export const deleteCountry = async (req: AdminRequest, res: Response): Promise<v
   const country = await Country.findById(req.params.id);
   if (!country) { sendError(res, 'Country not found', 404); return; }
   await moveToTrash('country', country);
+  logActivity(req, 'delete', 'Country', country.name);
   sendSuccess(res, null, 'Country moved to trash');
 };
 

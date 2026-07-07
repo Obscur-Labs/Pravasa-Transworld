@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2, Circle, FileText, Receipt } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2, Circle, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, reviewDocument, approveAllDocuments, updateStatus, uploadVisaFile,
@@ -260,11 +261,29 @@ export default function AdminApplicationDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-slate-400">Loading...</div>;
-  if (!application) return <div className="p-6 text-center text-slate-400">Application not found.</div>;
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <Skeleton className="h-5 w-5 rounded" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-5">
+            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+  if (!application) return <div className="p-6 text-center text-muted-foreground">Application not found.</div>;
 
   const pendingDocs = documents.filter((d) => d.status === 'pending');
-  const allApproved = documents.length > 0 && documents.every((d) => d.status === 'approved');
   const currentDocList = docGroups[activeDocTab] || [];
 
   // Manual dropdown mirrors the 4-step progress (+ Rejected). Keep the current status
@@ -274,17 +293,17 @@ export default function AdminApplicationDetailPage() {
     : [application.status, ...SELECTABLE_STATUSES];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/applications" className="text-slate-400 hover:text-slate-700">
+        <Link href="/applications" className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Application Review</h1>
-          <p className="text-xs text-slate-400">Application No. <span className="font-mono text-slate-500">{application.referenceId}</span></p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Application Review</h1>
+          <p className="text-xs text-muted-foreground">Application No. <span className="font-mono text-muted-foreground/80">{application.referenceId}</span></p>
         </div>
         <Button variant="outline" onClick={handleTrash} disabled={trashing}
-          className="ml-auto text-red-600 border-red-200 hover:bg-red-50">
+          className="ml-auto text-destructive border-destructive/20 hover:bg-destructive/10">
           {trashing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-4 h-4 mr-2" /> Move to Trash</>}
         </Button>
       </div>
@@ -299,8 +318,8 @@ export default function AdminApplicationDetailPage() {
                 <div className="flex items-center gap-3">
                   <img src={`https://flagcdn.com/w40/${application.country?.flag}.png`} alt={application.country?.name} className="w-10 h-7 object-cover rounded" />
                   <div>
-                    <h2 className="font-bold text-slate-900">{application.visaType?.name}</h2>
-                    <p className="text-sm text-slate-500">{application.country?.name}</p>
+                    <h2 className="font-bold text-foreground">{application.visaType?.name}</h2>
+                    <p className="text-sm text-muted-foreground">{application.country?.name}</p>
                   </div>
                 </div>
                 <Badge variant={application.status === 'visa_approved' || application.status === 'visa_delivered' ? 'success' : application.status === 'visa_rejected' ? 'destructive' : 'info'}>
@@ -309,21 +328,21 @@ export default function AdminApplicationDetailPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="text-slate-400 text-xs">Applicant</p>
-                  <p className="font-medium">{application.user?.name}</p>
-                  <p className="text-xs text-slate-400">{application.user?.email}</p>
+                  <p className="text-muted-foreground text-xs">Applicant</p>
+                  <p className="font-medium text-foreground">{application.user?.name}</p>
+                  <p className="text-xs text-muted-foreground">{application.user?.email}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-xs">Phone</p>
-                  <p className="font-medium">{application.user?.phone}</p>
+                  <p className="text-muted-foreground text-xs">Phone</p>
+                  <p className="font-medium text-foreground">{application.user?.phone}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-xs">Fee</p>
-                  <p className="font-bold text-blue-700">{formatCurrency(application.paymentAmount)}</p>
+                  <p className="text-muted-foreground text-xs">Fee</p>
+                  <p className="font-bold text-primary tabular-nums">{formatCurrency(application.paymentAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-xs">Submitted</p>
-                  <p className="font-medium">{formatDate(application.createdAt)}</p>
+                  <p className="text-muted-foreground text-xs">Submitted</p>
+                  <p className="font-medium text-foreground">{formatDate(application.createdAt)}</p>
                 </div>
               </div>
             </CardContent>
@@ -332,10 +351,10 @@ export default function AdminApplicationDetailPage() {
           {/* Document Review - tab by traveler */}
           {documents.length > 0 && (
             <Card>
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+              <div className="p-5 border-b border-border flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h3 className="font-semibold text-slate-900">Documents</h3>
-                  <p className="text-xs text-slate-400">{documents.length} document(s) submitted</p>
+                  <h3 className="font-semibold text-foreground">Documents</h3>
+                  <p className="text-xs text-muted-foreground">{documents.length} document(s) submitted</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {documents.length > 0 && (
@@ -353,7 +372,7 @@ export default function AdminApplicationDetailPage() {
 
               {/* Traveler tabs */}
               {docTabs.length > 1 && (
-                <div className="flex gap-1 px-5 pt-3 border-b border-slate-100 pb-0">
+                <div className="flex gap-1 px-5 pt-3 border-b border-border pb-0">
                   {docTabs.map((tab) => {
                     const isChild = tab.toLowerCase().startsWith('child');
                     return (
@@ -362,12 +381,12 @@ export default function AdminApplicationDetailPage() {
                         onClick={() => setActiveDocTab(tab)}
                         className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
                           activeDocTab === tab
-                            ? (isChild ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-blue-500 text-blue-700 bg-blue-50')
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                            ? (isChild ? 'border-success text-success bg-success/10' : 'border-primary text-primary bg-accent')
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                       >
                         {tab}
-                        <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">
+                        <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
                           {docGroups[tab]?.length}
                         </span>
                       </button>
@@ -376,39 +395,39 @@ export default function AdminApplicationDetailPage() {
                 </div>
               )}
 
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-border">
                 {currentDocList.map((doc) => (
                   <div key={doc._id} className="p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {doc.status === 'approved' ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
                         ) : doc.status === 'rejected' ? (
-                          <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                          <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
                         ) : (
-                          <Clock className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                          <Clock className="w-4 h-4 text-warning flex-shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <p className="font-medium text-slate-900 text-sm">
+                          <p className="font-medium text-foreground text-sm">
                             {doc.requirementName.replace(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i, '')}
                           </p>
                           {doc.rejectionReason && (
-                            <p className="text-xs text-red-500">Reason: {doc.rejectionReason}</p>
+                            <p className="text-xs text-destructive">Reason: {doc.rejectionReason}</p>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
                           <ExternalLink className="w-4 h-4" />
                         </a>
                         {doc.status !== 'approved' && (
-                          <Button size="sm" variant="outline" className="text-green-700 border-green-200 hover:bg-green-50"
+                          <Button size="sm" variant="outline" className="text-success border-success/20 hover:bg-success/10"
                             onClick={() => handleDocReview(doc._id, 'approved')} disabled={processing}>
                             Approve
                           </Button>
                         )}
                         {doc.status !== 'rejected' && (
-                          <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-50"
+                          <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10"
                             onClick={() => {
                               const reason = prompt('Rejection reason:');
                               if (reason) handleDocReview(doc._id, 'rejected', reason);
@@ -420,13 +439,13 @@ export default function AdminApplicationDetailPage() {
                       </div>
                     </div>
                     {doc.extractedData && Object.keys(doc.extractedData).length > 0 && (
-                      <div className="mt-3 ml-7 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Auto-extracted details</p>
+                      <div className="mt-3 ml-7 p-3 bg-muted/50 rounded-lg border border-border">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Auto-extracted details</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                           {Object.entries(doc.extractedData).map(([k, v]) => (
                             <div key={k} className="text-xs">
-                              <span className="text-slate-400">{k}: </span>
-                              <span className="font-medium text-slate-800">{v}</span>
+                              <span className="text-muted-foreground">{k}: </span>
+                              <span className="font-medium text-foreground">{v}</span>
                             </div>
                           ))}
                         </div>
@@ -441,13 +460,13 @@ export default function AdminApplicationDetailPage() {
           {/* Form Responses - tab by traveler */}
           {Object.keys(application.formResponses).length > 0 && (
             <Card>
-              <div className="p-5 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-900">Application Responses</h3>
+              <div className="p-5 border-b border-border">
+                <h3 className="font-semibold text-foreground">Application Responses</h3>
               </div>
 
               {/* Form traveler tabs */}
               {formTabs.length > 1 && (
-                <div className="flex gap-1 px-5 pt-3 border-b border-slate-100">
+                <div className="flex gap-1 px-5 pt-3 border-b border-border">
                   {formTabs.map((tab) => {
                     const isChild = tab.toLowerCase().startsWith('child');
                     return (
@@ -456,8 +475,8 @@ export default function AdminApplicationDetailPage() {
                         onClick={() => setActiveFormTab(tab)}
                         className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
                           activeFormTab === tab
-                            ? (isChild ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-blue-500 text-blue-700 bg-blue-50')
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                            ? (isChild ? 'border-success text-success bg-success/10' : 'border-primary text-primary bg-accent')
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                       >
                         {tab}
@@ -471,8 +490,8 @@ export default function AdminApplicationDetailPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   {Object.entries(formGroups[activeFormTab] || {}).map(([k, v]) => (
                     <div key={k}>
-                      <p className="text-xs text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
-                      <p className="font-medium text-slate-900">{String(v)}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
+                      <p className="font-medium text-foreground">{String(v)}</p>
                     </div>
                   ))}
                 </div>
@@ -485,15 +504,15 @@ export default function AdminApplicationDetailPage() {
         <div className="space-y-5">
           {/* 4-Step Status + Update */}
           <Card>
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-900">Application Progress</h3>
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">Application Progress</h3>
             </div>
             <CardContent className="p-4 space-y-4">
               {/* 4-step visual */}
               {application.status === 'visa_rejected' ? (
-                <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <p className="text-sm font-semibold text-red-700">Visa Rejected</p>
+                <div className="flex items-center gap-3 p-3 bg-destructive/10 rounded-xl border border-destructive/20">
+                  <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                  <p className="text-sm font-semibold text-destructive">Visa Rejected</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -504,21 +523,21 @@ export default function AdminApplicationDetailPage() {
                       <div key={step.label} className="flex items-start gap-3">
                         <div className="flex flex-col items-center">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border-2 ${
-                            state === 'done' ? 'bg-green-500 border-green-500' :
-                            state === 'active' ? 'bg-blue-600 border-blue-600' :
-                            'bg-white border-slate-200'
+                            state === 'done' ? 'bg-success border-success' :
+                            state === 'active' ? 'bg-primary border-primary' :
+                            'bg-card border-border'
                           }`}>
-                            {state === 'done' ? <CheckCircle2 className="w-4 h-4 text-white" /> :
-                             state === 'active' ? <Clock className="w-3.5 h-3.5 text-white animate-pulse" /> :
-                             <Circle className="w-3.5 h-3.5 text-slate-300" />}
+                            {state === 'done' ? <CheckCircle2 className="w-4 h-4 text-success-foreground" /> :
+                             state === 'active' ? <Clock className="w-3.5 h-3.5 text-primary-foreground animate-pulse" /> :
+                             <Circle className="w-3.5 h-3.5 text-muted-foreground" />}
                           </div>
-                          {!isLast && <div className={`w-0.5 h-8 my-0.5 ${state === 'done' ? 'bg-green-400' : 'bg-slate-200'}`} />}
+                          {!isLast && <div className={`w-0.5 h-8 my-0.5 ${state === 'done' ? 'bg-success/50' : 'bg-border'}`} />}
                         </div>
                         <div className="pt-1.5">
                           <p className={`text-sm font-medium ${
-                            state === 'done' ? 'text-green-700' :
-                            state === 'active' ? 'text-blue-700' :
-                            'text-slate-400'
+                            state === 'done' ? 'text-success' :
+                            state === 'active' ? 'text-primary' :
+                            'text-muted-foreground'
                           }`}>{step.label}</p>
                         </div>
                       </div>
@@ -529,44 +548,44 @@ export default function AdminApplicationDetailPage() {
 
               {/* Visa Submission — embassy details entered during processing, shared with the applicant */}
               {application.status === 'visa_processing' && (
-                <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
-                  <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wide">Visa Submission</h4>
+                <div className="p-3 bg-accent rounded-xl border border-primary/20 space-y-3">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-wide">Visa Submission</h4>
                   <div>
-                    <label className="text-xs font-semibold text-blue-800 block mb-1">Reference Number</label>
+                    <label className="text-xs font-semibold text-primary block mb-1">Reference Number</label>
                     <input
                       type="text"
                       value={processingRef}
                       onChange={(e) => setProcessingRef(e.target.value)}
                       placeholder="Reference shared by the embassy"
-                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full h-9 px-3 rounded-lg border border-primary/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-card text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-blue-800 block mb-1">Embassy Name</label>
+                    <label className="text-xs font-semibold text-primary block mb-1">Embassy Name</label>
                     <input
                       type="text"
                       value={embassyName}
                       onChange={(e) => setEmbassyName(e.target.value)}
                       placeholder="e.g. Embassy of Japan, New Delhi"
-                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full h-9 px-3 rounded-lg border border-primary/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-card text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-blue-800 block mb-1">Submission Date</label>
+                    <label className="text-xs font-semibold text-primary block mb-1">Submission Date</label>
                     <input
                       type="date"
                       value={submissionDate}
                       onChange={(e) => setSubmissionDate(e.target.value)}
-                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full h-9 px-3 rounded-lg border border-primary/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-card text-foreground"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-blue-800 block mb-1">Expected Date</label>
+                    <label className="text-xs font-semibold text-primary block mb-1">Expected Date</label>
                     <input
                       type="date"
                       value={expectedDate}
                       onChange={(e) => setExpectedDate(e.target.value)}
-                      className="w-full h-9 px-3 rounded-lg border border-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full h-9 px-3 rounded-lg border border-primary/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-card text-foreground"
                     />
                   </div>
                   <Button size="sm" className="w-full" onClick={handleSaveVisaSubmission} disabled={processing}>
@@ -577,19 +596,19 @@ export default function AdminApplicationDetailPage() {
 
               {/* Visa upload for visa_approved */}
               {application.status === 'visa_approved' && (
-                <div className="p-3 bg-green-50 rounded-xl border border-green-100 space-y-2">
-                  <p className="text-xs font-semibold text-green-800">Upload Approved Visa Document</p>
-                  <p className="text-xs text-green-600">Upload the PDF to deliver it to the applicant.</p>
+                <div className="p-3 bg-success/10 rounded-xl border border-success/20 space-y-2">
+                  <p className="text-xs font-semibold text-success">Upload Approved Visa Document</p>
+                  <p className="text-xs text-success/80">Upload the PDF to deliver it to the applicant.</p>
                   <input type="file" id="visaUpload" accept=".pdf" className="hidden"
                     onChange={(e) => { const file = e.target.files?.[0]; if (file) handleVisaUpload(file); }} />
-                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white" size="sm"
+                  <Button className="w-full bg-success text-success-foreground hover:bg-success/90" size="sm"
                     onClick={() => document.getElementById('visaUpload')?.click()} disabled={processing}>
                     <Upload className="w-3.5 h-3.5 mr-2" />
                     {processing ? 'Uploading...' : 'Upload Visa PDF'}
                   </Button>
                   {visaFile && (
                     <a href={visaFile.url} target="_blank" rel="noopener noreferrer"
-                      className="text-green-700 text-xs hover:underline flex items-center gap-1">
+                      className="text-success text-xs hover:underline flex items-center gap-1">
                       <ExternalLink className="w-3 h-3" /> View current visa file
                     </a>
                   )}
@@ -598,31 +617,31 @@ export default function AdminApplicationDetailPage() {
 
               {/* Visa delivered info */}
               {visaFile && application.status === 'visa_delivered' && (
-                <div className="p-3 bg-green-50 rounded-xl border border-green-100">
-                  <p className="font-semibold text-green-800 text-sm mb-1">Visa Delivered</p>
+                <div className="p-3 bg-success/10 rounded-xl border border-success/20">
+                  <p className="font-semibold text-success text-sm mb-1">Visa Delivered</p>
                   <a href={visaFile.url} target="_blank" rel="noopener noreferrer"
-                    className="text-green-700 text-xs hover:underline flex items-center gap-1">
+                    className="text-success text-xs hover:underline flex items-center gap-1">
                     <ExternalLink className="w-3 h-3" /> View delivered visa
                   </a>
                 </div>
               )}
 
               {/* Download Receipt */}
-              <Button variant="outline" className="w-full text-slate-700" onClick={handleDownloadReceipt} disabled={downloadingReceipt}>
+              <Button variant="outline" className="w-full" onClick={handleDownloadReceipt} disabled={downloadingReceipt}>
                 {downloadingReceipt
                   ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   : <Receipt className="w-4 h-4 mr-2" />}
                 Download Payment Receipt
               </Button>
 
-              <div className="border-t border-slate-100 pt-3 space-y-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Update Status</p>
+              <div className="border-t border-border pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Update Status</p>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Status</label>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">Status</label>
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full h-9 px-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-9 px-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     {statusOptions.map((s) => (
                       <option key={s} value={s}>{STATUS_LABELS[s]}</option>
@@ -631,20 +650,20 @@ export default function AdminApplicationDetailPage() {
                 </div>
                 {newStatus === 'visa_rejected' && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 block mb-1">Rejection Reason</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Rejection Reason</label>
                     <textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={2}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
                   </div>
                 )}
                 {newStatus === 'visa_processing' && application.status !== 'visa_processing' && (
-                  <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-2 py-1.5">
+                  <p className="text-xs text-primary bg-accent rounded-lg px-2 py-1.5">
                     After saving, enter the embassy reference, name and submission date in the Visa Submission box above.
                   </p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Admin Notes (internal)</label>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">Admin Notes (internal)</label>
                   <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2}
-                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                    className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
                 </div>
                 <Button className="w-full" onClick={handleStatusUpdate} disabled={processing}>
                   {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Status'}
@@ -655,15 +674,15 @@ export default function AdminApplicationDetailPage() {
 
           {/* Cash Payment Override */}
           {['payment_pending', 'submitted'].includes(application.status) && (
-            <Card className="border-yellow-200">
-              <div className="p-4 border-b border-yellow-100 bg-yellow-50">
-                <h3 className="font-semibold text-yellow-900">Cash Payment Override</h3>
-                <p className="text-xs text-yellow-700 mt-0.5">Mark as paid if user paid in cash</p>
+            <Card className="border-warning/30">
+              <div className="p-4 border-b border-warning/20 bg-warning/10">
+                <h3 className="font-semibold text-warning">Cash Payment Override</h3>
+                <p className="text-xs text-warning/80 mt-0.5">Mark as paid if user paid in cash</p>
               </div>
               <CardContent className="p-4 space-y-3">
                 <textarea id="cashNote" rows={2} placeholder="Note (e.g. 'Cash received at office')"
-                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none" />
-                <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                  className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-warning resize-none" />
+                <Button className="w-full bg-warning text-warning-foreground hover:bg-warning/90"
                   onClick={async () => {
                     const note = (document.getElementById('cashNote') as HTMLTextAreaElement)?.value;
                     setProcessing(true);

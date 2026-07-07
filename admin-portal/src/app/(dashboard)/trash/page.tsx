@@ -2,6 +2,11 @@
 import { useEffect, useState } from 'react';
 import { Loader2, RotateCcw, Trash2, AlertTriangle, Globe2, CreditCard, LayoutTemplate, MessageSquare, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/use-toast';
 import { getTrash, restoreTrashItem, deleteTrashItem, emptyTrash } from '@/lib/api';
 import type { TrashItem, TrashEntityType } from '@/types';
@@ -15,11 +20,11 @@ const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: strin
 };
 
 const TYPE_BADGE: Record<TrashEntityType, string> = {
-  country: 'bg-sky-50 text-sky-700 border-sky-200',
-  visaType: 'bg-blue-50 text-blue-700 border-blue-200',
-  formPreset: 'bg-violet-50 text-violet-700 border-violet-200',
-  contactLead: 'bg-amber-50 text-amber-700 border-amber-200',
-  application: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  country: 'bg-info/10 text-info border-info/20',
+  visaType: 'bg-primary/10 text-primary border-primary/20',
+  formPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
+  contactLead: 'bg-warning/10 text-warning border-warning/20',
+  application: 'bg-success/10 text-success border-success/20',
 };
 
 function timeAgo(iso: string) {
@@ -38,7 +43,8 @@ export default function TrashPage() {
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [emptying, setEmptying] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TrashItem | null>(null);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -60,7 +66,6 @@ export default function TrashPage() {
   };
 
   const handleDelete = async (item: TrashItem) => {
-    if (!confirm(`Permanently delete "${item.label}"? This cannot be undone.`)) return;
     setBusy(item._id);
     try {
       await deleteTrashItem(item._id);
@@ -75,91 +80,102 @@ export default function TrashPage() {
 
   const handleEmpty = async () => {
     if (items.length === 0) return;
-    if (!confirm(`Permanently delete all ${items.length} item(s) in trash? This cannot be undone.`)) return;
-    setEmptying(true);
     try {
       await emptyTrash();
       toast({ title: 'Trash emptied' });
       setItems([]);
     } catch {
       toast({ title: 'Failed to empty trash', variant: 'destructive' });
-    } finally {
-      setEmptying(false);
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Trash</h1>
-          <p className="text-slate-500 text-sm mt-1">Deleted records are kept here. Restore them or delete permanently.</p>
-        </div>
-        {items.length > 0 && (
-          <Button variant="outline" onClick={handleEmpty} disabled={emptying} className="text-red-600 border-red-200 hover:bg-red-50">
-            {emptying ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-4 h-4 mr-2" /> Empty Trash</>}
-          </Button>
-        )}
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <PageHeader
+        title="Trash"
+        description="Deleted records are kept here. Restore them or delete permanently."
+        action={
+          items.length > 0 ? (
+            <Button variant="outline" onClick={() => setConfirmEmpty(true)} className="text-destructive border-destructive/20 hover:bg-destructive/10">
+              <Trash2 className="w-4 h-4 mr-2" /> Empty Trash
+            </Button>
+          ) : undefined
+        }
+      />
 
       {loading ? (
-        <div className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" /></div>
-      ) : items.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <Trash2 className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-500 font-medium">Trash is empty</p>
-          <p className="text-slate-400 text-sm mt-1">Deleted visa types, countries, presets, and leads will appear here.</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
         </div>
+      ) : items.length === 0 ? (
+        <EmptyState icon={Trash2} title="Trash is empty" description="Deleted visa types, countries, presets, and leads will appear here." />
       ) : (
         <>
-          <div className="flex items-start gap-2.5 p-3 mb-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700">Items here are removed from the live app. Restoring a visa type also re-links any applications that referenced it.</p>
+          <div className="flex items-start gap-2.5 p-3 mb-4 bg-warning/5 border border-warning/20 rounded-xl">
+            <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-warning/90">Items here are removed from the live app. Restoring a visa type also re-links any applications that referenced it.</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
+          <div className="bg-card rounded-2xl border border-border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-muted/40">
                   {['Type', 'Name', 'Deleted', ''].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap">{h}</th>
+                    <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((item) => {
                   const Icon = TYPE_ICON[item.entityType] || Trash2;
                   return (
-                    <tr key={item._id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${TYPE_BADGE[item.entityType] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                    <TableRow key={item._id}>
+                      <TableCell>
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${TYPE_BADGE[item.entityType] || 'bg-muted text-muted-foreground border-border'}`}>
                           <Icon className="w-3 h-3" /> {item.entityLabel}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900">{item.label}</p>
-                        {item.sublabel && <p className="text-xs text-slate-400">{item.sublabel}</p>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{timeAgo(item.deletedAt)}</td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-semibold text-foreground">{item.label}</p>
+                        {item.sublabel && <p className="text-xs text-muted-foreground">{item.sublabel}</p>}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">{timeAgo(item.deletedAt)}</TableCell>
+                      <TableCell>
                         <div className="flex gap-1 justify-end">
                           <button onClick={() => handleRestore(item)} disabled={busy === item._id}
-                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-emerald-200 disabled:opacity-50">
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-success hover:bg-success/10 border border-success/20 disabled:opacity-50">
                             {busy === item._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore
                           </button>
-                          <button onClick={() => handleDelete(item)} disabled={busy === item._id}
-                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-red-600 hover:bg-red-50 border border-red-200 disabled:opacity-50">
+                          <button onClick={() => setDeleteTarget(item)} disabled={busy === item._id}
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-destructive hover:bg-destructive/10 border border-destructive/20 disabled:opacity-50">
                             <Trash2 className="w-3.5 h-3.5" /> Delete
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Permanently delete this item?"
+        description={deleteTarget ? `"${deleteTarget.label}" will be permanently deleted. This cannot be undone.` : undefined}
+        confirmLabel="Delete Permanently"
+        onConfirm={async () => { if (deleteTarget) await handleDelete(deleteTarget); }}
+      />
+      <ConfirmDialog
+        open={confirmEmpty}
+        onOpenChange={setConfirmEmpty}
+        title="Empty the trash?"
+        description={`All ${items.length} item(s) will be permanently deleted. This cannot be undone.`}
+        confirmLabel="Empty Trash"
+        onConfirm={handleEmpty}
+      />
     </div>
   );
 }

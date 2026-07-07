@@ -10,6 +10,7 @@ import * as users from '../controllers/admin/users.controller';
 import * as formPresets from '../controllers/admin/formPresets.controller';
 import * as trash from '../controllers/admin/trash.controller';
 import * as promoCodes from '../controllers/admin/promoCodes.controller';
+import * as activityLogs from '../controllers/admin/activityLogs.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -74,6 +75,9 @@ router.get('/promo-codes/:id/history', promoCodes.getPromoHistory);
 router.get('/leads', leads.getLeads);
 router.patch('/leads/:id/read', leads.markLeadRead);
 router.delete('/leads/:id', leads.deleteLead);
+
+// Activity Logs
+router.get('/activity-logs', activityLogs.getActivityLogs);
 
 // Notifications
 router.get('/notifications', notifications.getNotifications);
