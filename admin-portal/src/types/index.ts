@@ -116,6 +116,22 @@ export interface VisaConfigOption {
   isActive: boolean;
 }
 
+export interface ReceiptConfig {
+  _id: string;
+  companyName: string;
+  addressLine1: string;
+  addressLine2: string;
+  phone: string;
+  fax: string;
+  email: string;
+  gstin: string;
+  pan: string;
+  stateName: string;
+  stateCode: string;
+  sacCode: string;
+  logoUrl: string;
+}
+
 export interface VisaType {
   _id: string;
   country: Country;

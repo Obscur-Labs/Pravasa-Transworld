@@ -68,6 +68,11 @@ export const createVisaConfigOption = (data: object) => api.post('/admin/visa-co
 export const updateVisaConfigOption = (id: string, data: object) => api.put(`/admin/visa-config/${id}`, data);
 export const deleteVisaConfigOption = (id: string) => api.delete(`/admin/visa-config/${id}`);
 
+// Receipt Config
+export const getReceiptConfig = () => api.get('/admin/receipt-config');
+export const updateReceiptConfig = (data: object) => api.put('/admin/receipt-config', data);
+export const downloadDemoReceipt = () => api.get('/admin/receipt-config/demo', { responseType: 'blob' });
+
 // Activity Logs
 export const getActivityLogs = () => api.get('/admin/activity-logs');
 export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');

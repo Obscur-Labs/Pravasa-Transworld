@@ -1,11 +1,30 @@
 import PDFDocument from 'pdfkit';
+import https from 'https';
+import http from 'http';
 import { IPayment } from '../models/Payment';
+import { amountInWordsINR } from '../utils/numberToWords';
 
-interface ReceiptData {
+export interface CompanyInfo {
+  companyName: string;
+  addressLine1: string;
+  addressLine2: string;
+  phone: string;
+  fax: string;
+  email: string;
+  gstin: string;
+  pan: string;
+  stateName: string;
+  stateCode: string;
+  sacCode: string;
+  logoUrl: string;
+}
+
+export interface ReceiptData {
   payment: IPayment & { application: any; user: any; promoCode?: { code: string } | null };
   appRef: string;
   userName: string;
   visaType: string;
+  visaCategory?: string;
   country: string;
   receiptNumber?: string;
   adults: number;
@@ -14,104 +33,242 @@ interface ReceiptData {
   adultFee: number;
   childBase: number;
   childFee: number;
+  accountType: 'individual' | 'corporate';
+  clientGstin?: string;
+  passportNumber?: string;
+  visaNumber?: string;
+  company: CompanyInfo;
 }
 
-export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
+const GST_RATE = 0.18;
+const MARGIN = 40;
+const PAGE_RIGHT = 555; // A4 width (595.28) minus margin
+
+const inr = (n: number) => `Rs. ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function fetchImageBuffer(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const protocol = url.startsWith('https://') ? https : http;
+    const chunks: Buffer[] = [];
+    const req = protocol.get(url, (res) => {
+      if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+  });
+}
+
+// Table column layout, x-offsets from the page's left margin.
+const COLS = {
+  sr: { x: MARGIN, w: 25 },
+  desc: { x: MARGIN + 25, w: 275 },
+  visaFees: { x: MARGIN + 300, w: 75 },
+  servCharges: { x: MARGIN + 375, w: 75 },
+  amount: { x: MARGIN + 450, w: 65 },
+};
+
+export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
+  const isCorporate = data.accountType === 'corporate';
+  const { company } = data;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: MARGIN, size: 'A4' });
     const chunks: Buffer[] = [];
 
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Header
-    doc.rect(0, 0, doc.page.width, 80).fill('#1d4ed8');
-    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('Pravasa Transworld', 50, 25);
-    doc.fontSize(10).font('Helvetica').text('Official Payment Receipt', 50, 52);
+    void renderReceipt(doc, data, isCorporate, company).then(() => doc.end()).catch(reject);
+  });
+}
 
-    doc.moveDown(3);
+async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorporate: boolean, company: CompanyInfo) {
+  const receiptNo = data.receiptNumber || `VF-RCP-${String(data.payment._id).slice(-8).toUpperCase()}`;
+  const paidDate = data.payment.paidAt ? new Date(data.payment.paidAt) : new Date();
 
-    // Receipt title
-    doc.fillColor('#0f172a').fontSize(18).font('Helvetica-Bold').text('Payment Receipt', { align: 'center' });
-    doc.moveDown(0.5);
+  // ── Header: logo + company block ──────────────────────────────────────────
+  let logoDrawn = false;
+  if (company.logoUrl) {
+    try {
+      const buf = await fetchImageBuffer(company.logoUrl);
+      doc.image(buf, MARGIN, 40, { fit: [90, 90] });
+      logoDrawn = true;
+    } catch {
+      logoDrawn = false;
+    }
+  }
+  if (!logoDrawn) {
+    doc.roundedRect(MARGIN, 40, 60, 60, 8).fill('#1d4ed8');
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(24)
+      .text((company.companyName || 'P').trim().charAt(0).toUpperCase(), MARGIN, 62, { width: 60, align: 'center' });
+  }
 
-    const receiptNo = data.receiptNumber || `VF-RCP-${String(data.payment._id).slice(-8).toUpperCase()}`;
-    doc.fontSize(10).fillColor('#64748b').font('Helvetica').text(`Receipt No: ${receiptNo}`, { align: 'center' });
-    doc.text(`Date: ${data.payment.paidAt ? new Date(data.payment.paidAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`, { align: 'center' });
+  doc.fillColor('#1d4ed8').font('Helvetica-Bold').fontSize(14).text(company.companyName || 'Pravasa Transworld', MARGIN + 110, 42, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  doc.fillColor('#b91c1c').font('Helvetica').fontSize(8);
+  const addrLines = [company.addressLine1, company.addressLine2].filter(Boolean);
+  addrLines.forEach((line) => doc.text(line as string, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' }));
+  const contactBits = [company.phone && `Tel: ${company.phone}`, company.fax && `Fax: ${company.fax}`].filter(Boolean).join('   ');
+  if (contactBits) doc.text(contactBits, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  if (company.email) doc.text(`Email: ${company.email}`, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  if (company.gstin) doc.fillColor('#1d4ed8').text(`GSTIN: ${company.gstin}${company.stateName ? ` (${company.stateName.toUpperCase()})` : ''}`, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
 
-    doc.moveDown(1.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
-    doc.moveDown(1);
+  doc.y = Math.max(doc.y, 115);
+  doc.moveDown(0.8);
 
-    // Details table
-    const rows: [string, string][] = [
-      ['Applicant Name', data.userName],
-      ['Application Number', data.appRef],
-      ['Visa Type', data.visaType],
-      ['Destination', data.country],
-      ['Payment Method', data.payment.method === 'cash' ? 'Cash' : data.payment.method === 'manual_override' ? 'Manual Override' : 'Online Payment'],
-      ['Transaction ID', data.payment.transactionId || receiptNo],
-      ['Status', 'COMPLETED'],
-    ];
+  // ── Title ──────────────────────────────────────────────────────────────────
+  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16)
+    .text(isCorporate ? 'TAX INVOICE' : 'PAYMENT RECEIPT', MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'center' });
+  if (isCorporate) {
+    doc.fontSize(9).fillColor('#7c3aed').font('Helvetica-Oblique').text('Original For Recipient', MARGIN, doc.y - 2, { width: PAGE_RIGHT - MARGIN, align: 'right' });
+  }
+  doc.moveDown(0.8);
 
-    rows.forEach(([label, value]) => {
-      doc.fillColor('#64748b').fontSize(10).font('Helvetica').text(label, 50, doc.y, { continued: true, width: 200 });
-      doc.fillColor('#0f172a').font('Helvetica-Bold').text(value, { align: 'right' });
-      doc.moveDown(0.6);
+  // ── Meta block: To M/s (left) + Invoice details (right) ────────────────────
+  const metaTop = doc.y;
+  const leftW = 300;
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a');
+  doc.text('To M/s :', MARGIN, metaTop, { continued: true, width: leftW });
+  doc.font('Helvetica').text(` ${data.userName}`);
+  if (isCorporate && data.clientGstin) {
+    doc.font('Helvetica-Bold').text('GSTIN :', MARGIN, doc.y, { continued: true, width: leftW });
+    doc.font('Helvetica').text(` ${data.clientGstin}`);
+  }
+  doc.font('Helvetica-Bold').text('Country :', MARGIN, doc.y, { continued: true, width: leftW });
+  doc.font('Helvetica').text(` ${data.country}`);
+
+  const rightX = MARGIN + leftW + 20;
+  const rightW = PAGE_RIGHT - rightX;
+  let ry = metaTop;
+  const rightRow = (label: string, value: string) => {
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(label, rightX, ry, { continued: true, width: rightW });
+    doc.font('Helvetica').text(` ${value}`, { width: rightW });
+    ry = doc.y;
+  };
+  rightRow('Receipt No. :', receiptNo);
+  rightRow('Date :', paidDate.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+  rightRow('Reference :', data.appRef);
+  if (isCorporate && company.stateName) rightRow('Place Of Supply :', `${company.stateName.toUpperCase()}${company.stateCode ? ` - (${company.stateCode})` : ''}`);
+
+  doc.y = Math.max(doc.y, ry) + 10;
+
+  // ── Line items table ─────────────────────────────────────────────────────
+  const tableTop = doc.y;
+  const headerH = 20;
+  drawTableHeader(doc, tableTop, headerH);
+  let y = tableTop + headerH;
+
+  const items: { qty: number; label: string; base: number; fee: number }[] = [];
+  if (data.adults > 0) items.push({ qty: data.adults, label: 'Adult', base: data.adultBase, fee: data.adultFee });
+  if (data.children > 0) items.push({ qty: data.children, label: 'Child', base: data.childBase, fee: data.childFee });
+
+  let sr = 1;
+  let visaFeesTotal = 0;
+  let servChargesTotal = 0;
+
+  for (const item of items) {
+    const descLines = [
+      `Guest : ${data.userName}${item.qty > 1 ? ` (x${item.qty} ${item.label}${item.qty > 1 ? 's' : ''})` : ` (${item.label})`}`,
+      `File No. : ${data.appRef}`,
+      data.passportNumber && `Passport # : ${data.passportNumber}`,
+      `Country : ${data.country}`,
+      `Visa Type : ${(data.visaCategory || data.visaType).toUpperCase()}`,
+      data.visaNumber && `Visa No. : ${data.visaNumber}`,
+      `SAC Code : ${company.sacCode || '998555'}`,
+    ].filter(Boolean) as string[];
+
+    const rowVisaFees = item.base * item.qty;
+    const rowServCharges = item.fee * item.qty;
+    const rowAmount = rowVisaFees + rowServCharges;
+    visaFeesTotal += rowVisaFees;
+    servChargesTotal += rowServCharges;
+
+    doc.fontSize(8);
+    const descHeight = descLines.reduce((h, line) => h + doc.heightOfString(line, { width: COLS.desc.w - 10 }) + 2, 0) + 8;
+    const rowHeight = Math.max(descHeight, 18);
+
+    if (y + rowHeight > 780) { doc.addPage(); y = MARGIN; drawTableHeader(doc, y, headerH); y += headerH; }
+
+    doc.font('Helvetica').fontSize(8).fillColor('#0f172a');
+    doc.text(String(sr), COLS.sr.x, y + 4, { width: COLS.sr.w, align: 'center' });
+
+    let dy = y + 4;
+    descLines.forEach((line, i) => {
+      doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(8).text(line, COLS.desc.x + 4, dy, { width: COLS.desc.w - 10 });
+      dy = doc.y + 1;
     });
 
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
-    doc.moveDown(1);
+    doc.font('Helvetica').fontSize(8).text(inr(rowVisaFees), COLS.visaFees.x, y + 4, { width: COLS.visaFees.w - 6, align: 'right' });
+    doc.text(inr(rowServCharges), COLS.servCharges.x, y + 4, { width: COLS.servCharges.w - 6, align: 'right' });
+    doc.font('Helvetica-Bold').text(inr(rowAmount), COLS.amount.x, y + 4, { width: COLS.amount.w - 6, align: 'right' });
 
-    // Price breakdown
-    doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('Price Breakdown');
-    doc.moveDown(0.6);
+    drawColumnDividers(doc, y, rowHeight);
+    y += rowHeight;
+    doc.moveTo(COLS.sr.x, y).lineTo(PAGE_RIGHT, y).lineWidth(0.5).strokeColor('#cbd5e1').stroke();
+    sr += 1;
+  }
 
-    const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-    const breakdownRow = (label: string, value: string, muted = false) => {
-      doc.fillColor(muted ? '#94a3b8' : '#475569').fontSize(10).font('Helvetica').text(label, 60, doc.y, { continued: true, width: 380 });
-      doc.fillColor(muted ? '#94a3b8' : '#0f172a').font('Helvetica-Bold').text(value, { align: 'right' });
-      doc.moveDown(0.5);
-    };
+  // ── Totals ────────────────────────────────────────────────────────────────
+  const discount = data.payment.discountApplied || 0;
+  const netTotal = data.payment.amount;
 
-    breakdownRow(`Adult visa fee (${inr(data.adultBase)} x ${data.adults})`, inr(data.adultBase * data.adults));
-    if (data.adultFee > 0) {
-      breakdownRow(`Adult service charge (${inr(data.adultFee)} x ${data.adults})`, inr(data.adultFee * data.adults));
-    }
-    if (data.children > 0) {
-      breakdownRow(`Child visa fee (${inr(data.childBase)} x ${data.children})`, inr(data.childBase * data.children));
-      if (data.childFee > 0) {
-        breakdownRow(`Child service charge (${inr(data.childFee)} x ${data.children})`, inr(data.childFee * data.children));
-      }
-    }
+  y += 6;
+  const totalRow = (label: string, value: string, bold = false) => {
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).fillColor('#0f172a')
+      .text(label, COLS.desc.x, y, { width: COLS.servCharges.x + COLS.servCharges.w - COLS.desc.x, align: 'right' });
+    doc.text(value, COLS.amount.x, y, { width: COLS.amount.w - 6, align: 'right' });
+    y += 16;
+  };
 
-    const subtotal = data.adults * (data.adultBase + data.adultFee) + data.children * (data.childBase + data.childFee);
-    doc.moveDown(0.2);
-    breakdownRow('Subtotal', inr(subtotal));
+  const grossSubtotal = visaFeesTotal + servChargesTotal;
+  totalRow('Sub-Total', inr(grossSubtotal), true);
 
-    const discount = data.payment.discountApplied || 0;
-    if (discount > 0) {
-      const code = data.payment.promoCode?.code;
-      breakdownRow(`Discount${code ? ` (${code})` : ''}`, `-${inr(discount)}`, true);
-    }
+  if (discount > 0) {
+    const code = data.payment.promoCode?.code;
+    totalRow(`Discount${code ? ` (${code})` : ''}`, `-${inr(discount)}`);
+  }
 
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
-    doc.moveDown(1);
+  if (isCorporate) {
+    const taxableValue = netTotal / (1 + GST_RATE);
+    const gstAmount = netTotal - taxableValue;
+    doc.moveTo(COLS.desc.x, y).lineTo(PAGE_RIGHT, y).lineWidth(0.5).strokeColor('#cbd5e1').stroke();
+    y += 6;
+    totalRow('Taxable Value (Net Total ÷ 1.18)', inr(taxableValue));
+    totalRow(`IGST @ ${(GST_RATE * 100).toFixed(2)}% (included)`, inr(gstAmount));
+  }
 
-    // Amount
-    doc.fillColor('#64748b').fontSize(12).font('Helvetica').text('Total Paid', 50, doc.y, { continued: true });
-    doc.fillColor('#1d4ed8').fontSize(20).font('Helvetica-Bold').text(`₹${data.payment.amount.toLocaleString('en-IN')}`, { align: 'right' });
+  y += 4;
+  doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, 22).fill('#e0f2fe');
+  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(9)
+    .text(amountInWordsINR(netTotal), MARGIN + 8, y + 6, { width: 320 });
+  doc.fontSize(10).text('Net Total (INR)', COLS.desc.x, y + 6, { width: COLS.servCharges.x + COLS.servCharges.w - COLS.desc.x, align: 'right' });
+  doc.text(inr(netTotal), COLS.amount.x, y + 6, { width: COLS.amount.w - 6, align: 'right' });
+  y += 22;
 
-    doc.moveDown(2);
+  // ── Footer ────────────────────────────────────────────────────────────────
+  doc.y = y + 30;
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
+    .text('This is a computer-generated document and does not require a physical signature.', MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'center' });
+  if (company.email) doc.text(`For queries, contact ${company.email}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'center' });
+}
 
-    // Footer
-    doc.fontSize(9).fillColor('#94a3b8').font('Helvetica')
-      .text('This is an electronically generated receipt and does not require a signature.', { align: 'center' })
-      .text('For queries, contact support@pravasatransworld.com', { align: 'center' });
+function drawTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
+  doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, height).fill('#e2e8f0');
+  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8);
+  doc.text('Sr.', COLS.sr.x, y + 6, { width: COLS.sr.w, align: 'center' });
+  doc.text('Narration / Description', COLS.desc.x + 4, y + 6, { width: COLS.desc.w - 6 });
+  doc.text('Visa Fees', COLS.visaFees.x, y + 6, { width: COLS.visaFees.w - 6, align: 'right' });
+  doc.text('Serv. Chrgs', COLS.servCharges.x, y + 6, { width: COLS.servCharges.w - 6, align: 'right' });
+  doc.text('Amount (INR)', COLS.amount.x, y + 6, { width: COLS.amount.w - 6, align: 'right' });
+  drawColumnDividers(doc, y, height);
+  doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#0f172a').stroke();
+  doc.moveTo(MARGIN, y + height).lineTo(PAGE_RIGHT, y + height).lineWidth(1).strokeColor('#0f172a').stroke();
+}
 
-    doc.end();
-  });
+function drawColumnDividers(doc: PDFKit.PDFDocument, y: number, height: number) {
+  const xs = [COLS.sr.x, COLS.desc.x, COLS.visaFees.x, COLS.servCharges.x, COLS.amount.x, PAGE_RIGHT];
+  doc.strokeColor('#cbd5e1').lineWidth(0.5);
+  xs.forEach((x) => doc.moveTo(x, y).lineTo(x, y + height).stroke());
 }

@@ -12,6 +12,7 @@ import * as trash from '../controllers/admin/trash.controller';
 import * as promoCodes from '../controllers/admin/promoCodes.controller';
 import * as activityLogs from '../controllers/admin/activityLogs.controller';
 import * as visaConfig from '../controllers/admin/visaConfig.controller';
+import * as receiptConfig from '../controllers/admin/receiptConfig.controller';
 
 const router = Router();
 router.use(adminProtect);
@@ -40,6 +41,10 @@ router.route('/form-presets/:id').put(formPresets.updateFormPreset).delete(formP
 // Visa Config
 router.route('/visa-config').get(visaConfig.getVisaConfigOptions).post(visaConfig.createVisaConfigOption);
 router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(visaConfig.deleteVisaConfigOption);
+
+// Receipt Config
+router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
+router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
 // Trash
 router.get('/trash', trash.getTrash);

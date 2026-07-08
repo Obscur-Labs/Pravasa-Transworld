@@ -14,6 +14,7 @@ import Trash from '../../models/Trash';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
+import { buildReceiptData } from '../../utils/receiptData';
 import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
@@ -382,14 +383,13 @@ export const getUserApplications = async (req: AdminRequest, res: Response): Pro
 
 export const downloadApplicationReceipt = async (req: AdminRequest, res: Response): Promise<void> => {
   const payment = await Payment.findOne({ application: req.params.id, status: 'completed' })
-    .populate({ path: 'application', populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }] })
-    .populate('user', 'name email')
+    .populate({ path: 'application', populate: [{ path: 'visaType', select: 'name visaCategory' }, { path: 'country', select: 'name flag' }] })
+    .populate('user', 'name email accountType gstNumber')
     .populate('promoCode', 'code');
 
   if (!payment) { sendError(res, 'No completed payment found for this application', 404); return; }
 
   const app = payment.application as any;
-  const user = payment.user as any;
 
   const countryCode = (app.country?.flag || 'XX').toUpperCase();
   const yearShort = new Date().getFullYear().toString().slice(-2);
@@ -401,20 +401,8 @@ export const downloadApplicationReceipt = async (req: AdminRequest, res: Respons
   const receiptNumber = `${countryCode}-${appLastNum}-${yearShort}-${seqNo}`;
 
   try {
-    const pdfBuffer = await generateReceiptPDF({
-      payment: payment as any,
-      appRef: app.referenceId,
-      userName: user.name,
-      visaType: app.visaType?.name || 'N/A',
-      country: app.country?.name || 'N/A',
-      receiptNumber,
-      adults: app.adults || 1,
-      children: app.children || 0,
-      adultBase: app.adultBase || 0,
-      adultFee: app.adultFee || 0,
-      childBase: app.childBase || 0,
-      childFee: app.childFee || 0,
-    });
+    const receiptData = await buildReceiptData(payment, receiptNumber);
+    const pdfBuffer = await generateReceiptPDF(receiptData);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);

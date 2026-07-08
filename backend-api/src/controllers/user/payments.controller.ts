@@ -4,6 +4,7 @@ import Payment from '../../models/Payment';
 import Application from '../../models/Application';
 import PromoCode from '../../models/PromoCode';
 import { generateReceiptPDF } from '../../services/pdf.service';
+import { buildReceiptData } from '../../utils/receiptData';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import {
   isRazorpayConfigured,
@@ -27,15 +28,14 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
   const payment = await Payment.findOne({ _id: req.params.id, user: req.user!._id, status: 'completed' })
     .populate({
       path: 'application',
-      populate: [{ path: 'visaType', select: 'name' }, { path: 'country', select: 'name flag' }],
+      populate: [{ path: 'visaType', select: 'name visaCategory' }, { path: 'country', select: 'name flag' }],
     })
-    .populate('user', 'name email')
+    .populate('user', 'name email accountType gstNumber')
     .populate('promoCode', 'code');
 
   if (!payment) { sendError(res, 'Payment not found', 404); return; }
 
   const app = payment.application as any;
-  const user = payment.user as any;
 
   try {
     const countryCode = (app.country?.flag || 'XX').toUpperCase();
@@ -47,20 +47,8 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
     const seqNo = String((seqIdx >= 0 ? seqIdx : 0) + 1).padStart(3, '0');
     const receiptNumber = `${countryCode}-${appLastNum}-${yearShort}-${seqNo}`;
 
-    const pdfBuffer = await generateReceiptPDF({
-      payment: payment as any,
-      appRef: app.referenceId,
-      userName: user.name,
-      visaType: app.visaType?.name || 'N/A',
-      country: app.country?.name || 'N/A',
-      receiptNumber,
-      adults: app.adults || 1,
-      children: app.children || 0,
-      adultBase: app.adultBase || 0,
-      adultFee: app.adultFee || 0,
-      childBase: app.childBase || 0,
-      childFee: app.childFee || 0,
-    });
+    const receiptData = await buildReceiptData(payment, receiptNumber);
+    const pdfBuffer = await generateReceiptPDF(receiptData);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);
