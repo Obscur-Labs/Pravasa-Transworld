@@ -19,6 +19,7 @@ import {
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
+import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
 import type { Country, VisaType, FormField, DocumentRequirement, VaultDocument } from '@/types';
 
@@ -63,9 +64,6 @@ function getVaultType(reqName: string): string | null {
   return null;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  tourist: 'Tourist', business: 'Business', transit: 'Transit Visa', student: 'Student Visa',
-};
 const JURISDICTION_LABELS: Record<string, string> = {
   'pan-india': 'Pan India', mumbai: 'Mumbai', delhi: 'Delhi',
 };
@@ -293,6 +291,7 @@ function VisaOverviewModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(false);
+  const { labelFor } = useVisaConfigLabels();
 
   const requiredDocs = visa.documentRequirements.filter((r) => r.required);
   const optionalDocs = visa.documentRequirements.filter((r) => !r.required);
@@ -408,13 +407,13 @@ function VisaOverviewModal({
             {visa.visaSubType && (
               <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5">
                 <p className="text-xs text-indigo-500 font-semibold mb-1">Visa Type</p>
-                <p className="text-sm font-bold text-indigo-900">{visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker Visa'}</p>
+                <p className="text-sm font-bold text-indigo-900">{labelFor('visaSubType', visa.visaSubType)}</p>
               </div>
             )}
             {visa.visaCategory && (
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5">
                 <div className="flex items-center gap-1 mb-1"><Tag className="w-3 h-3 text-slate-400" /><p className="text-xs text-slate-500 font-semibold">Category</p></div>
-                <p className="text-sm font-bold text-slate-800">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
+                <p className="text-sm font-bold text-slate-800">{labelFor('visaCategory', visa.visaCategory)}</p>
               </div>
             )}
             {visa.processingTime && (
@@ -443,7 +442,7 @@ function VisaOverviewModal({
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Entry Type</p>
               <div className="flex flex-wrap gap-2">
                 {visa.entry.map((e) => (
-                  <span key={e} className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 capitalize">{e} Entry</span>
+                  <span key={e} className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{labelFor('entryType', e)}</span>
                 ))}
               </div>
             </div>
@@ -532,6 +531,8 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
   childPrice: number;
   onClick: () => void;
 }) {
+  const { labelFor } = useVisaConfigLabels();
+
   return (
     <button
       onClick={onClick}
@@ -548,15 +549,15 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
               visa.visaSubType === 'e-visa' ? 'bg-blue-400/30 text-blue-100' : 'bg-amber-400/30 text-amber-100'
             }`}>
-              {visa.visaSubType === 'e-visa' ? 'E-Visa' : 'Sticker'}
+              {labelFor('visaSubType', visa.visaSubType)}
             </span>
             {visa.entry?.[0] && (
-              <span className="text-[10px] text-white/60 capitalize bg-white/10 px-2 py-0.5 rounded-full">{visa.entry[0]} Entry</span>
+              <span className="text-[10px] text-white/60 bg-white/10 px-2 py-0.5 rounded-full">{labelFor('entryType', visa.entry[0])}</span>
             )}
           </div>
           <h3 className="text-white font-bold text-base leading-tight">{visa.name}</h3>
           {visa.visaCategory && (
-            <p className="text-white/60 text-xs mt-1 capitalize">{CATEGORY_LABELS[visa.visaCategory] || visa.visaCategory}</p>
+            <p className="text-white/60 text-xs mt-1">{labelFor('visaCategory', visa.visaCategory)}</p>
           )}
         </div>
       </div>
@@ -667,8 +668,6 @@ export default function ApplyPage() {
       try {
         const d = JSON.parse(raw);
         if (d.selectedCountry) setSelectedCountry(d.selectedCountry);
-        if (d.selectedVisa) setSelectedVisa(d.selectedVisa);
-        if (d.visaTypes) setVisaTypes(d.visaTypes);
         if (d.formData) setFormData(d.formData);
         if (d.passportValues) setPassportValues(d.passportValues);
         if (d.step) setStep(d.step as Step);
@@ -676,6 +675,19 @@ export default function ApplyPage() {
         if (d.travelEndDate) setTravelEndDate(d.travelEndDate);
         if (d.adults) setAdults(d.adults);
         if (typeof d.children === 'number') setChildren(d.children);
+
+        // Visa type data (pricing, labels, sub-type, active status) is admin-controlled
+        // and can change after a draft was saved — never restore it from the cached
+        // snapshot, always re-fetch fresh and re-match the previously selected visa by id.
+        if (d.selectedCountry?._id) {
+          getPublicVisaTypes(d.selectedCountry._id).then((r) => {
+            const fresh: VisaType[] = r.data.data;
+            setVisaTypes(fresh);
+            if (d.selectedVisa?._id) {
+              setSelectedVisa(fresh.find((v) => v._id === d.selectedVisa._id) ?? null);
+            }
+          }).catch(() => {});
+        }
       } catch {
         localStorage.removeItem(DRAFT_KEY);
       }
@@ -685,9 +697,11 @@ export default function ApplyPage() {
 
   useEffect(() => {
     if (!draftRestored || !selectedCountry) return;
-    const draft = { step, selectedCountry, selectedVisa, formData, passportValues, visaTypes, travelStartDate, travelEndDate, adults, children };
+    // visaTypes is intentionally excluded — it's always re-fetched fresh on restore (see above),
+    // never trusted from this cache, since pricing/labels are admin-controlled and can change.
+    const draft = { step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftRestored, step, selectedCountry, selectedVisa, formData, passportValues, visaTypes, travelStartDate, travelEndDate, adults, children]);
+  }, [draftRestored, step, selectedCountry, selectedVisa, formData, passportValues, travelStartDate, travelEndDate, adults, children]);
 
   useEffect(() => {
     if (activeTraveler > travelers.length - 1) setActiveTraveler(0);

@@ -42,6 +42,7 @@ export const getPublicVisaTypes = (countryId?: string) =>
   api.get('/public/visa-types', { params: { country: countryId } });
 export const submitContactLead = (data: { name: string; email: string; phone?: string; message: string }) =>
   api.post('/public/contact', data);
+export const getPublicVisaConfig = () => api.get('/public/visa-config');
 
 // User — Countries (all active, for the apply form — ignores showOnWebsite)
 export const getActiveCountries = () => api.get('/user/countries');

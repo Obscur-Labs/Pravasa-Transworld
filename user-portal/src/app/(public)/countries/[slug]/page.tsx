@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { getPublicCountryBySlug } from '@/lib/api';
+import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import type { Country, VisaType } from '@/types';
 import {
   ArrowRight, ChevronRight, ChevronLeft, Clock, Shield, Globe, CreditCard,
@@ -13,12 +14,6 @@ import {
 
 interface PageData { country: Country; visaTypes: VisaType[] }
 
-const ENTRY_LABELS: Record<string, string> = {
-  single: 'Single Entry', double: 'Double Entry', multiple: 'Multiple Entry',
-};
-const VISA_SUB_LABELS: Record<string, string> = {
-  'e-visa': 'eVisa', sticker: 'Sticker Visa',
-};
 const CAT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   tourist:  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   business: { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500'    },
@@ -153,10 +148,11 @@ function FAQAccordion({ faqs }: { faqs: { question: string; answer: string }[] }
 const DOT_COLORS = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-400'];
 
 function VisaInfoGrid({ vt }: { vt: VisaType }) {
+  const { labelFor } = useVisaConfigLabels();
   const items = [
-    { label: 'Visa Type', value: VISA_SUB_LABELS[vt.visaSubType] ?? vt.visaSubType },
+    { label: 'Visa Type', value: labelFor('visaSubType', vt.visaSubType) },
     { label: 'Length of Stay', value: vt.stayDuration || '—' },
-    { label: 'Entry', value: vt.entry?.map((e) => ENTRY_LABELS[e] ?? e).join(' / ') || '—' },
+    { label: 'Entry', value: vt.entry?.map((e) => labelFor('entryType', e)).join(' / ') || '—' },
     { label: 'Validity', value: vt.validity || '—' },
     { label: 'Processing', value: vt.processingTime || '—' },
   ];
