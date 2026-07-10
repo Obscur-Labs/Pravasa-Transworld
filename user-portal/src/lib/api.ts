@@ -40,6 +40,8 @@ export const getPublicCountries = () => api.get('/public/countries');
 export const getPublicCountryBySlug = (slug: string) => api.get(`/public/countries/${slug}`);
 export const getPublicVisaTypes = (countryId?: string) =>
   api.get('/public/visa-types', { params: { country: countryId } });
+export const downloadVisaSummaryPdf = (visaTypeId: string, adultRate: number, childRate: number) =>
+  api.get(`/public/visa-types/${visaTypeId}/pdf`, { params: { adultRate, childRate }, responseType: 'blob' });
 export const submitContactLead = (data: { name: string; email: string; phone?: string; message: string }) =>
   api.post('/public/contact', data);
 export const getPublicVisaConfig = () => api.get('/public/visa-config');

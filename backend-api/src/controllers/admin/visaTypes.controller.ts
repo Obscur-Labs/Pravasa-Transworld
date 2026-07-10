@@ -25,7 +25,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     country, name, description, adultPrice, childPrice, adultServiceFee, childServiceFee,
     corporateAdultPrice, corporateChildPrice, corporateAdultServiceFee, corporateChildServiceFee,
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
-    jurisdiction, visaCategory, process, validity,
+    jurisdiction, visaCategory, process, validity, additionalNotes,
   } = req.body;
   if (!country || !name || adultPrice === undefined || !processingTime) {
     sendError(res, 'Country, name, adult price, and processingTime are required');
@@ -47,7 +47,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     corporateChildServiceFee: optNum(corporateChildServiceFee),
     corporatePrice: corporateAdult,
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
-    jurisdiction, visaCategory, process, validity,
+    jurisdiction, visaCategory, process, validity, additionalNotes: additionalNotes || '',
   });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
   logActivity(req, 'create', 'Visa Type', name);

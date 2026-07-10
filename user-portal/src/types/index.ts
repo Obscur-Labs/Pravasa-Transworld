@@ -81,6 +81,7 @@ export interface VisaType {
   process: ProcessType;
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
+  additionalNotes?: string;
 }
 
 export interface VaultDocument {

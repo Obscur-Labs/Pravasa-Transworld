@@ -53,6 +53,7 @@ const emptyForm = () => ({
   process: 'normal' as string,
   formFields: [] as FormField[],
   documentRequirements: [] as DocumentRequirement[],
+  additionalNotes: '',
 });
 
 export default function VisaTypesPage() {
@@ -64,7 +65,7 @@ export default function VisaTypesPage() {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
-  const [activeTab, setActiveTab] = useState<'info' | 'form'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'form' | 'notes'>('info');
   const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
@@ -118,15 +119,18 @@ export default function VisaTypesPage() {
   const clearInfoError = (key: string) =>
     setInfoErrors((prev) => (prev[key] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
 
-  const goToFormTab = () => {
+  // Shared gate for moving past the Information tab, regardless of which later tab was clicked.
+  const goToTab = (tab: 'form' | 'notes') => {
     const errs = validateInfo();
     setInfoErrors(errs);
     if (Object.keys(errs).length > 0) {
+      setActiveTab('info');
       toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
       return;
     }
-    setActiveTab('form');
+    setActiveTab(tab);
   };
+  const goToFormTab = () => goToTab('form');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,6 +315,7 @@ export default function VisaTypesPage() {
       process: vt.process || 'normal',
       formFields: (vt.formFields || []).map((f) => ({ ...f })),
       documentRequirements: (vt.documentRequirements || []).map((d) => ({ ...d })),
+      additionalNotes: vt.additionalNotes || '',
     });
     setEditId(vt._id);
     setActiveTab('info');
@@ -337,7 +342,8 @@ export default function VisaTypesPage() {
             <DialogTitle>{editId ? 'Edit Visa Type' : 'Create Visa Type'}</DialogTitle>
             <div className="flex gap-1 -mb-px">
               <TabButton step={1} label="Information" active={activeTab === 'info'} done={Object.keys(validateInfo()).length === 0} onClick={() => setActiveTab('info')} />
-              <TabButton step={2} label="Form" active={activeTab === 'form'} done={false} onClick={goToFormTab} />
+              <TabButton step={2} label="Form" active={activeTab === 'form'} done={false} onClick={() => goToTab('form')} />
+              <TabButton step={3} label="Additional Notes" active={activeTab === 'notes'} done={false} onClick={() => goToTab('notes')} />
             </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0">
@@ -522,21 +528,37 @@ export default function VisaTypesPage() {
               <DocumentRequirementEditor docs={form.documentRequirements} onAdd={addDocReq} onUpdate={updateDocReq} onUpdateType={updateDocType} onRemove={removeDocReq} />
               </div>
 
+              <div className={activeTab === 'notes' ? 'space-y-2' : 'hidden'}>
+                <Label>Additional Notes</Label>
+                <textarea
+                  className="mt-1 w-full min-h-[240px] rounded-lg border border-input bg-card text-foreground text-sm p-3 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                  placeholder="Anything worth telling the applicant about this visa…"
+                  value={form.additionalNotes}
+                  onChange={(e) => setForm({ ...form, additionalNotes: e.target.value })}
+                />
+              </div>
+
             </div>
 
             <div className="flex items-center gap-2 px-6 py-4 border-t border-border flex-shrink-0">
-              {activeTab === 'form' && (
-                <Button type="button" variant="outline" onClick={() => setActiveTab('info')}>
+              {activeTab !== 'info' && (
+                <Button type="button" variant="outline" onClick={() => setActiveTab(activeTab === 'notes' ? 'form' : 'info')}>
                   <ChevronLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
               )}
               <div className="ml-auto flex gap-2">
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
-                {activeTab === 'info' ? (
-                  <Button type="button" onClick={goToFormTab}>
+                {activeTab === 'info' && (
+                  <Button type="button" onClick={() => goToTab('form')}>
                     Continue to Form <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
-                ) : (
+                )}
+                {activeTab === 'form' && (
+                  <Button type="button" onClick={() => goToTab('notes')}>
+                    Continue <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                )}
+                {activeTab === 'notes' && (
                   <Button type="submit" disabled={saving}>
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
                   </Button>

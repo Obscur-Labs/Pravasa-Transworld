@@ -5,8 +5,10 @@ import Document from '../../models/Document';
 import VisaFile from '../../models/VisaFile';
 import VisaType from '../../models/VisaType';
 import Country from '../../models/Country';
+import VisaConfigOption from '../../models/VisaConfigOption';
 import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { extractPassport } from '../../services/ocr.service';
+import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { sendSuccess, sendError } from '../../utils/response';
 import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
 
@@ -244,6 +246,49 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
   const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 }).lean();
   const includeCorporate = req.user?.accountType === 'corporate';
   sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));
+};
+
+// Public "Download PDF" button on the visa details view. adultRate/childRate are passed
+// in from the frontend (already resolved for corporate vs standard pricing there) rather
+// than re-derived here, so the PDF always matches exactly what's on screen.
+export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  const visaType = await VisaType.findOne({ _id: req.params.id, isActive: true }).populate('country', 'name');
+  if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
+
+  const adultRate = Number(req.query.adultRate) || 0;
+  const childRate = Number(req.query.childRate) || 0;
+
+  const configOptions = await VisaConfigOption.find({ isActive: true }).select('category value label');
+  const labelFor = (category: string, value: string | undefined) =>
+    value ? configOptions.find((o) => o.category === category && o.value === value)?.label || value : undefined;
+
+  const country = visaType.country as any;
+
+  try {
+    const pdfBuffer = await generateVisaSummaryPDF({
+      visaName: visaType.name,
+      countryName: country?.name || 'N/A',
+      description: visaType.description,
+      additionalNotes: visaType.additionalNotes,
+      adultRate,
+      childRate,
+      processingTime: visaType.processingTime,
+      validity: visaType.validity,
+      stayDuration: visaType.stayDuration,
+      visaSubTypeLabel: labelFor('visaSubType', visaType.visaSubType),
+      visaCategoryLabel: labelFor('visaCategory', visaType.visaCategory),
+      entryLabels: (visaType.entry || []).map((e) => labelFor('entryType', e) || e),
+      documents: (visaType.documentRequirements || []).map((d) => ({
+        name: d.name, description: d.description, required: d.required, applicantType: d.applicantType,
+      })),
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="visa-details-${visaType.name.replace(/\s+/g, '-')}.pdf"`);
+    res.end(pdfBuffer);
+  } catch (err) {
+    sendError(res, 'Failed to generate PDF', 500);
+  }
 };
 
 import DocumentVault from '../../models/DocumentVault';

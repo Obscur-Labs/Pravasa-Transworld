@@ -157,6 +157,7 @@ export interface VisaType {
   process: ProcessType;
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
+  additionalNotes?: string;
   isActive: boolean;
 }
 

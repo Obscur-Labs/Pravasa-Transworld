@@ -70,6 +70,7 @@ export interface IVisaType extends Document {
   process: ProcessType;
   formFields: IFormField[];
   documentRequirements: IDocumentRequirement[];
+  additionalNotes: string;
   isActive: boolean;
 }
 
@@ -122,6 +123,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     process: { type: String, enum: ['normal', 'express'], default: 'normal' },
     formFields: [FormFieldSchema],
     documentRequirements: [DocumentRequirementSchema],
+    additionalNotes: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

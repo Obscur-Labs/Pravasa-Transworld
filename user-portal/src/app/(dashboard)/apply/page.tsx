@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
   Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
-  Users, Minus, Plus, Shield, ArrowRight,
+  Users, Minus, Plus, Shield, ArrowRight, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { toast } from '@/components/ui/use-toast';
 import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
   addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments,
-  validatePromoCode,
+  validatePromoCode, downloadVisaSummaryPdf,
 } from '@/lib/api';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
@@ -291,6 +291,7 @@ function VisaOverviewModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { labelFor } = useVisaConfigLabels();
 
   const requiredDocs = visa.documentRequirements.filter((r) => r.required);
@@ -311,6 +312,11 @@ function VisaOverviewModal({
       lines.push('DOCUMENTS');
       visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}${r.applicantType === 'child' ? ' [children only]' : r.applicantType === 'both' ? ' [all travellers]' : ''}`));
     }
+    if (visa.additionalNotes?.trim()) {
+      lines.push('');
+      lines.push('ADDITIONAL NOTES');
+      lines.push(visa.additionalNotes.trim());
+    }
     return lines.join('\n');
   })();
 
@@ -330,6 +336,25 @@ function VisaOverviewModal({
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ title: 'Error', description: 'Failed to copy to clipboard.', variant: 'destructive' });
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const response = await downloadVisaSummaryPdf(visa._id, adultRate, childRate);
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `visa-details-${visa.name.replace(/\s+/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to generate the PDF.', variant: 'destructive' });
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -456,6 +481,14 @@ function VisaOverviewModal({
             </div>
           )}
 
+          {/* Additional Notes */}
+          {visa.additionalNotes?.trim() && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Additional Notes</p>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{visa.additionalNotes}</p>
+            </div>
+          )}
+
           {/* Documents */}
           {visa.documentRequirements.length > 0 && (
             <div>
@@ -464,10 +497,17 @@ function VisaOverviewModal({
                   Documents Required
                   <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
                 </p>
-                <button onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150">
-                  {copied ? (<><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>) : (<><Copy className="w-3.5 h-3.5" />Copy All</>)}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleCopy}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 px-2.5 py-1.5 rounded-lg transition-all duration-150">
+                    {copied ? (<><Check className="w-3.5 h-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>) : (<><Copy className="w-3.5 h-3.5" />Copy All</>)}
+                  </button>
+                  <button onClick={handleDownloadPdf} disabled={downloadingPdf}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:scale-95 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-all duration-150">
+                    {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    PDF
+                  </button>
+                </div>
               </div>
 
               {requiredDocs.length > 0 && (
