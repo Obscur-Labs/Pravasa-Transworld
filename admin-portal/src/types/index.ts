@@ -266,7 +266,7 @@ export interface VisaFile {
   url: string;
 }
 
-export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'contactLead' | 'application';
+export type TrashEntityType = 'country' | 'visaType' | 'formPreset' | 'contactLead' | 'application' | 'user';
 
 export interface TrashItem {
   _id: string;

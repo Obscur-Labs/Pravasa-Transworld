@@ -6,6 +6,8 @@ import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import DocumentVault from '../../models/DocumentVault';
 import User from '../../models/User';
 import { sendSuccess, sendError } from '../../utils/response';
+import { logActivity } from '../../utils/activityLog';
+import { moveToTrash } from '../../utils/trash';
 
 async function fetchBuffer(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -65,6 +67,83 @@ export const downloadUserVaultZip = async (req: AdminRequest, res: Response): Pr
 
   archive.finalize();
   await closePromise;
+};
+
+export const createUser = async (req: AdminRequest, res: Response): Promise<void> => {
+  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable } = req.body;
+  if (!name || !email || !phone) {
+    sendError(res, 'name, email, and phone are required', 400);
+    return;
+  }
+
+  const type: 'individual' | 'corporate' = accountType === 'corporate' ? 'corporate' : 'individual';
+  if (type === 'corporate' && !gstNumber) {
+    sendError(res, 'GST number is required for corporate accounts', 400);
+    return;
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const exists = await User.findOne({ email: normalizedEmail });
+  if (exists) { sendError(res, 'A customer with this email already exists', 409); return; }
+
+  const user = await User.create({
+    name: String(name).trim(),
+    email: normalizedEmail,
+    phone: String(phone).trim(),
+    accountType: type,
+    gstNumber: type === 'corporate' ? String(gstNumber).trim() : undefined,
+    isActive: isActive !== false,
+    promoApplicable: promoApplicable !== false,
+  });
+  logActivity(req, 'create', 'Customer', user.name);
+  sendSuccess(res, user, 'Customer created', 201);
+};
+
+export const updateUser = async (req: AdminRequest, res: Response): Promise<void> => {
+  const { name, email, phone, accountType, gstNumber, isActive, promoApplicable } = req.body;
+  const user = await User.findById(req.params.userId);
+  if (!user) { sendError(res, 'Customer not found', 404); return; }
+
+  if (email !== undefined) {
+    const normalizedEmail = String(email).toLowerCase().trim();
+    if (!normalizedEmail) { sendError(res, 'Email cannot be empty', 400); return; }
+    const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+    if (dup) { sendError(res, 'A customer with this email already exists', 409); return; }
+    user.email = normalizedEmail;
+  }
+  if (name !== undefined) {
+    if (!String(name).trim()) { sendError(res, 'Name cannot be empty', 400); return; }
+    user.name = String(name).trim();
+  }
+  if (phone !== undefined) {
+    if (!String(phone).trim()) { sendError(res, 'Phone cannot be empty', 400); return; }
+    user.phone = String(phone).trim();
+  }
+  if (accountType !== undefined) {
+    user.accountType = accountType === 'corporate' ? 'corporate' : 'individual';
+  }
+  if (gstNumber !== undefined) user.gstNumber = String(gstNumber).trim() || undefined;
+  if (user.accountType === 'corporate' && !user.gstNumber) {
+    sendError(res, 'GST number is required for corporate accounts', 400);
+    return;
+  }
+  if (user.accountType === 'individual') user.gstNumber = undefined;
+  if (isActive !== undefined) user.isActive = isActive === true;
+  if (promoApplicable !== undefined) user.promoApplicable = promoApplicable === true;
+
+  await user.save();
+  logActivity(req, 'update', 'Customer', user.name);
+  sendSuccess(res, user, 'Customer updated');
+};
+
+export const deleteUser = async (req: AdminRequest, res: Response): Promise<void> => {
+  const user = await User.findById(req.params.userId);
+  if (!user) { sendError(res, 'Customer not found', 404); return; }
+  // Applications and vault documents keep referencing the original id, so a
+  // restore from trash re-links them without any extra work.
+  await moveToTrash('user', user);
+  logActivity(req, 'delete', 'Customer', user.name);
+  sendSuccess(res, null, 'Customer moved to trash');
 };
 
 export const togglePromoApplicable = async (req: AdminRequest, res: Response): Promise<void> => {

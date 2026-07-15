@@ -59,7 +59,7 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Manual payment override
 - Upload final visa PDF (Cloudinary delivery)
 - Contact lead management
-- **Customer management** — inline Promo Eligible/Blocked toggle per customer from the Customers table
+- **Customer management** — full CRUD for customer profiles (both Individual and Corporate types) from the Customers page: create/edit via a dialog with a type selector (GST number required for corporate), delete to trash with restore, inline Promo Eligible/Blocked toggle, and a per-customer profile page showing applications, spend, and document vault
 - **Promo Code management** — full CRUD with active/inactive toggle, show-on-website toggle, expiry date, usage limit; right-slide usage history drawer per code
 
 ---

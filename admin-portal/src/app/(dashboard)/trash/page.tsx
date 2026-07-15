@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, RotateCcw, Trash2, AlertTriangle, Globe2, CreditCard, LayoutTemplate, MessageSquare, FileText } from 'lucide-react';
+import { Loader2, RotateCcw, Trash2, AlertTriangle, Globe2, CreditCard, LayoutTemplate, MessageSquare, FileText, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -17,6 +17,7 @@ const TYPE_ICON: Record<TrashEntityType, React.ComponentType<{ className?: strin
   formPreset: LayoutTemplate,
   contactLead: MessageSquare,
   application: FileText,
+  user: Users,
 };
 
 const TYPE_BADGE: Record<TrashEntityType, string> = {
@@ -25,6 +26,7 @@ const TYPE_BADGE: Record<TrashEntityType, string> = {
   formPreset: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
   contactLead: 'bg-warning/10 text-warning border-warning/20',
   application: 'bg-success/10 text-success border-success/20',
+  user: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 function timeAgo(iso: string) {

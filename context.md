@@ -110,6 +110,9 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET | `/applications/:id/documents/zip` | Download all application documents as ZIP |
 | GET | `/payments` | Payment list across all applications |
 | GET | `/users` | All registered applicants |
+| POST | `/users` | Create a customer profile (individual or corporate; GST number required for corporate; duplicate email → 409) |
+| PUT | `/users/:userId` | Update a customer profile (switching to individual clears GST; switching to corporate requires it) |
+| DELETE | `/users/:userId` | Move a customer to trash (restorable; applications/vault keep the original id and re-link on restore) |
 | GET | `/users/:userId/applications` | Applications for a specific user |
 | GET | `/users/:userId/vault` | A user's vault documents |
 | GET | `/users/:userId/vault/zip` | Download a user's vault as ZIP |
@@ -190,6 +193,8 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   updatedAt: Date
 }
 ```
+
+> **Admin-managed customer profiles:** besides self-registration, admins can create, edit, and delete customers of both account types from the admin portal (`POST/PUT/DELETE /admin/users`). Corporate profiles require a `gstNumber`; switching a customer back to individual clears it. Deletion is soft — the customer document is snapshotted into the Trash collection (`entityType: 'user'`) and can be restored with the same `_id`, so their applications and vault documents re-link automatically.
 
 ### Admin
 ```typescript
@@ -636,7 +641,8 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 - `/countries` — country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
 - `/countries/[id]/content` — country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
 - `/visa-types` — visa type management including corporate price field
-- `/users` — customer list with inline Promo Eligible/Blocked toggle per user (calls `PATCH /admin/users/:id/promo-applicable`)
+- `/users` — customer management with full CRUD for both Individual and Corporate profiles. Tabbed list (Individual / Corporate) with search and stat tiles; "Add Customer" button and per-row Edit/Delete actions. Create/edit share one dialog (`components/shared/customer-form-dialog.tsx`) with an Individual/Corporate segmented control — corporate selection reveals a required, auto-uppercased GST field — plus Active and Promo Eligible switches. Inline Promo Eligible/Blocked toggle per row (calls `PATCH /admin/users/:id/promo-applicable`). Delete confirms, then moves the customer to trash.
+- `/users/[id]` — customer profile page: header with type badge, GST, contact info, and Edit/Delete buttons; stat tiles (applications, approved, rejected, total spend); document vault with ZIP download; application history table
 - `/promo-codes` — full CRUD for promo codes (code, description, discount type/value, active toggle, show-on-website toggle, expiry date, usage limit, trash). Right-slide history drawer shows per-use breakdown (user, email, discount applied, date, application reference)
 - `/leads` — contact form submissions
 - `/notifications` — admin notifications

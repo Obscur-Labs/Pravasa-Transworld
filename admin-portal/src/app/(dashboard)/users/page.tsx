@@ -1,14 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Search, ChevronRight, Users, User, Building2, Tag } from 'lucide-react';
+import { Search, ChevronRight, Users, User, Building2, Tag, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatTile } from '@/components/ui/stat-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { getUsers, toggleUserPromoApplicable } from '@/lib/api';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CustomerFormDialog } from '@/components/shared/customer-form-dialog';
+import { getUsers, toggleUserPromoApplicable, deleteUser } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { User as IUser } from '@/types';
 
@@ -20,6 +23,9 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<Tab>('individual');
   const [toggling, setToggling] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<IUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<IUser | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -27,6 +33,30 @@ export default function CustomersPage() {
       .then((r) => setAllUsers(r.data.data))
       .finally(() => setLoading(false));
   }, []);
+
+  const openCreate = () => { setEditTarget(null); setFormOpen(true); };
+
+  const openEdit = (e: React.MouseEvent, u: IUser) => {
+    e.stopPropagation();
+    setEditTarget(u);
+    setFormOpen(true);
+  };
+
+  const handleSaved = (saved: IUser) => {
+    setAllUsers((prev) => {
+      const exists = prev.some((x) => x._id === saved._id);
+      return exists ? prev.map((x) => (x._id === saved._id ? saved : x)) : [saved, ...prev];
+    });
+    // Jump to the tab the saved customer lives on so it doesn't look like it vanished.
+    setTab((saved.accountType || 'individual') as Tab);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteUser(deleteTarget._id);
+    setAllUsers((prev) => prev.filter((x) => x._id !== deleteTarget._id));
+    setDeleteTarget(null);
+  };
 
   const handlePromoToggle = async (e: React.MouseEvent, u: IUser) => {
     e.stopPropagation();
@@ -51,7 +81,15 @@ export default function CustomersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
-      <PageHeader title="Customers" description={`${allUsers.length} registered customers`} />
+      <PageHeader
+        title="Customers"
+        description={`${allUsers.length} registered customers`}
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" /> Add Customer
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {loading ? (
@@ -159,7 +197,23 @@ export default function CustomersPage() {
                     </button>
                   </TableCell>
                   <TableCell>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1 justify-end">
+                      <button
+                        onClick={(e) => openEdit(e, u)}
+                        title="Edit customer"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(u); }}
+                        title="Delete customer"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-destructive/70 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -167,6 +221,22 @@ export default function CustomersPage() {
           </TableBody>
         </Table>
       </div>
+
+      <CustomerFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        customer={editTarget}
+        onSaved={handleSaved}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete Customer?"
+        description={deleteTarget ? `"${deleteTarget.name}" will be moved to trash. Their applications and documents are kept and re-link if the customer is restored.` : undefined}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

@@ -45,9 +45,12 @@ Users register as either **individual** or **corporate**. Corporate accounts:
 - See a separate `corporatePrice` on each visa type (set by admin)
 - Are charged the corporate rate when submitting an application
 - Have the corporate rate clearly shown in the apply flow with the regular price struck-through
+- Require a GST number (shown on receipts)
+
+Admins can also create, edit, and delete customer profiles of both types directly from the admin portal's Customers page — deleted customers go to the trash and can be restored with their applications and vault documents intact.
 
 ---
 
 ## Current State
 
-Phase 3 complete. The platform has a fully working backend API, responsive user and admin portals, a 10-stage application status pipeline, real-time Socket.io notifications, Cloudinary file delivery with user-scoped folder organisation, profile management with photo upload, corporate pricing, and a payment receipt system with application reference numbers in `PRS-{COUNTRY}-{4-digit}` format. Ready for integration of a live payment gateway (Stripe / Razorpay) as the next milestone.
+Phase 3 complete. The platform has a fully working backend API, responsive user and admin portals, a 10-stage application status pipeline, real-time Socket.io notifications, Cloudinary file delivery with user-scoped folder organisation, profile management with photo upload, corporate pricing, admin-side customer profile CRUD (individual + corporate), and a payment receipt system with application reference numbers in `PRS-{COUNTRY}-{4-digit}` format. Ready for integration of a live payment gateway (Stripe / Razorpay) as the next milestone.

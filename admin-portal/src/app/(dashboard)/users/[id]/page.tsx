@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Mail, Phone, Calendar, FileText, ExternalLink, FolderArchive, Download, Loader2, Building2, User, CheckCircle, XCircle, DollarSign } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, FileText, ExternalLink, FolderArchive, Download, Loader2, Building2, User, CheckCircle, XCircle, DollarSign, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,10 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CustomerFormDialog } from '@/components/shared/customer-form-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { getUsers, getUserApplications, getUserVaultDocuments, downloadUserVaultZip } from '@/lib/api';
+import { getUsers, getUserApplications, getUserVaultDocuments, downloadUserVaultZip, deleteUser } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { User as IUser, Application, VaultDocument } from '@/types';
 import { STATUS_LABELS } from '@/types';
@@ -30,6 +32,15 @@ export default function CustomerProfilePage() {
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDelete = async () => {
+    if (!user) return;
+    await deleteUser(user._id);
+    toast({ title: 'Customer deleted', description: `${user.name} was moved to trash.` });
+    router.push('/users');
+  };
 
   useEffect(() => {
     Promise.all([
@@ -131,6 +142,19 @@ export default function CustomerProfilePage() {
                 </span>
               )}
             </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+            </Button>
           </div>
         </div>
       </div>
@@ -257,6 +281,22 @@ export default function CustomerProfilePage() {
           </div>
         )}
       </div>
+
+      <CustomerFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        customer={user}
+        onSaved={(saved) => setUser(saved)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete Customer?"
+        description={`"${user.name}" will be moved to trash. Their applications and documents are kept and re-link if the customer is restored.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

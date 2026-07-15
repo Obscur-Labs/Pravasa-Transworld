@@ -69,6 +69,9 @@ router.get('/payments', apps.getAdminPayments);
 
 // Users
 router.get('/users', apps.getUsers);
+router.post('/users', users.createUser);
+router.put('/users/:userId', users.updateUser);
+router.delete('/users/:userId', users.deleteUser);
 router.get('/users/:userId/applications', apps.getUserApplications);
 router.get('/users/:userId/vault', users.getUserVaultDocuments);
 router.get('/users/:userId/vault/zip', users.downloadUserVaultZip);

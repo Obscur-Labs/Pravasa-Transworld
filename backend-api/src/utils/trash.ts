@@ -4,6 +4,7 @@ import VisaType from '../models/VisaType';
 import FormPreset from '../models/FormPreset';
 import ContactLead from '../models/ContactLead';
 import Application from '../models/Application';
+import User from '../models/User';
 import Trash, { TrashEntityType } from '../models/Trash';
 
 // Registry mapping each trashable entity type to its Mongoose model.
@@ -13,6 +14,7 @@ export const TRASH_MODELS: Record<TrashEntityType, Model<any>> = {
   formPreset: FormPreset,
   contactLead: ContactLead,
   application: Application,
+  user: User,
 };
 
 export const ENTITY_LABELS: Record<TrashEntityType, string> = {
@@ -21,6 +23,7 @@ export const ENTITY_LABELS: Record<TrashEntityType, string> = {
   formPreset: 'Form Preset',
   contactLead: 'Contact Lead',
   application: 'Application',
+  user: 'Customer',
 };
 
 function deriveLabels(entityType: TrashEntityType, data: any): { label: string; sublabel: string } {
@@ -35,6 +38,8 @@ function deriveLabels(entityType: TrashEntityType, data: any): { label: string; 
       return { label: data.name || 'Lead', sublabel: data.email || '' };
     case 'application':
       return { label: data.referenceId || 'Application', sublabel: '' };
+    case 'user':
+      return { label: data.name || 'Customer', sublabel: data.email || '' };
     default:
       return { label: 'Record', sublabel: '' };
   }

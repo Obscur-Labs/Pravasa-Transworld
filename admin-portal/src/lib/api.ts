@@ -106,6 +106,9 @@ export const getAdminPayments = () => api.get('/admin/payments');
 
 // Users
 export const getUsers = () => api.get('/admin/users');
+export const createUser = (data: object) => api.post('/admin/users', data);
+export const updateUser = (userId: string, data: object) => api.put(`/admin/users/${userId}`, data);
+export const deleteUser = (userId: string) => api.delete(`/admin/users/${userId}`);
 export const getUserApplications = (userId: string) => api.get(`/admin/users/${userId}/applications`);
 export const getUserVaultDocuments = (userId: string) => api.get(`/admin/users/${userId}/vault`);
 export const downloadUserVaultZip = (userId: string) =>
