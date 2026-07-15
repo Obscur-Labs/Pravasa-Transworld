@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, Search as SearchIcon, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,22 @@ function TabButton({ step, label, active, done, onClick }: { step: number; label
   );
 }
 
+// The pricing card renders like the receipt it produces: one line per fee component
+// (Adult + Child columns), then computed GST and "Customer pays" lines underneath.
+type PriceField =
+  | 'adultPrice' | 'childPrice'
+  | 'adultVfsFee' | 'childVfsFee'
+  | 'adultServiceFee' | 'childServiceFee'
+  | 'corporateAdultPrice' | 'corporateChildPrice'
+  | 'corporateAdultVfsFee' | 'corporateChildVfsFee'
+  | 'corporateAdultServiceFee' | 'corporateChildServiceFee';
+
+const PRICE_ROWS: { label: string; required?: boolean; hint?: string; std: [PriceField, PriceField]; corp: [PriceField, PriceField] }[] = [
+  { label: 'Visa fee', required: true, std: ['adultPrice', 'childPrice'], corp: ['corporateAdultPrice', 'corporateChildPrice'] },
+  { label: 'VFS fee', std: ['adultVfsFee', 'childVfsFee'], corp: ['corporateAdultVfsFee', 'corporateChildVfsFee'] },
+  { label: 'Service fee', hint: 'optional', std: ['adultServiceFee', 'childServiceFee'], corp: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
+];
+
 const emptyForm = () => ({
   country: '', name: '', description: '',
   adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
@@ -70,6 +86,7 @@ export default function VisaTypesPage() {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [pricingTab, setPricingTab] = useState<'standard' | 'corporate'>('standard');
   const [activeTab, setActiveTab] = useState<'info' | 'form' | 'notes'>('info');
   const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -130,6 +147,7 @@ export default function VisaTypesPage() {
     setInfoErrors(errs);
     if (Object.keys(errs).length > 0) {
       setActiveTab('info');
+      if (errs.adultPrice) setPricingTab('standard');
       toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
       return;
     }
@@ -143,6 +161,7 @@ export default function VisaTypesPage() {
     if (Object.keys(errs).length > 0) {
       setInfoErrors(errs);
       setActiveTab('info');
+      if (errs.adultPrice) setPricingTab('standard');
       toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
       return;
     }
@@ -297,6 +316,7 @@ export default function VisaTypesPage() {
     setApplyPresetId('');
     setPresetName('');
     setActiveTab('info');
+    setPricingTab('standard');
     setInfoErrors({});
     setShowForm(!showForm);
   };
@@ -332,6 +352,7 @@ export default function VisaTypesPage() {
     });
     setEditId(vt._id);
     setActiveTab('info');
+    setPricingTab('standard');
     setInfoErrors({});
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -339,6 +360,20 @@ export default function VisaTypesPage() {
 
   // GST-inclusive charged totals (visa + VFS + service, +18% GST) — matches checkout.
   const GST_MULT = 1.18;
+  const num = (s: string) => Number(s || 0);
+  const inclGst = (n: number) => Math.round(n * GST_MULT);
+  // Live receipt preview for the pricing card. Corporate fields fall back to the
+  // standard value when left blank — same rule as backend computeVisaPricing.
+  const corpAnySet = [form.corporateAdultPrice, form.corporateAdultVfsFee, form.corporateAdultServiceFee, form.corporateChildPrice, form.corporateChildVfsFee, form.corporateChildServiceFee].some((v) => v !== '');
+  const corpOrStd = (corp: string, std: string) => (corp !== '' ? num(corp) : num(std));
+  const pricingSubAdult = pricingTab === 'standard'
+    ? num(form.adultPrice) + num(form.adultVfsFee) + num(form.adultServiceFee)
+    : corpOrStd(form.corporateAdultPrice, form.adultPrice) + corpOrStd(form.corporateAdultVfsFee, form.adultVfsFee) + corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
+  const pricingSubChild = pricingTab === 'standard'
+    ? num(form.childPrice) + num(form.childVfsFee) + num(form.childServiceFee)
+    : corpOrStd(form.corporateChildPrice, form.childPrice) + corpOrStd(form.corporateChildVfsFee, form.childVfsFee) + corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
+  const pricingTotalAdult = inclGst(pricingSubAdult);
+  const pricingTotalChild = inclGst(pricingSubChild);
   const stdAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * GST_MULT);
   const stdChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * GST_MULT);
   const corpAdultTotal = (vt: VisaType) => Math.round(((vt.corporateAdultPrice || 0) + (vt.corporateAdultVfsFee || 0) + (vt.corporateAdultServiceFee || 0)) * GST_MULT);
@@ -411,71 +446,90 @@ export default function VisaTypesPage() {
                 </div>
               </div>
 
-              {/* ── Pricing ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/15 space-y-3">
-                  <p className="text-sm font-semibold text-primary">Standard Pricing (per traveler)</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Adult Visa Fee (₹)</Label>
-                      <Input className={`mt-1 ${infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`} type="number" min="0" placeholder="e.g. 5000" value={form.adultPrice} onChange={(e) => { setForm({ ...form, adultPrice: e.target.value }); clearInfoError('adultPrice'); }} required />
-                      {infoErrors.adultPrice && <p className="text-xs text-destructive mt-1">{infoErrors.adultPrice}</p>}
-                    </div>
-                    <div>
-                      <Label>Adult VFS Fee / pax (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 800" value={form.adultVfsFee} onChange={(e) => setForm({ ...form, adultVfsFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Adult Service Fee / pax (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional, e.g. 500" value={form.adultServiceFee} onChange={(e) => setForm({ ...form, adultServiceFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Child Visa Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 3000" value={form.childPrice} onChange={(e) => setForm({ ...form, childPrice: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Child VFS Fee / pax (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 800" value={form.childVfsFee} onChange={(e) => setForm({ ...form, childVfsFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Child Service Fee / pax (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional, e.g. 300" value={form.childServiceFee} onChange={(e) => setForm({ ...form, childServiceFee: e.target.value })} />
-                    </div>
+              {/* ── Pricing: a rate card that reads like the receipt it produces ── */}
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-muted/40 border-b border-border">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Pricing</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Fees per traveler. 18% GST is added automatically.</p>
+                  </div>
+                  <div className="flex gap-1 bg-muted rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={() => setPricingTab('standard')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${pricingTab === 'standard' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingTab('corporate')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${pricingTab === 'corporate' ? 'bg-card text-warning shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Corporate
+                      {corpAnySet && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="Corporate overrides are set" />}
+                    </button>
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-warning/5 border border-warning/15 space-y-3">
-                  <p className="text-sm font-semibold text-warning">Corporate Pricing <span className="text-xs font-normal text-warning/70">(shown to corporate users only)</span></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Corp. Adult Visa Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateAdultPrice} onChange={(e) => setForm({ ...form, corporateAdultPrice: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Corp. Adult VFS Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateAdultVfsFee} onChange={(e) => setForm({ ...form, corporateAdultVfsFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Corp. Adult Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional — 0 waives it" value={form.corporateAdultServiceFee} onChange={(e) => setForm({ ...form, corporateAdultServiceFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Corp. Child Visa Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateChildPrice} onChange={(e) => setForm({ ...form, corporateChildPrice: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Corp. Child VFS Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateChildVfsFee} onChange={(e) => setForm({ ...form, corporateChildVfsFee: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Corp. Child Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional — 0 waives it" value={form.corporateChildServiceFee} onChange={(e) => setForm({ ...form, corporateChildServiceFee: e.target.value })} />
-                    </div>
+
+                <div className="p-5">
+                  {pricingTab === 'corporate' && (
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Corporate accounts pay these fees instead. Leave a field blank to charge the standard fee — enter 0 in Service fee to waive it.
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-[minmax(7rem,1fr)_minmax(6.5rem,9rem)_minmax(6.5rem,9rem)] gap-x-3 gap-y-2.5 items-center max-w-xl">
+                    <span />
+                    <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
+                    <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
+
+                    {PRICE_ROWS.map((row) => {
+                      const fields = pricingTab === 'standard' ? row.std : row.corp;
+                      return (
+                        <Fragment key={row.label}>
+                          <span className="text-sm text-foreground">
+                            {row.label}
+                            {row.required && pricingTab === 'standard' && <span className="text-destructive ml-0.5">*</span>}
+                            {row.hint && <span className="text-xs text-muted-foreground ml-1.5">({row.hint})</span>}
+                          </span>
+                          {fields.map((name, i) => (
+                            <div key={name} className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">₹</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                className={`pl-7 pr-3 text-right tabular-nums ${name === 'adultPrice' && infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                placeholder={pricingTab === 'corporate' ? (form[row.std[i]] || '0') : '0'}
+                                value={form[name]}
+                                onChange={(e) => { setForm({ ...form, [name]: e.target.value }); if (name === 'adultPrice') clearInfoError('adultPrice'); }}
+                              />
+                            </div>
+                          ))}
+                        </Fragment>
+                      );
+                    })}
+
+                    <div className="col-span-3 border-t border-border my-1" />
+
+                    <span className="text-xs text-muted-foreground">GST (18%)</span>
+                    <span className="text-xs text-muted-foreground text-right pr-3 tabular-nums">{pricingSubAdult > 0 ? formatCurrency(pricingTotalAdult - pricingSubAdult) : '—'}</span>
+                    <span className="text-xs text-muted-foreground text-right pr-3 tabular-nums">{pricingSubChild > 0 ? formatCurrency(pricingTotalChild - pricingSubChild) : '—'}</span>
+
+                    <span className="text-sm font-semibold text-foreground">
+                      Customer pays <span className="text-xs font-normal text-muted-foreground">incl. GST</span>
+                    </span>
+                    <span className={`text-sm font-bold text-right pr-3 tabular-nums ${pricingTab === 'corporate' ? 'text-warning' : 'text-primary'}`}>
+                      {pricingSubAdult > 0 ? formatCurrency(pricingTotalAdult) : '—'}
+                    </span>
+                    <span className={`text-sm font-bold text-right pr-3 tabular-nums ${pricingTab === 'corporate' ? 'text-warning' : 'text-primary'}`}>
+                      {pricingSubChild > 0 ? formatCurrency(pricingTotalChild) : '—'}
+                    </span>
                   </div>
+
+                  {infoErrors.adultPrice && <p className="text-xs text-destructive mt-3">{infoErrors.adultPrice}</p>}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground -mt-3">
-                Visa and VFS fees are mandatory components; the service fee is optional. A fixed 18% GST is added on top of all fees at checkout and broken down on the receipt.
-              </p>
 
               {/* ── Visa Details ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
