@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, uploadDocument, createPaymentOrder, verifyPayment,
-  getVaultDocuments, addDocumentFromVault,
+  getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt,
 } from '@/lib/api';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatDate, formatCurrency } from '@/lib/utils';
@@ -96,6 +96,9 @@ export default function ApplicationDetailPage() {
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
 
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+
   const [extraDocName, setExtraDocName] = useState('');
   const [showExtraUpload, setShowExtraUpload] = useState(false);
   const [extraVaultOpen, setExtraVaultOpen] = useState(false);
@@ -113,10 +116,42 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  // The latest completed payment for this application powers the "Download Receipt" button.
+  const loadReceiptPayment = () => {
+    getUserPayments()
+      .then((r) => {
+        const payments = (r.data.data || []) as { _id: string; application?: { _id: string } | string }[];
+        const match = payments.find((p) => (typeof p.application === 'string' ? p.application : p.application?._id) === id);
+        setReceiptPaymentId(match?._id || null);
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     fetchData();
+    loadReceiptPayment();
     getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
   }, [id]);
+
+  const handleDownloadReceipt = async () => {
+    if (!receiptPaymentId) return;
+    setDownloadingReceipt(true);
+    try {
+      const response = await downloadReceipt(receiptPaymentId);
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `receipt-${application?.referenceId || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Download failed', description: 'Could not generate the receipt. Please try again.', variant: 'destructive' });
+    } finally {
+      setDownloadingReceipt(false);
+    }
+  };
 
   // Sorted traveller tabs derived from uploaded docs + form response keys
   const travelerTabs = useMemo(() => {
@@ -210,8 +245,9 @@ export default function ApplicationDetailPage() {
       await loadRazorpayScript();
       const checkout = await openRazorpayCheckout(order);
       await verifyPayment(id, checkout);
-      toast({ title: 'Payment successful!', description: 'Your application is now being processed.', variant: 'success' });
+      toast({ title: 'Payment successful!', description: 'Your application is now being processed. You can download your receipt from this page.', variant: 'success' });
       fetchData();
+      loadReceiptPayment();
     } catch (err: any) {
       if (err instanceof PaymentCancelledError) {
         toast({ title: 'Payment cancelled', description: 'You can complete the payment anytime from this page.' });
@@ -306,12 +342,41 @@ export default function ApplicationDetailPage() {
           {application.status === 'payment_completed' && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="p-5">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-bold text-green-900 mb-0.5">Payment Confirmed!</h3>
-                    <p className="text-green-700 text-sm">Our team will review your documents shortly.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-bold text-green-900 mb-0.5">Payment Confirmed!</h3>
+                      <p className="text-green-700 text-sm">Our team will review your documents shortly.</p>
+                    </div>
                   </div>
+                  {receiptPaymentId && (
+                    <Button variant="outline" className="border-green-300 text-green-800 hover:bg-green-100 flex-shrink-0" onClick={handleDownloadReceipt} disabled={downloadingReceipt}>
+                      {downloadingReceipt ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                      Download Receipt
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payment receipt — stays available after the application moves past payment */}
+          {receiptPaymentId && !['submitted', 'payment_pending', 'payment_completed'].includes(application.status) && (
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-slate-800 text-sm">Payment Receipt</h3>
+                      <p className="text-xs text-slate-400">Download the receipt for your payment of {formatCurrency(application.paymentAmount)}.</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" className="flex-shrink-0" onClick={handleDownloadReceipt} disabled={downloadingReceipt}>
+                    {downloadingReceipt ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                    Download Receipt
+                  </Button>
                 </div>
               </CardContent>
             </Card>

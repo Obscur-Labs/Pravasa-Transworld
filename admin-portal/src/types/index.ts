@@ -141,10 +141,14 @@ export interface VisaType {
   corporatePrice?: number;
   adultPrice: number;
   childPrice: number;
+  adultVfsFee?: number;
+  childVfsFee?: number;
   adultServiceFee: number;
   childServiceFee: number;
   corporateAdultPrice?: number;
   corporateChildPrice?: number;
+  corporateAdultVfsFee?: number;
+  corporateChildVfsFee?: number;
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
   processingTime: string;
@@ -159,6 +163,7 @@ export interface VisaType {
   documentRequirements: DocumentRequirement[];
   additionalNotes?: string;
   isActive: boolean;
+  createdAt: string;
 }
 
 export interface FormPreset {

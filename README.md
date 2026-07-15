@@ -34,7 +34,9 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Passwordless login via 6-digit email OTP (separate register and login flows)
 - **Auth redirect** — login/register pages auto-redirect to dashboard if already logged in
 - Browse countries and available visa types
-- **Corporate pricing** — corporate accounts see their dedicated rate with the regular price struck-through
+- **Transparent pricing** — every visa price is composed of Visa Fee + VFS Fee/pax + optional Service Fee/pax, with a fixed 18% GST added on top; displayed totals are always GST-inclusive
+- **Checkout breakdown tooltip** — an info (i) icon on the Review & Pay step reveals the full per-component fee breakdown on hover
+- **Corporate pricing** — corporate accounts see their dedicated per-traveler rates (visa/VFS/service overrides; service fee often waived)
 - **Promo codes** — eligible users see a promo code field in the Review & Pay step; validates live with discount preview
 - **Promo popup** — homepage shows an auto-dismissing bottom-right popup with active promo codes after 5 seconds (copy button included)
 - Fill dynamic application forms (configured per visa type by admin)
@@ -43,7 +45,7 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Real-time 10-stage status timeline
 - In-app notifications (bell dropdown with "View all" link) + email alerts at every status change
 - Personal document vault with OCR data extraction
-- Download payment receipt PDF (includes applicant name and application reference)
+- Download payment receipt PDF — available right after payment on the application page (and from Payment History); the receipt breaks the full price down into Visa Fees, VFS Fees, Service Charges, and GST (18%)
 - Download approved visa PDF
 - **Profile management** — edit name, phone, GST number; upload profile photo
 - **Fully responsive** — left sidebar on desktop/laptop; top navbar with drawer on mobile/tablet
@@ -52,6 +54,8 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Secure email + password console
 - Dashboard with live application stats
 - Full country and visa type management (including ISO country codes and corporate pricing)
+- **Per-traveler fee components** — each visa type defines adult/child Visa Fee, VFS Fee, and optional Service Fee (plus corporate overrides); 18% GST is applied automatically on top
+- **Visa type filtering & sorting** — search by name, filter by country/category/status, sort by name, price, or creation date
 - No-code dynamic form builder — define custom fields per visa type; adult/child/both applicant type per field
 - OCR-only doc types (passport_front, passport_back); OCR runs server-side automatically
 - Per-document review with approve/reject + reason

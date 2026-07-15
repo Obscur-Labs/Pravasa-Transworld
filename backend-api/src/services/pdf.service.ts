@@ -29,10 +29,13 @@ export interface ReceiptData {
   receiptNumber?: string;
   adults: number;
   children: number;
-  adultBase: number;
-  adultFee: number;
+  adultBase: number;   // visa fee per adult
+  adultVfs: number;    // VFS fee per adult
+  adultFee: number;    // service fee per adult
   childBase: number;
+  childVfs: number;
   childFee: number;
+  gstAmount: number;   // 18% GST snapshot (0 = legacy application, GST not added on top)
   accountType: 'individual' | 'corporate';
   clientGstin?: string;
   passportNumber?: string;
@@ -63,9 +66,10 @@ function fetchImageBuffer(url: string): Promise<Buffer> {
 // Table column layout, x-offsets from the page's left margin.
 const COLS = {
   sr: { x: MARGIN, w: 25 },
-  desc: { x: MARGIN + 25, w: 275 },
-  visaFees: { x: MARGIN + 300, w: 75 },
-  servCharges: { x: MARGIN + 375, w: 75 },
+  desc: { x: MARGIN + 25, w: 215 },
+  visaFees: { x: MARGIN + 240, w: 70 },
+  vfsFees: { x: MARGIN + 310, w: 70 },
+  servCharges: { x: MARGIN + 380, w: 70 },
   amount: { x: MARGIN + 450, w: 65 },
 };
 
@@ -160,12 +164,13 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
   drawTableHeader(doc, tableTop, headerH);
   let y = tableTop + headerH;
 
-  const items: { qty: number; label: string; base: number; fee: number }[] = [];
-  if (data.adults > 0) items.push({ qty: data.adults, label: 'Adult', base: data.adultBase, fee: data.adultFee });
-  if (data.children > 0) items.push({ qty: data.children, label: 'Child', base: data.childBase, fee: data.childFee });
+  const items: { qty: number; label: string; base: number; vfs: number; fee: number }[] = [];
+  if (data.adults > 0) items.push({ qty: data.adults, label: 'Adult', base: data.adultBase, vfs: data.adultVfs, fee: data.adultFee });
+  if (data.children > 0) items.push({ qty: data.children, label: 'Child', base: data.childBase, vfs: data.childVfs, fee: data.childFee });
 
   let sr = 1;
   let visaFeesTotal = 0;
+  let vfsFeesTotal = 0;
   let servChargesTotal = 0;
 
   for (const item of items) {
@@ -180,9 +185,11 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     ].filter(Boolean) as string[];
 
     const rowVisaFees = item.base * item.qty;
+    const rowVfsFees = item.vfs * item.qty;
     const rowServCharges = item.fee * item.qty;
-    const rowAmount = rowVisaFees + rowServCharges;
+    const rowAmount = rowVisaFees + rowVfsFees + rowServCharges;
     visaFeesTotal += rowVisaFees;
+    vfsFeesTotal += rowVfsFees;
     servChargesTotal += rowServCharges;
 
     doc.fontSize(8);
@@ -201,6 +208,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     });
 
     doc.font('Helvetica').fontSize(8).text(inr(rowVisaFees), COLS.visaFees.x, y + 4, { width: COLS.visaFees.w - 6, align: 'right' });
+    doc.text(inr(rowVfsFees), COLS.vfsFees.x, y + 4, { width: COLS.vfsFees.w - 6, align: 'right' });
     doc.text(inr(rowServCharges), COLS.servCharges.x, y + 4, { width: COLS.servCharges.w - 6, align: 'right' });
     doc.font('Helvetica-Bold').text(inr(rowAmount), COLS.amount.x, y + 4, { width: COLS.amount.w - 6, align: 'right' });
 
@@ -222,15 +230,21 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     y += 16;
   };
 
-  const grossSubtotal = visaFeesTotal + servChargesTotal;
+  const grossSubtotal = visaFeesTotal + vfsFeesTotal + servChargesTotal;
   totalRow('Sub-Total', inr(grossSubtotal), true);
+
+  if (data.gstAmount > 0) {
+    // Current pricing: 18% GST is charged on top of every component (visa + VFS + service).
+    totalRow(`GST @ ${(GST_RATE * 100).toFixed(2)}%`, `+${inr(data.gstAmount)}`);
+  }
 
   if (discount > 0) {
     const code = data.payment.promoCode?.code;
     totalRow(`Discount${code ? ` (${code})` : ''}`, `-${inr(discount)}`);
   }
 
-  if (isCorporate) {
+  if (data.gstAmount <= 0 && isCorporate) {
+    // Legacy applications (created before GST-on-top): GST was treated as included in the total.
     const taxableValue = netTotal / (1 + GST_RATE);
     const gstAmount = netTotal - taxableValue;
     doc.moveTo(COLS.desc.x, y).lineTo(PAGE_RIGHT, y).lineWidth(0.5).strokeColor('#cbd5e1').stroke();
@@ -260,6 +274,7 @@ function drawTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
   doc.text('Sr.', COLS.sr.x, y + 6, { width: COLS.sr.w, align: 'center' });
   doc.text('Narration / Description', COLS.desc.x + 4, y + 6, { width: COLS.desc.w - 6 });
   doc.text('Visa Fees', COLS.visaFees.x, y + 6, { width: COLS.visaFees.w - 6, align: 'right' });
+  doc.text('VFS Fees', COLS.vfsFees.x, y + 6, { width: COLS.vfsFees.w - 6, align: 'right' });
   doc.text('Serv. Chrgs', COLS.servCharges.x, y + 6, { width: COLS.servCharges.w - 6, align: 'right' });
   doc.text('Amount (INR)', COLS.amount.x, y + 6, { width: COLS.amount.w - 6, align: 'right' });
   drawColumnDividers(doc, y, height);
@@ -268,7 +283,7 @@ function drawTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
 }
 
 function drawColumnDividers(doc: PDFKit.PDFDocument, y: number, height: number) {
-  const xs = [COLS.sr.x, COLS.desc.x, COLS.visaFees.x, COLS.servCharges.x, COLS.amount.x, PAGE_RIGHT];
+  const xs = [COLS.sr.x, COLS.desc.x, COLS.visaFees.x, COLS.vfsFees.x, COLS.servCharges.x, COLS.amount.x, PAGE_RIGHT];
   doc.strokeColor('#cbd5e1').lineWidth(0.5);
   xs.forEach((x) => doc.moveTo(x, y).lineTo(x, y + height).stroke());
 }
@@ -375,17 +390,6 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
     doc.moveDown(0.8);
   }
 
-  // Additional Notes
-  if (data.additionalNotes?.trim()) {
-    const notesY = doc.y;
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#b45309');
-    const noteHeight = doc.heightOfString(data.additionalNotes.trim(), { width: PAGE_RIGHT - MARGIN - 20 }) + 30;
-    doc.rect(MARGIN, notesY, PAGE_RIGHT - MARGIN, noteHeight).fill('#fffbeb');
-    doc.fillColor('#b45309').text('ADDITIONAL NOTES', MARGIN + 10, notesY + 8);
-    doc.font('Helvetica').fontSize(9).fillColor('#78350f').text(data.additionalNotes.trim(), MARGIN + 10, notesY + 20, { width: PAGE_RIGHT - MARGIN - 20 });
-    doc.y = notesY + noteHeight + 10;
-  }
-
   // Documents table
   if (data.documents.length > 0) {
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Documents Required', MARGIN, doc.y);
@@ -419,6 +423,18 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
       doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(0.5).strokeColor('#e2e8f0').stroke();
     }
     doc.y = y + 20;
+  }
+
+  // Additional Notes — kept at the very bottom, mirroring the visa overview modal.
+  if (data.additionalNotes?.trim()) {
+    doc.font('Helvetica-Bold').fontSize(8);
+    const noteHeight = doc.heightOfString(data.additionalNotes.trim(), { width: PAGE_RIGHT - MARGIN - 20 }) + 30;
+    if (doc.y + noteHeight > 780) { doc.addPage(); doc.y = MARGIN; }
+    const notesY = doc.y;
+    doc.rect(MARGIN, notesY, PAGE_RIGHT - MARGIN, noteHeight).fill('#fffbeb');
+    doc.fillColor('#b45309').text('ADDITIONAL NOTES', MARGIN + 10, notesY + 8);
+    doc.font('Helvetica').fontSize(9).fillColor('#78350f').text(data.additionalNotes.trim(), MARGIN + 10, notesY + 20, { width: PAGE_RIGHT - MARGIN - 20 });
+    doc.y = notesY + noteHeight + 10;
   }
 
   doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')

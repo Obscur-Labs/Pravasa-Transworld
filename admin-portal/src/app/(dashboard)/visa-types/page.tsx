@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, Search as SearchIcon, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,8 +42,9 @@ function TabButton({ step, label, active, done, onClick }: { step: number; label
 
 const emptyForm = () => ({
   country: '', name: '', description: '',
-  adultPrice: '', childPrice: '', adultServiceFee: '', childServiceFee: '',
-  corporateAdultPrice: '', corporateChildPrice: '', corporateAdultServiceFee: '', corporateChildServiceFee: '',
+  adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
+  corporateAdultPrice: '', corporateChildPrice: '', corporateAdultVfsFee: '', corporateChildVfsFee: '',
+  corporateAdultServiceFee: '', corporateChildServiceFee: '',
   processingTime: '', validity: '',
   entry: [] as EntryType[],
   visaSubType: 'e-visa' as string,
@@ -60,6 +61,10 @@ export default function VisaTypesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
   const [selectedCountry, setSelectedCountry] = useState('');
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'' | 'active' | 'inactive'>('');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest' | 'oldest'>('name-asc');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -147,10 +152,14 @@ export default function VisaTypesPage() {
         ...form,
         adultPrice: Number(form.adultPrice),
         childPrice: Number(form.childPrice || 0),
+        adultVfsFee: Number(form.adultVfsFee || 0),
+        childVfsFee: Number(form.childVfsFee || 0),
         adultServiceFee: Number(form.adultServiceFee || 0),
         childServiceFee: Number(form.childServiceFee || 0),
         corporateAdultPrice: form.corporateAdultPrice === '' ? '' : Number(form.corporateAdultPrice),
         corporateChildPrice: form.corporateChildPrice === '' ? '' : Number(form.corporateChildPrice),
+        corporateAdultVfsFee: form.corporateAdultVfsFee === '' ? '' : Number(form.corporateAdultVfsFee),
+        corporateChildVfsFee: form.corporateChildVfsFee === '' ? '' : Number(form.corporateChildVfsFee),
         corporateAdultServiceFee: form.corporateAdultServiceFee === '' ? '' : Number(form.corporateAdultServiceFee),
         corporateChildServiceFee: form.corporateChildServiceFee === '' ? '' : Number(form.corporateChildServiceFee),
         formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
@@ -299,10 +308,14 @@ export default function VisaTypesPage() {
       description: vt.description,
       adultPrice: String(vt.adultPrice || vt.price || ''),
       childPrice: vt.childPrice ? String(vt.childPrice) : '',
+      adultVfsFee: vt.adultVfsFee ? String(vt.adultVfsFee) : '',
+      childVfsFee: vt.childVfsFee ? String(vt.childVfsFee) : '',
       adultServiceFee: vt.adultServiceFee ? String(vt.adultServiceFee) : '',
       childServiceFee: vt.childServiceFee ? String(vt.childServiceFee) : '',
       corporateAdultPrice: vt.corporateAdultPrice != null ? String(vt.corporateAdultPrice) : (vt.corporatePrice != null ? String(vt.corporatePrice) : ''),
       corporateChildPrice: vt.corporateChildPrice != null ? String(vt.corporateChildPrice) : '',
+      corporateAdultVfsFee: vt.corporateAdultVfsFee != null ? String(vt.corporateAdultVfsFee) : '',
+      corporateChildVfsFee: vt.corporateChildVfsFee != null ? String(vt.corporateChildVfsFee) : '',
       corporateAdultServiceFee: vt.corporateAdultServiceFee != null ? String(vt.corporateAdultServiceFee) : '',
       corporateChildServiceFee: vt.corporateChildServiceFee != null ? String(vt.corporateChildServiceFee) : '',
       processingTime: vt.processingTime || '',
@@ -323,6 +336,32 @@ export default function VisaTypesPage() {
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // GST-inclusive charged totals (visa + VFS + service, +18% GST) — matches checkout.
+  const GST_MULT = 1.18;
+  const stdAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * GST_MULT);
+  const stdChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * GST_MULT);
+  const corpAdultTotal = (vt: VisaType) => Math.round(((vt.corporateAdultPrice || 0) + (vt.corporateAdultVfsFee || 0) + (vt.corporateAdultServiceFee || 0)) * GST_MULT);
+  const corpChildTotal = (vt: VisaType) => Math.round(((vt.corporateChildPrice || 0) + (vt.corporateChildVfsFee || 0) + (vt.corporateChildServiceFee || 0)) * GST_MULT);
+
+  const displayedVisaTypes = visaTypes
+    .filter((vt) => {
+      if (search && !vt.name.toLowerCase().includes(search.toLowerCase()) && !(vt.description || '').toLowerCase().includes(search.toLowerCase())) return false;
+      if (filterCategory && vt.visaCategory !== filterCategory) return false;
+      if (filterStatus === 'active' && !vt.isActive) return false;
+      if (filterStatus === 'inactive' && vt.isActive) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name-desc': return b.name.localeCompare(a.name);
+        case 'price-asc': return stdAdultTotal(a) - stdAdultTotal(b);
+        case 'price-desc': return stdAdultTotal(b) - stdAdultTotal(a);
+        case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        default: return a.name.localeCompare(b.name);
+      }
+    });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -378,21 +417,29 @@ export default function VisaTypesPage() {
                   <p className="text-sm font-semibold text-primary">Standard Pricing (per traveler)</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Adult Price (₹)</Label>
+                      <Label>Adult Visa Fee (₹)</Label>
                       <Input className={`mt-1 ${infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`} type="number" min="0" placeholder="e.g. 5000" value={form.adultPrice} onChange={(e) => { setForm({ ...form, adultPrice: e.target.value }); clearInfoError('adultPrice'); }} required />
                       {infoErrors.adultPrice && <p className="text-xs text-destructive mt-1">{infoErrors.adultPrice}</p>}
                     </div>
                     <div>
-                      <Label>Adult Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 500" value={form.adultServiceFee} onChange={(e) => setForm({ ...form, adultServiceFee: e.target.value })} />
+                      <Label>Adult VFS Fee / pax (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 800" value={form.adultVfsFee} onChange={(e) => setForm({ ...form, adultVfsFee: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Child Price (₹)</Label>
+                      <Label>Adult Service Fee / pax (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="optional, e.g. 500" value={form.adultServiceFee} onChange={(e) => setForm({ ...form, adultServiceFee: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Child Visa Fee (₹)</Label>
                       <Input className="mt-1" type="number" min="0" placeholder="e.g. 3000" value={form.childPrice} onChange={(e) => setForm({ ...form, childPrice: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Child Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 300" value={form.childServiceFee} onChange={(e) => setForm({ ...form, childServiceFee: e.target.value })} />
+                      <Label>Child VFS Fee / pax (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="e.g. 800" value={form.childVfsFee} onChange={(e) => setForm({ ...form, childVfsFee: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Child Service Fee / pax (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="optional, e.g. 300" value={form.childServiceFee} onChange={(e) => setForm({ ...form, childServiceFee: e.target.value })} />
                     </div>
                   </div>
                 </div>
@@ -400,24 +447,35 @@ export default function VisaTypesPage() {
                   <p className="text-sm font-semibold text-warning">Corporate Pricing <span className="text-xs font-normal text-warning/70">(shown to corporate users only)</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Corp. Adult Price (₹)</Label>
+                      <Label>Corp. Adult Visa Fee (₹)</Label>
                       <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateAdultPrice} onChange={(e) => setForm({ ...form, corporateAdultPrice: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Corp. Adult Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateAdultServiceFee} onChange={(e) => setForm({ ...form, corporateAdultServiceFee: e.target.value })} />
+                      <Label>Corp. Adult VFS Fee (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateAdultVfsFee} onChange={(e) => setForm({ ...form, corporateAdultVfsFee: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Corp. Child Price (₹)</Label>
+                      <Label>Corp. Adult Service Fee (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="optional — 0 waives it" value={form.corporateAdultServiceFee} onChange={(e) => setForm({ ...form, corporateAdultServiceFee: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Corp. Child Visa Fee (₹)</Label>
                       <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateChildPrice} onChange={(e) => setForm({ ...form, corporateChildPrice: e.target.value })} />
                     </div>
                     <div>
+                      <Label>Corp. Child VFS Fee (₹)</Label>
+                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateChildVfsFee} onChange={(e) => setForm({ ...form, corporateChildVfsFee: e.target.value })} />
+                    </div>
+                    <div>
                       <Label>Corp. Child Service Fee (₹)</Label>
-                      <Input className="mt-1" type="number" min="0" placeholder="optional" value={form.corporateChildServiceFee} onChange={(e) => setForm({ ...form, corporateChildServiceFee: e.target.value })} />
+                      <Input className="mt-1" type="number" min="0" placeholder="optional — 0 waives it" value={form.corporateChildServiceFee} onChange={(e) => setForm({ ...form, corporateChildServiceFee: e.target.value })} />
                     </div>
                   </div>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground -mt-3">
+                Visa and VFS fees are mandatory components; the service fee is optional. A fixed 18% GST is added on top of all fees at checkout and broken down on the receipt.
+              </p>
 
               {/* ── Visa Details ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -569,12 +627,49 @@ export default function VisaTypesPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-center gap-3 mb-4">
-        <label className="text-sm text-muted-foreground">Filter by country:</label>
+      {/* Filters + sorting */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search visa types..."
+            className="pl-9 h-9 w-56"
+          />
+        </div>
         <select value={selectedCountry} onChange={(e) => setSelectedCountry(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Countries</option>
           {countries.map((c) => <option key={c._id} value={c._id}>{c.flag} {c.name}</option>)}
         </select>
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <option value="">All Categories</option>
+          {optionsFor('visaCategory').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as '' | 'active' | 'inactive')} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <div className="flex items-center gap-2 ml-auto">
+          <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="name-asc">Name (A–Z)</option>
+            <option value="name-desc">Name (Z–A)</option>
+            <option value="price-asc">Price (low to high)</option>
+            <option value="price-desc">Price (high to low)</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+        {(search || filterCategory || filterStatus || selectedCountry) && (
+          <button
+            onClick={() => { setSearch(''); setFilterCategory(''); setFilterStatus(''); setSelectedCountry(''); }}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <X className="w-3 h-3" /> Clear filters
+          </button>
+        )}
       </div>
 
       <div className="bg-card rounded-2xl border border-border overflow-x-auto">
@@ -587,10 +682,12 @@ export default function VisaTypesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visaTypes.length === 0 ? (
-              <TableRow><TableCell colSpan={11} className="px-4 py-10 text-center text-muted-foreground">No visa types. Create one above.</TableCell></TableRow>
+            {displayedVisaTypes.length === 0 ? (
+              <TableRow><TableCell colSpan={11} className="px-4 py-10 text-center text-muted-foreground">
+                {visaTypes.length === 0 ? 'No visa types. Create one above.' : 'No visa types match the current filters.'}
+              </TableCell></TableRow>
             ) : (
-              visaTypes.map((vt) => (
+              displayedVisaTypes.map((vt) => (
                 <TableRow key={vt._id} className={!vt.isActive ? 'opacity-60' : ''}>
                   <TableCell>
                     <p className="font-semibold text-foreground">{vt.name}</p>
@@ -607,19 +704,19 @@ export default function VisaTypesPage() {
                       {vt.country?.name}
                     </span>
                   </TableCell>
-                  <TableCell className="font-bold text-primary">
-                    {formatCurrency((vt.adultPrice || vt.price) + (vt.adultServiceFee || 0))}
+                  <TableCell className="font-bold text-primary" title="Visa + VFS + service fee, incl. 18% GST">
+                    {formatCurrency(stdAdultTotal(vt))}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {vt.childPrice ? formatCurrency(vt.childPrice + (vt.childServiceFee || 0)) : '—'}
+                  <TableCell className="text-muted-foreground text-xs" title="Visa + VFS + service fee, incl. 18% GST">
+                    {vt.childPrice ? formatCurrency(stdChildTotal(vt)) : '—'}
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="text-xs" title="Visa + VFS + service fee, incl. 18% GST">
                     <span className={vt.corporateAdultPrice != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
-                      {vt.corporateAdultPrice != null ? formatCurrency(vt.corporateAdultPrice + (vt.corporateAdultServiceFee || 0)) : '—'}
+                      {vt.corporateAdultPrice != null ? formatCurrency(corpAdultTotal(vt)) : '—'}
                     </span>
                     <span className="text-muted-foreground/50"> / </span>
                     <span className={vt.corporateChildPrice != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
-                      {vt.corporateChildPrice != null ? formatCurrency(vt.corporateChildPrice + (vt.corporateChildServiceFee || 0)) : '—'}
+                      {vt.corporateChildPrice != null ? formatCurrency(corpChildTotal(vt)) : '—'}
                     </span>
                   </TableCell>
                   <TableCell>

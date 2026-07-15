@@ -39,13 +39,16 @@ The application moves through **10 tracked statuses**, with email notifications 
 
 ---
 
+## Pricing Model
+
+Every visa type's price is built from per-traveler components: **Visa Fee** + **VFS Fee/pax** (both mandatory) + **Service Fee/pax** (optional), with a fixed **18% GST** applied on top of everything. Displayed totals are always GST-inclusive, the checkout shows an explicit GST line with a hover (i) breakdown, and the receipt PDF itemizes the full breakdown (Visa Fees / VFS Fees / Service Charges / GST). Fee components and GST are snapshotted on each application at submission, so receipts stay accurate even if the admin later edits prices.
+
 ## Account Types
 
 Users register as either **individual** or **corporate**. Corporate accounts:
-- See a separate `corporatePrice` on each visa type (set by admin)
+- See dedicated per-traveler corporate rates when set by admin (visa/VFS/service fee overrides — the service fee is often waived for corporate)
 - Are charged the corporate rate when submitting an application
-- Have the corporate rate clearly shown in the apply flow with the regular price struck-through
-- Require a GST number (shown on receipts)
+- Require a GST number (shown on receipts, which render as a tax invoice for corporate accounts)
 
 Admins can also create, edit, and delete customer profiles of both types directly from the admin portal's Customers page — deleted customers go to the trash and can be restored with their applications and vault documents intact.
 
@@ -53,4 +56,4 @@ Admins can also create, edit, and delete customer profiles of both types directl
 
 ## Current State
 
-Phase 3 complete. The platform has a fully working backend API, responsive user and admin portals, a 10-stage application status pipeline, real-time Socket.io notifications, Cloudinary file delivery with user-scoped folder organisation, profile management with photo upload, corporate pricing, admin-side customer profile CRUD (individual + corporate), and a payment receipt system with application reference numbers in `PRS-{COUNTRY}-{4-digit}` format. Ready for integration of a live payment gateway (Stripe / Razorpay) as the next milestone.
+Phase 3 complete. The platform has a fully working backend API, responsive user and admin portals, a 10-stage application status pipeline, real-time Socket.io notifications, Cloudinary file delivery with user-scoped folder organisation, profile management with photo upload, Razorpay payments, component-based pricing (Visa/VFS/Service fees + 18% GST) with breakdown receipts, corporate pricing overrides, admin-side customer profile CRUD (individual + corporate), and a payment receipt system with application reference numbers in `PRS-{COUNTRY}-{4-digit}` format — receipts downloadable by both admin and customer right after payment.

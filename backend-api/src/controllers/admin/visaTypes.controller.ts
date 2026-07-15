@@ -22,8 +22,9 @@ const optNum = (v: unknown): number | undefined =>
 
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
   const {
-    country, name, description, adultPrice, childPrice, adultServiceFee, childServiceFee,
-    corporateAdultPrice, corporateChildPrice, corporateAdultServiceFee, corporateChildServiceFee,
+    country, name, description, adultPrice, childPrice, adultVfsFee, childVfsFee, adultServiceFee, childServiceFee,
+    corporateAdultPrice, corporateChildPrice, corporateAdultVfsFee, corporateChildVfsFee,
+    corporateAdultServiceFee, corporateChildServiceFee,
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
     jurisdiction, visaCategory, process, validity, additionalNotes,
   } = req.body;
@@ -39,10 +40,14 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     price,
     adultPrice: Number(adultPrice),
     childPrice: Number(childPrice || 0),
+    adultVfsFee: Number(adultVfsFee || 0),
+    childVfsFee: Number(childVfsFee || 0),
     adultServiceFee: Number(adultServiceFee || 0),
     childServiceFee: Number(childServiceFee || 0),
     corporateAdultPrice: corporateAdult,
     corporateChildPrice: optNum(corporateChildPrice),
+    corporateAdultVfsFee: optNum(corporateAdultVfsFee),
+    corporateChildVfsFee: optNum(corporateChildVfsFee),
     corporateAdultServiceFee: optNum(corporateAdultServiceFee),
     corporateChildServiceFee: optNum(corporateChildServiceFee),
     corporatePrice: corporateAdult,
@@ -62,6 +67,8 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
     body.price = body.adultPrice;
   }
   if (body.childPrice !== undefined) body.childPrice = Number(body.childPrice);
+  if (body.adultVfsFee !== undefined) body.adultVfsFee = Number(body.adultVfsFee || 0);
+  if (body.childVfsFee !== undefined) body.childVfsFee = Number(body.childVfsFee || 0);
   if (body.adultServiceFee !== undefined) body.adultServiceFee = Number(body.adultServiceFee || 0);
   if (body.childServiceFee !== undefined) body.childServiceFee = Number(body.childServiceFee || 0);
   if (body.corporateAdultPrice !== undefined) {
@@ -69,6 +76,8 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
     body.corporatePrice = body.corporateAdultPrice;
   }
   if (body.corporateChildPrice !== undefined) body.corporateChildPrice = optNum(body.corporateChildPrice);
+  if (body.corporateAdultVfsFee !== undefined) body.corporateAdultVfsFee = optNum(body.corporateAdultVfsFee);
+  if (body.corporateChildVfsFee !== undefined) body.corporateChildVfsFee = optNum(body.corporateChildVfsFee);
   if (body.corporateAdultServiceFee !== undefined) body.corporateAdultServiceFee = optNum(body.corporateAdultServiceFee);
   if (body.corporateChildServiceFee !== undefined) body.corporateChildServiceFee = optNum(body.corporateChildServiceFee);
   const visaType = await VisaType.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })

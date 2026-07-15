@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
   Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
-  Users, Minus, Plus, Shield, ArrowRight, Download,
+  Users, Minus, Plus, Shield, ArrowRight, Download, Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,8 @@ type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
 const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
+// Fixed 18% GST applied on top of every fee component (visa + VFS + service) — mirrors backend.
+const GST_RATE = 0.18;
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -303,8 +305,8 @@ function VisaOverviewModal({
     if (visa.description) lines.push(visa.description);
     lines.push('');
     lines.push('VISA DETAILS');
-    lines.push(`- Adult Price: ${formatCurrency(adultRate)}`);
-    if (childRate > 0) lines.push(`- Child Price: ${formatCurrency(childRate)}`);
+    lines.push(`- Adult Price: ${formatCurrency(adultRate)} (incl. 18% GST)`);
+    if (childRate > 0) lines.push(`- Child Price: ${formatCurrency(childRate)} (incl. 18% GST)`);
     if (visa.processingTime) lines.push(`- Processing Time: ${visa.processingTime}`);
     if (visa.validity) lines.push(`- Validity: ${visa.validity}`);
     if (visa.documentRequirements?.length) {
@@ -481,14 +483,6 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* Additional Notes */}
-          {visa.additionalNotes?.trim() && (
-            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5">
-              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Additional Notes</p>
-              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{visa.additionalNotes}</p>
-            </div>
-          )}
-
           {/* Documents */}
           {visa.documentRequirements.length > 0 && (
             <div>
@@ -545,6 +539,14 @@ function VisaOverviewModal({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Additional Notes — kept at the bottom of the modal */}
+          {visa.additionalNotes?.trim() && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Additional Notes</p>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{visa.additionalNotes}</p>
             </div>
           )}
         </div>
@@ -652,19 +654,27 @@ export default function ApplyPage() {
   const { user } = useAuthStore();
   const isCorporate = user?.accountType === 'corporate';
 
+  // Per-traveler pricing components: visa fee (base) + VFS fee + service fee, with 18% GST
+  // applied on top of everything. Mirrors backend utils/pricing.ts exactly.
   const rateParts = (v: VisaType) => {
-    const useCorpAdult = isCorporate && (v.corporateAdultPrice != null || v.corporateAdultServiceFee != null);
-    const useCorpChild = isCorporate && (v.corporateChildPrice != null || v.corporateChildServiceFee != null);
+    const useCorpAdult = isCorporate && (v.corporateAdultPrice != null || v.corporateAdultVfsFee != null || v.corporateAdultServiceFee != null);
+    const useCorpChild = isCorporate && (v.corporateChildPrice != null || v.corporateChildVfsFee != null || v.corporateChildServiceFee != null);
     return {
       adultBase: useCorpAdult && v.corporateAdultPrice != null ? v.corporateAdultPrice : (v.adultPrice || v.price),
+      adultVfs: useCorpAdult && v.corporateAdultVfsFee != null ? v.corporateAdultVfsFee : (v.adultVfsFee || 0),
       adultFee: useCorpAdult && v.corporateAdultServiceFee != null ? v.corporateAdultServiceFee : (v.adultServiceFee || 0),
       childBase: useCorpChild && v.corporateChildPrice != null ? v.corporateChildPrice : (v.childPrice || 0),
+      childVfs: useCorpChild && v.corporateChildVfsFee != null ? v.corporateChildVfsFee : (v.childVfsFee || 0),
       childFee: useCorpChild && v.corporateChildServiceFee != null ? v.corporateChildServiceFee : (v.childServiceFee || 0),
       corp: useCorpAdult || useCorpChild,
     };
   };
-  const adultRate = (v: VisaType) => { const r = rateParts(v); return r.adultBase + r.adultFee; };
-  const childRate = (v: VisaType) => { const r = rateParts(v); return r.childBase + r.childFee; };
+  // Pre-GST per-traveler rates (used in the checkout line items alongside an explicit GST line).
+  const adultNetRate = (v: VisaType) => { const r = rateParts(v); return r.adultBase + r.adultVfs + r.adultFee; };
+  const childNetRate = (v: VisaType) => { const r = rateParts(v); return r.childBase + r.childVfs + r.childFee; };
+  // GST-inclusive per-traveler display rates (cards, overview modal, summary PDF).
+  const adultRate = (v: VisaType) => Math.round(adultNetRate(v) * (1 + GST_RATE));
+  const childRate = (v: VisaType) => Math.round(childNetRate(v) * (1 + GST_RATE));
 
   const [step, setStep] = useState<Step>(1);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -697,7 +707,10 @@ export default function ApplyPage() {
   const [promoError, setPromoError] = useState('');
 
   const travelers = useMemo(() => buildTravelers(adults, children), [adults, children]);
-  const orderTotal = (v: VisaType) => adults * adultRate(v) + children * childRate(v);
+  // Must match backend computePaymentAmount exactly: order-level subtotal, then GST rounded once.
+  const orderSubtotal = (v: VisaType) => adults * adultNetRate(v) + children * childNetRate(v);
+  const orderGst = (v: VisaType) => Math.round(orderSubtotal(v) * GST_RATE);
+  const orderTotal = (v: VisaType) => orderSubtotal(v) + orderGst(v);
 
   useEffect(() => {
     getActiveCountries().then((r) => setCountries(r.data.data));
@@ -1563,23 +1576,64 @@ export default function ApplyPage() {
               {/* Pricing breakdown */}
               {(() => {
                 const r = rateParts(selectedVisa);
-                const base = orderTotal(selectedVisa);
+                const subtotal = orderSubtotal(selectedVisa);
+                const gst = orderGst(selectedVisa);
+                const base = subtotal + gst;
                 const discount = promoResult?.discount || 0;
                 const finalTotal = promoResult ? promoResult.finalAmount : base;
+                const feeRows = (label: string, parts: { base: number; vfs: number; fee: number }, count: number) => [
+                  { name: `Visa Fee (${label})`, amount: parts.base, count },
+                  { name: `VFS Fee / pax (${label})`, amount: parts.vfs, count },
+                  ...(parts.fee > 0 ? [{ name: `Service Fee / pax (${label})`, amount: parts.fee, count }] : []),
+                ];
+                const breakdownRows = [
+                  ...feeRows('Adult', { base: r.adultBase, vfs: r.adultVfs, fee: r.adultFee }, adults),
+                  ...(children > 0 ? feeRows('Child', { base: r.childBase, vfs: r.childVfs, fee: r.childFee }, children) : []),
+                ];
                 return (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Payment Summary</p>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Payment Summary</p>
+                      {/* Hover (i) — full fee breakdown */}
+                      <span className="relative group inline-flex">
+                        <Info className="w-3.5 h-3.5 text-blue-500 cursor-help" />
+                        <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
+                          <span className="block bg-slate-900 text-white rounded-xl p-3 shadow-xl">
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Full Price Breakdown</span>
+                            {breakdownRows.map((row) => (
+                              <span key={row.name} className="flex items-center justify-between text-xs py-0.5">
+                                <span className="text-slate-300">{row.name}{row.count > 1 ? ` × ${row.count}` : ''}</span>
+                                <span className="font-semibold">{formatCurrency(row.amount * row.count)}</span>
+                              </span>
+                            ))}
+                            <span className="flex items-center justify-between text-xs py-0.5 border-t border-slate-700 mt-1 pt-1.5">
+                              <span className="text-slate-300">GST (18%)</span>
+                              <span className="font-semibold">{formatCurrency(gst)}</span>
+                            </span>
+                            <span className="flex items-center justify-between text-xs pt-1 font-bold">
+                              <span>Total</span>
+                              <span>{formatCurrency(base)}</span>
+                            </span>
+                          </span>
+                          <span className="block w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1" />
+                        </span>
+                      </span>
+                    </div>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-600">{adults} × Adult @ {formatCurrency(adultRate(selectedVisa))}</span>
-                        <span className="font-medium text-slate-800">{formatCurrency(adults * adultRate(selectedVisa))}</span>
+                        <span className="text-slate-600">{adults} × Adult @ {formatCurrency(adultNetRate(selectedVisa))}</span>
+                        <span className="font-medium text-slate-800">{formatCurrency(adults * adultNetRate(selectedVisa))}</span>
                       </div>
                       {children > 0 && (
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-600">{children} × Child @ {formatCurrency(childRate(selectedVisa))}</span>
-                          <span className="font-medium text-slate-800">{formatCurrency(children * childRate(selectedVisa))}</span>
+                          <span className="text-slate-600">{children} × Child @ {formatCurrency(childNetRate(selectedVisa))}</span>
+                          <span className="font-medium text-slate-800">{formatCurrency(children * childNetRate(selectedVisa))}</span>
                         </div>
                       )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">GST (18%)</span>
+                        <span className="font-medium text-slate-800">+{formatCurrency(gst)}</span>
+                      </div>
                       {discount > 0 && (
                         <>
                           <div className="flex items-center justify-between text-xs text-green-700">
@@ -1597,6 +1651,7 @@ export default function ApplyPage() {
                         <div className="text-right">
                           {discount > 0 && <p className="text-xs text-slate-400 line-through">{formatCurrency(base)}</p>}
                           <p className="text-2xl font-bold text-blue-900">{formatCurrency(finalTotal)}</p>
+                          <p className="text-[10px] text-slate-400">Inclusive of 18% GST</p>
                         </div>
                       </div>
                     </div>

@@ -56,11 +56,16 @@ export interface IApplication extends Document {
   expectedDate: string;
   paymentAmount: number;
   // Per-traveler pricing snapshot at submission time, so receipts stay accurate even if
-  // the visa type's price is edited later.
+  // the visa type's price is edited later. base = visa fee, vfs = VFS fee, fee = service fee.
   adultBase: number;
+  adultVfs: number;
   adultFee: number;
   childBase: number;
+  childVfs: number;
   childFee: number;
+  // 18% GST on the pre-GST subtotal, included in paymentAmount. 0 on legacy applications
+  // created before GST was added on top (their paymentAmount has no GST component).
+  gstAmount: number;
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -89,9 +94,12 @@ const ApplicationSchema = new Schema<IApplication>(
     expectedDate: { type: String, default: '' },
     paymentAmount: { type: Number, default: 0 },
     adultBase: { type: Number, default: 0 },
+    adultVfs: { type: Number, default: 0 },
     adultFee: { type: Number, default: 0 },
     childBase: { type: Number, default: 0 },
+    childVfs: { type: Number, default: 0 },
     childFee: { type: Number, default: 0 },
+    gstAmount: { type: Number, default: 0 },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

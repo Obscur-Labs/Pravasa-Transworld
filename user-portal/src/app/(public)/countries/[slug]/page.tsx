@@ -234,8 +234,9 @@ export default function CountryDetailPage() {
   const vt = visaTypes[selectedVt];
   const faqs = wc?.faqs ?? [];
 
-  const adultTotal = vt ? vt.adultPrice + (vt.adultServiceFee || 0) : 0;
-  const childTotal = vt ? vt.childPrice + (vt.childServiceFee || 0) : 0;
+  // Visa fee + VFS fee + service fee, with 18% GST on top — matches what is charged at checkout.
+  const adultTotal = vt ? Math.round((vt.adultPrice + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * 1.18) : 0;
+  const childTotal = vt ? Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * 1.18) : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -420,6 +421,7 @@ export default function CountryDetailPage() {
                     <span className="text-sm font-extrabold text-blue-600">Total</span>
                     <span className="text-base font-extrabold text-blue-600">₹{adultTotal.toLocaleString('en-IN')}</span>
                   </div>
+                  <p className="text-[11px] text-slate-400 mt-1 font-medium text-right">Inclusive of 18% GST</p>
                   {vt.childPrice > 0 && childTotal !== adultTotal && (
                     <p className="text-xs text-slate-400 mt-3 font-medium">
                       Child price: ₹{childTotal.toLocaleString('en-IN')} per child

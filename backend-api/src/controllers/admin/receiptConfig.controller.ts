@@ -32,10 +32,11 @@ export const updateReceiptConfig = async (req: AdminRequest, res: Response): Pro
 export const downloadDemoReceipt = async (_req: AdminRequest, res: Response): Promise<void> => {
   const company = await getCompanyInfo();
 
+  // Subtotal: 2 × (2100 visa + 800 VFS + 1000 service) = 7800; GST 18% = 1404; total 9204.
   const demoData: ReceiptData = {
     payment: {
       _id: 'DEMO0000PREVIEW',
-      amount: 3280,
+      amount: 9204,
       discountApplied: 0,
       promoCode: null,
       paidAt: new Date(),
@@ -49,9 +50,12 @@ export const downloadDemoReceipt = async (_req: AdminRequest, res: Response): Pr
     adults: 2,
     children: 0,
     adultBase: 2100,
+    adultVfs: 800,
     adultFee: 1000,
     childBase: 0,
+    childVfs: 0,
     childFee: 0,
+    gstAmount: 1404,
     accountType: 'corporate',
     clientGstin: '24ACEFA0900H1Z3',
     passportNumber: 'A1234567',

@@ -15,7 +15,7 @@ import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { sendDocumentStatusEmail, sendStatusUpdateEmail, sendVisaDeliveredEmail } from '../../services/email.service';
 import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
-import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
 import { sendSuccess, sendError } from '../../utils/response';
 
@@ -173,12 +173,17 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   if (visaType && (!application.paymentAmount || application.paymentAmount <= 0)) {
     const fullUser = await (await import('../../models/User')).default.findById(application.user);
     const isCorporate = fullUser?.accountType === 'corporate';
-    const { adultBase, adultFee, childBase, childFee } = computeVisaPricing(visaType, isCorporate);
-    application.paymentAmount = computePaymentAmount({ adultBase, adultFee, childBase, childFee }, application.adults || 1, application.children || 0);
-    application.adultBase = adultBase;
-    application.adultFee = adultFee;
-    application.childBase = childBase;
-    application.childFee = childFee;
+    const breakdown = computeVisaPricing(visaType, isCorporate);
+    const subtotal = computeSubtotal(breakdown, application.adults || 1, application.children || 0);
+    const gstAmount = computeGst(subtotal);
+    application.paymentAmount = subtotal + gstAmount;
+    application.adultBase = breakdown.adultBase;
+    application.adultVfs = breakdown.adultVfs;
+    application.adultFee = breakdown.adultFee;
+    application.childBase = breakdown.childBase;
+    application.childVfs = breakdown.childVfs;
+    application.childFee = breakdown.childFee;
+    application.gstAmount = gstAmount;
   }
   await application.save();
 

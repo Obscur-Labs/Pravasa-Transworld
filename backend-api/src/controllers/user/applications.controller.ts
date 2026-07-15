@@ -10,7 +10,7 @@ import { uploadToCloudinary } from '../../services/cloudinary.service';
 import { extractPassport } from '../../services/ocr.service';
 import { generateVisaSummaryPDF } from '../../services/pdf.service';
 import { sendSuccess, sendError } from '../../utils/response';
-import { computeVisaPricing, computePaymentAmount } from '../../utils/pricing';
+import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
 
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!._id;
@@ -66,8 +66,11 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   const numAdults = Math.max(1, Number(adults) || 1);
   const numChildren = Math.max(0, Number(children) || 0);
 
-  const { adultBase, adultFee, childBase, childFee } = computeVisaPricing(visaType, isCorporate);
-  const paymentAmount = computePaymentAmount({ adultBase, adultFee, childBase, childFee }, numAdults, numChildren);
+  const breakdown = computeVisaPricing(visaType, isCorporate);
+  const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
+  const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
+  const gstAmount = computeGst(subtotal);
+  const paymentAmount = subtotal + gstAmount;
 
   const application = await Application.create({
     user: req.user!._id,
@@ -79,7 +82,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     children: numChildren,
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
     paymentAmount,
-    adultBase, adultFee, childBase, childFee,
+    adultBase, adultVfs, adultFee, childBase, childVfs, childFee, gstAmount,
     referenceId,
   });
 
@@ -224,7 +227,7 @@ export const getActiveCountries = async (_req: AuthRequest, res: Response): Prom
 
 // Corporate pricing is only meant for logged-in corporate accounts — strip it from
 // responses to anonymous visitors and individual accounts on these public endpoints.
-const CORPORATE_PRICE_FIELDS = ['corporateAdultPrice', 'corporateChildPrice', 'corporateAdultServiceFee', 'corporateChildServiceFee', 'corporatePrice'];
+const CORPORATE_PRICE_FIELDS = ['corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporateAdultServiceFee', 'corporateChildServiceFee', 'corporatePrice'];
 function sanitizeVisaType(visaType: Record<string, unknown>, includeCorporate: boolean) {
   if (includeCorporate) return visaType;
   const sanitized = { ...visaType };

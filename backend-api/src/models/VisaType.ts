@@ -51,13 +51,18 @@ export interface IVisaType extends Document {
   description: string;
   price: number;
   corporatePrice?: number;
-  // Per-traveler pricing
+  // Per-traveler pricing: visa fee (base) + VFS fee + service fee, GST (18%) applied on top.
+  // Visa and VFS fees are mandatory components; service fee is optional (often waived for corporate).
   adultPrice: number;
   childPrice: number;
+  adultVfsFee: number;
+  childVfsFee: number;
   adultServiceFee: number;
   childServiceFee: number;
   corporateAdultPrice?: number;
   corporateChildPrice?: number;
+  corporateAdultVfsFee?: number;
+  corporateChildVfsFee?: number;
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
   processingTime: string;
@@ -107,10 +112,14 @@ const VisaTypeSchema = new Schema<IVisaType>(
     corporatePrice: { type: Number, min: 0 },
     adultPrice: { type: Number, default: 0, min: 0 },
     childPrice: { type: Number, default: 0, min: 0 },
+    adultVfsFee: { type: Number, default: 0, min: 0 },
+    childVfsFee: { type: Number, default: 0, min: 0 },
     adultServiceFee: { type: Number, default: 0, min: 0 },
     childServiceFee: { type: Number, default: 0, min: 0 },
     corporateAdultPrice: { type: Number, min: 0 },
     corporateChildPrice: { type: Number, min: 0 },
+    corporateAdultVfsFee: { type: Number, min: 0 },
+    corporateChildVfsFee: { type: Number, min: 0 },
     corporateAdultServiceFee: { type: Number, min: 0 },
     corporateChildServiceFee: { type: Number, min: 0 },
     processingTime: { type: String, required: true, default: '' },
