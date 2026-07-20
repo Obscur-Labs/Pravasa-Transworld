@@ -71,6 +71,16 @@ export interface DocumentRequirement {
   ocrEnabled?: boolean;
 }
 
+// A consent checkbox shown to the applicant before payment. `required` blocks
+// submission until ticked; `defaultChecked` pre-ticks it.
+export interface VisaTerm {
+  _id?: string;
+  text: string;
+  required: boolean;
+  defaultChecked: boolean;
+  order: number;
+}
+
 export interface CountryFaq {
   question: string;
   answer: string;
@@ -138,17 +148,14 @@ export interface VisaType {
   name: string;
   description: string;
   price: number;
-  corporatePrice?: number;
   adultPrice: number;
   childPrice: number;
   adultVfsFee?: number;
   childVfsFee?: number;
   adultServiceFee: number;
   childServiceFee: number;
-  corporateAdultPrice?: number;
-  corporateChildPrice?: number;
-  corporateAdultVfsFee?: number;
-  corporateChildVfsFee?: number;
+  // Visa and VFS fees are the same for every account type; only the service fee
+  // has a corporate override (0 waives it, unset charges the standard fee).
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
   processingTime: string;
@@ -161,6 +168,7 @@ export interface VisaType {
   process: ProcessType;
   formFields: FormField[];
   documentRequirements: DocumentRequirement[];
+  terms?: VisaTerm[];
   additionalNotes?: string;
   isActive: boolean;
   createdAt: string;

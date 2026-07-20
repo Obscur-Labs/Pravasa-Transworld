@@ -37,6 +37,16 @@ export interface IDocumentRequirement {
   ocrEnabled: boolean;
 }
 
+// A consent checkbox the applicant sees before paying. `required` blocks submission
+// until ticked; `defaultChecked` pre-ticks it (still un-tickable by the applicant).
+export interface IVisaTerm {
+  _id?: mongoose.Types.ObjectId;
+  text: string;
+  required: boolean;
+  defaultChecked: boolean;
+  order: number;
+}
+
 // Widened to plain string — these value sets are now admin-configurable via VisaConfigOption
 // (see visaConfig.controller.ts), not fixed at build time.
 export type EntryType = string;
@@ -50,19 +60,16 @@ export interface IVisaType extends Document {
   name: string;
   description: string;
   price: number;
-  corporatePrice?: number;
   // Per-traveler pricing: visa fee (base) + VFS fee + service fee, GST (18%) applied on top.
-  // Visa and VFS fees are mandatory components; service fee is optional (often waived for corporate).
+  // Visa and VFS fees are pass-through charges — identical for individual and corporate
+  // accounts. The service fee is our own margin, so it is the only component that varies
+  // by account type (and is optional — often waived for corporate).
   adultPrice: number;
   childPrice: number;
   adultVfsFee: number;
   childVfsFee: number;
   adultServiceFee: number;
   childServiceFee: number;
-  corporateAdultPrice?: number;
-  corporateChildPrice?: number;
-  corporateAdultVfsFee?: number;
-  corporateChildVfsFee?: number;
   corporateAdultServiceFee?: number;
   corporateChildServiceFee?: number;
   processingTime: string;
@@ -75,6 +82,7 @@ export interface IVisaType extends Document {
   process: ProcessType;
   formFields: IFormField[];
   documentRequirements: IDocumentRequirement[];
+  terms: IVisaTerm[];
   additionalNotes: string;
   isActive: boolean;
 }
@@ -103,23 +111,25 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
   ocrEnabled: { type: Boolean },
 });
 
+const VisaTermSchema = new Schema<IVisaTerm>({
+  text: { type: String, required: true, trim: true },
+  required: { type: Boolean, default: true },
+  defaultChecked: { type: Boolean, default: false },
+  order: { type: Number, default: 0 },
+});
+
 const VisaTypeSchema = new Schema<IVisaType>(
   {
     country: { type: Schema.Types.ObjectId, ref: 'Country', required: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     price: { type: Number, required: true, min: 0 },
-    corporatePrice: { type: Number, min: 0 },
     adultPrice: { type: Number, default: 0, min: 0 },
     childPrice: { type: Number, default: 0, min: 0 },
     adultVfsFee: { type: Number, default: 0, min: 0 },
     childVfsFee: { type: Number, default: 0, min: 0 },
     adultServiceFee: { type: Number, default: 0, min: 0 },
     childServiceFee: { type: Number, default: 0, min: 0 },
-    corporateAdultPrice: { type: Number, min: 0 },
-    corporateChildPrice: { type: Number, min: 0 },
-    corporateAdultVfsFee: { type: Number, min: 0 },
-    corporateChildVfsFee: { type: Number, min: 0 },
     corporateAdultServiceFee: { type: Number, min: 0 },
     corporateChildServiceFee: { type: Number, min: 0 },
     processingTime: { type: String, required: true, default: '' },
@@ -132,6 +142,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     process: { type: String, enum: ['normal', 'express'], default: 'normal' },
     formFields: [FormFieldSchema],
     documentRequirements: [DocumentRequirementSchema],
+    terms: [VisaTermSchema],
     additionalNotes: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },

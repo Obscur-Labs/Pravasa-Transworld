@@ -40,11 +40,19 @@ export const getApplications = async (req: AuthRequest, res: Response): Promise<
 };
 
 export const createApplication = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visaTypeId, formResponses, adults, children, travelDate } = req.body;
+  const { visaTypeId, formResponses, adults, children, travelDate, acceptedTerms } = req.body;
   if (!visaTypeId) { sendError(res, 'Visa type is required'); return; }
 
   const visaType = await VisaType.findById(visaTypeId);
   if (!visaType || !visaType.isActive) { sendError(res, 'Visa type not found', 404); return; }
+
+  // Terms are matched by text, since the client sends back the wording it displayed.
+  const accepted: string[] = Array.isArray(acceptedTerms) ? acceptedTerms.map(String) : [];
+  const missingTerm = (visaType.terms || []).find((t) => t.required && !accepted.includes(t.text));
+  if (missingTerm) { sendError(res, 'Please accept all required terms before submitting'); return; }
+  const acceptedSnapshot = (visaType.terms || [])
+    .filter((t) => accepted.includes(t.text))
+    .map((t) => ({ text: t.text, required: t.required }));
 
   const countryDoc = await Country.findById(visaType.country);
   const rawCode = (countryDoc?.code || countryDoc?.name || 'GEN')
@@ -83,6 +91,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
     travelDate: travelDate || (formResponses?.travelDate ?? ''),
     paymentAmount,
     adultBase, adultVfs, adultFee, childBase, childVfs, childFee, gstAmount,
+    acceptedTerms: acceptedSnapshot,
     referenceId,
   });
 
@@ -227,7 +236,9 @@ export const getActiveCountries = async (_req: AuthRequest, res: Response): Prom
 
 // Corporate pricing is only meant for logged-in corporate accounts — strip it from
 // responses to anonymous visitors and individual accounts on these public endpoints.
-const CORPORATE_PRICE_FIELDS = ['corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporateAdultServiceFee', 'corporateChildServiceFee', 'corporatePrice'];
+// Includes retired override fields (corporate visa/VFS rates, legacy corporatePrice) so
+// stale values on older documents never leak either.
+const CORPORATE_PRICE_FIELDS = ['corporateAdultServiceFee', 'corporateChildServiceFee', 'corporateAdultPrice', 'corporateChildPrice', 'corporateAdultVfsFee', 'corporateChildVfsFee', 'corporatePrice'];
 function sanitizeVisaType(visaType: Record<string, unknown>, includeCorporate: boolean) {
   if (includeCorporate) return visaType;
   const sanitized = { ...visaType };

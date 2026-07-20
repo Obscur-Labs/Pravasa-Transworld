@@ -16,23 +16,26 @@ type PricingFields = Pick<
   IVisaType,
   | 'adultPrice' | 'price' | 'adultVfsFee' | 'adultServiceFee'
   | 'childPrice' | 'childVfsFee' | 'childServiceFee'
-  | 'corporateAdultPrice' | 'corporateAdultVfsFee' | 'corporateAdultServiceFee'
-  | 'corporateChildPrice' | 'corporateChildVfsFee' | 'corporateChildServiceFee'
+  | 'corporateAdultServiceFee' | 'corporateChildServiceFee'
 >;
 
 // Per-traveler pricing = visa fee + VFS fee + service fee. Falls back to legacy single
-// price for older visa types. Corporate accounts use the corporate override fields when
-// the admin has set them (service fee is the optional component — often waived for corporate).
+// price for older visa types.
+//
+// The visa fee and VFS fee are pass-through government/VFS charges — identical for
+// individual and corporate accounts. Only the service fee (our own margin) varies by
+// account type, so it is the sole corporate override. A corporate service fee of 0
+// explicitly waives it; leaving it unset charges the standard service fee.
 export function computeVisaPricing(visaType: PricingFields, isCorporate: boolean): PriceBreakdown {
-  const useCorpAdult = isCorporate && (visaType.corporateAdultPrice != null || visaType.corporateAdultVfsFee != null || visaType.corporateAdultServiceFee != null);
-  const useCorpChild = isCorporate && (visaType.corporateChildPrice != null || visaType.corporateChildVfsFee != null || visaType.corporateChildServiceFee != null);
+  const serviceFee = (corp: number | undefined, std: number | undefined) =>
+    (isCorporate && corp != null ? corp : std) || 0;
   return {
-    adultBase: useCorpAdult && visaType.corporateAdultPrice != null ? visaType.corporateAdultPrice : (visaType.adultPrice || visaType.price || 0),
-    adultVfs: useCorpAdult && visaType.corporateAdultVfsFee != null ? visaType.corporateAdultVfsFee : (visaType.adultVfsFee || 0),
-    adultFee: useCorpAdult && visaType.corporateAdultServiceFee != null ? visaType.corporateAdultServiceFee : (visaType.adultServiceFee || 0),
-    childBase: useCorpChild && visaType.corporateChildPrice != null ? visaType.corporateChildPrice : (visaType.childPrice || 0),
-    childVfs: useCorpChild && visaType.corporateChildVfsFee != null ? visaType.corporateChildVfsFee : (visaType.childVfsFee || 0),
-    childFee: useCorpChild && visaType.corporateChildServiceFee != null ? visaType.corporateChildServiceFee : (visaType.childServiceFee || 0),
+    adultBase: visaType.adultPrice || visaType.price || 0,
+    adultVfs: visaType.adultVfsFee || 0,
+    adultFee: serviceFee(visaType.corporateAdultServiceFee, visaType.adultServiceFee),
+    childBase: visaType.childPrice || 0,
+    childVfs: visaType.childVfsFee || 0,
+    childFee: serviceFee(visaType.corporateChildServiceFee, visaType.childServiceFee),
   };
 }
 

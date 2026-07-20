@@ -23,17 +23,15 @@ const optNum = (v: unknown): number | undefined =>
 export const createVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
   const {
     country, name, description, adultPrice, childPrice, adultVfsFee, childVfsFee, adultServiceFee, childServiceFee,
-    corporateAdultPrice, corporateChildPrice, corporateAdultVfsFee, corporateChildVfsFee,
     corporateAdultServiceFee, corporateChildServiceFee,
-    processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
+    processingTime, formFields, documentRequirements, terms, entry, visaSubType, stayDuration,
     jurisdiction, visaCategory, process, validity, additionalNotes,
   } = req.body;
   if (!country || !name || adultPrice === undefined || !processingTime) {
     sendError(res, 'Country, name, adult price, and processingTime are required');
     return;
   }
-  const corporateAdult = optNum(corporateAdultPrice);
-  // `price` / `corporatePrice` mirror the per-adult base rate for backward compatibility (listing "from" price).
+  // `price` mirrors the per-adult base rate for backward compatibility (listing "from" price).
   const price = Number(adultPrice);
   const visaType = await VisaType.create({
     country, name, description,
@@ -44,14 +42,10 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
     childVfsFee: Number(childVfsFee || 0),
     adultServiceFee: Number(adultServiceFee || 0),
     childServiceFee: Number(childServiceFee || 0),
-    corporateAdultPrice: corporateAdult,
-    corporateChildPrice: optNum(corporateChildPrice),
-    corporateAdultVfsFee: optNum(corporateAdultVfsFee),
-    corporateChildVfsFee: optNum(corporateChildVfsFee),
     corporateAdultServiceFee: optNum(corporateAdultServiceFee),
     corporateChildServiceFee: optNum(corporateChildServiceFee),
-    corporatePrice: corporateAdult,
     processingTime, formFields, documentRequirements, entry, visaSubType, stayDuration,
+    terms: (terms || []).map((t: any, i: number) => ({ ...t, order: i })),
     jurisdiction, visaCategory, process, validity, additionalNotes: additionalNotes || '',
   });
   const populated = await VisaType.findById(visaType._id).populate('country', 'name flag');
@@ -61,7 +55,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
 
 export const updateVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
   const body = { ...req.body };
-  // Keep legacy `price` / `corporatePrice` mirrored to the per-adult base rates.
+  // Keep legacy `price` mirrored to the per-adult base rate.
   if (body.adultPrice !== undefined) {
     body.adultPrice = Number(body.adultPrice);
     body.price = body.adultPrice;
@@ -71,16 +65,17 @@ export const updateVisaType = async (req: AdminRequest, res: Response): Promise<
   if (body.childVfsFee !== undefined) body.childVfsFee = Number(body.childVfsFee || 0);
   if (body.adultServiceFee !== undefined) body.adultServiceFee = Number(body.adultServiceFee || 0);
   if (body.childServiceFee !== undefined) body.childServiceFee = Number(body.childServiceFee || 0);
-  if (body.corporateAdultPrice !== undefined) {
-    body.corporateAdultPrice = optNum(body.corporateAdultPrice);
-    body.corporatePrice = body.corporateAdultPrice;
+  // Blanking a corporate service fee must remove it, not leave the old value in place —
+  // Mongoose skips `undefined` in an update, so clearing needs an explicit $unset.
+  const unset: Record<string, ''> = {};
+  for (const field of ['corporateAdultServiceFee', 'corporateChildServiceFee'] as const) {
+    if (body[field] === undefined) continue;
+    const value = optNum(body[field]);
+    if (value === undefined) { delete body[field]; unset[field] = ''; } else { body[field] = value; }
   }
-  if (body.corporateChildPrice !== undefined) body.corporateChildPrice = optNum(body.corporateChildPrice);
-  if (body.corporateAdultVfsFee !== undefined) body.corporateAdultVfsFee = optNum(body.corporateAdultVfsFee);
-  if (body.corporateChildVfsFee !== undefined) body.corporateChildVfsFee = optNum(body.corporateChildVfsFee);
-  if (body.corporateAdultServiceFee !== undefined) body.corporateAdultServiceFee = optNum(body.corporateAdultServiceFee);
-  if (body.corporateChildServiceFee !== undefined) body.corporateChildServiceFee = optNum(body.corporateChildServiceFee);
-  const visaType = await VisaType.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
+  if (Array.isArray(body.terms)) body.terms = body.terms.map((t: any, i: number) => ({ ...t, order: i }));
+  const update = Object.keys(unset).length ? { $set: body, $unset: unset } : body;
+  const visaType = await VisaType.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
     .populate('country', 'name flag');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
   logActivity(req, 'update', 'Visa Type', visaType.name);

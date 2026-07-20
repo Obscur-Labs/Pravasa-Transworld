@@ -12,22 +12,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from '@/components/ui/use-toast';
 import { FormFieldEditor } from '@/components/shared/form-field-editor';
 import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
+import { TermsEditor } from '@/components/shared/terms-editor';
 import {
   getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
   getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { DOC_TYPE_OPTIONS } from '@/types';
-import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory } from '@/types';
+import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm } from '@/types';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
+const emptyTerm = (): VisaTerm => ({ text: '', required: true, defaultChecked: false, order: 0 });
 
 function TabButton({ step, label, active, done, onClick }: { step: number; label: string; active: boolean; done: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap flex-shrink-0 transition-colors ${
         active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
       }`}>
       <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold flex-shrink-0 transition-colors ${
@@ -40,26 +42,46 @@ function TabButton({ step, label, active, done, onClick }: { step: number; label
   );
 }
 
-// The pricing card renders like the receipt it produces: one line per fee component
-// (Adult + Child columns), then computed GST and "Customer pays" lines underneath.
+// Pricing splits along the line that actually matters: visa and VFS fees are
+// pass-through charges (same for everyone), while the service fee is our margin and
+// varies by both traveler type and account type.
 type PriceField =
   | 'adultPrice' | 'childPrice'
   | 'adultVfsFee' | 'childVfsFee'
   | 'adultServiceFee' | 'childServiceFee'
-  | 'corporateAdultPrice' | 'corporateChildPrice'
-  | 'corporateAdultVfsFee' | 'corporateChildVfsFee'
   | 'corporateAdultServiceFee' | 'corporateChildServiceFee';
 
-const PRICE_ROWS: { label: string; required?: boolean; hint?: string; std: [PriceField, PriceField]; corp: [PriceField, PriceField] }[] = [
-  { label: 'Visa fee', required: true, std: ['adultPrice', 'childPrice'], corp: ['corporateAdultPrice', 'corporateChildPrice'] },
-  { label: 'VFS fee', std: ['adultVfsFee', 'childVfsFee'], corp: ['corporateAdultVfsFee', 'corporateChildVfsFee'] },
-  { label: 'Service fee', hint: 'optional', std: ['adultServiceFee', 'childServiceFee'], corp: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
+const PASS_THROUGH_ROWS: { label: string; required?: boolean; fields: [PriceField, PriceField] }[] = [
+  { label: 'Visa fee', required: true, fields: ['adultPrice', 'childPrice'] },
+  { label: 'VFS fee', fields: ['adultVfsFee', 'childVfsFee'] },
 ];
+
+// Shared label | Adult | Child column template, so all three pricing blocks line up.
+const PRICE_GRID = 'grid grid-cols-[minmax(7rem,1fr)_minmax(6.5rem,9rem)_minmax(6.5rem,9rem)] gap-x-3 gap-y-2.5 items-center';
+
+const SERVICE_FEE_ROWS: { label: string; hint?: string; fields: [PriceField, PriceField] }[] = [
+  { label: 'Individual', fields: ['adultServiceFee', 'childServiceFee'] },
+  { label: 'Corporate', hint: 'blank = same as individual', fields: ['corporateAdultServiceFee', 'corporateChildServiceFee'] },
+];
+
+// Dialog steps, in order. The footer Back/Continue buttons walk this list.
+const TABS = ['info', 'pricing', 'form', 'notes', 'terms'] as const;
+type TabKey = (typeof TABS)[number];
+const TAB_LABELS: Record<TabKey, string> = {
+  info: 'Information',
+  pricing: 'Pricing',
+  form: 'Form',
+  notes: 'Additional Notes',
+  terms: 'Terms',
+};
+// Which tab a given validation error lives on, so a failed save jumps to the right step.
+const ERROR_TAB: Record<string, TabKey> = {
+  country: 'info', name: 'info', processingTime: 'info', adultPrice: 'pricing',
+};
 
 const emptyForm = () => ({
   country: '', name: '', description: '',
   adultPrice: '', childPrice: '', adultVfsFee: '', childVfsFee: '', adultServiceFee: '', childServiceFee: '',
-  corporateAdultPrice: '', corporateChildPrice: '', corporateAdultVfsFee: '', corporateChildVfsFee: '',
   corporateAdultServiceFee: '', corporateChildServiceFee: '',
   processingTime: '', validity: '',
   entry: [] as EntryType[],
@@ -70,6 +92,7 @@ const emptyForm = () => ({
   process: 'normal' as string,
   formFields: [] as FormField[],
   documentRequirements: [] as DocumentRequirement[],
+  terms: [] as VisaTerm[],
   additionalNotes: '',
 });
 
@@ -86,8 +109,7 @@ export default function VisaTypesPage() {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
-  const [pricingTab, setPricingTab] = useState<'standard' | 'corporate'>('standard');
-  const [activeTab, setActiveTab] = useState<'info' | 'form' | 'notes'>('info');
+  const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
@@ -141,28 +163,37 @@ export default function VisaTypesPage() {
   const clearInfoError = (key: string) =>
     setInfoErrors((prev) => (prev[key] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
 
-  // Shared gate for moving past the Information tab, regardless of which later tab was clicked.
-  const goToTab = (tab: 'form' | 'notes') => {
+  // Shared gate for moving past the Information/Pricing steps, regardless of which
+  // later tab was clicked. Sends the admin to whichever tab holds the first error.
+  const goToTab = (tab: TabKey) => {
+    // Information and Pricing are always reachable — they're the ones being validated.
+    if (tab === 'info' || tab === 'pricing') { setActiveTab(tab); return; }
     const errs = validateInfo();
     setInfoErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      setActiveTab('info');
-      if (errs.adultPrice) setPricingTab('standard');
-      toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
+    const firstError = Object.keys(errs)[0];
+    if (firstError) {
+      const errorTab = ERROR_TAB[firstError] || 'info';
+      setActiveTab(errorTab);
+      toast({ title: 'Fill in the required fields', description: `Check the highlighted fields under ${TAB_LABELS[errorTab]}.`, variant: 'destructive' });
       return;
     }
     setActiveTab(tab);
   };
-  const goToFormTab = () => goToTab('form');
+
+  // Footer Back/Continue walk the TABS list rather than hard-coding neighbours.
+  const tabIndex = TABS.indexOf(activeTab);
+  const goPrevTab = () => setActiveTab(TABS[Math.max(0, tabIndex - 1)]);
+  const goNextTab = () => goToTab(TABS[Math.min(TABS.length - 1, tabIndex + 1)]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validateInfo();
-    if (Object.keys(errs).length > 0) {
+    const firstError = Object.keys(errs)[0];
+    if (firstError) {
       setInfoErrors(errs);
-      setActiveTab('info');
-      if (errs.adultPrice) setPricingTab('standard');
-      toast({ title: 'Fill in the required fields', description: 'Check the highlighted fields under Information.', variant: 'destructive' });
+      const errorTab = ERROR_TAB[firstError] || 'info';
+      setActiveTab(errorTab);
+      toast({ title: 'Fill in the required fields', description: `Check the highlighted fields under ${TAB_LABELS[errorTab]}.`, variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -175,13 +206,10 @@ export default function VisaTypesPage() {
         childVfsFee: Number(form.childVfsFee || 0),
         adultServiceFee: Number(form.adultServiceFee || 0),
         childServiceFee: Number(form.childServiceFee || 0),
-        corporateAdultPrice: form.corporateAdultPrice === '' ? '' : Number(form.corporateAdultPrice),
-        corporateChildPrice: form.corporateChildPrice === '' ? '' : Number(form.corporateChildPrice),
-        corporateAdultVfsFee: form.corporateAdultVfsFee === '' ? '' : Number(form.corporateAdultVfsFee),
-        corporateChildVfsFee: form.corporateChildVfsFee === '' ? '' : Number(form.corporateChildVfsFee),
         corporateAdultServiceFee: form.corporateAdultServiceFee === '' ? '' : Number(form.corporateAdultServiceFee),
         corporateChildServiceFee: form.corporateChildServiceFee === '' ? '' : Number(form.corporateChildServiceFee),
         formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
+        terms: form.terms.filter((t) => t.text.trim()).map((t, i) => ({ ...t, text: t.text.trim(), order: i })),
       };
       if (editId) {
         await updateVisaType(editId, payload);
@@ -228,6 +256,11 @@ export default function VisaTypesPage() {
   const removeDocReq = (i: number) => setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.filter((_, idx) => idx !== i) }));
   const updateDocReq = (i: number, key: keyof DocumentRequirement, value: any) =>
     setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => idx === i ? { ...d, [key]: value } : d) }));
+
+  const addTerm = () => setForm((f) => ({ ...f, terms: [...f.terms, emptyTerm()] }));
+  const removeTerm = (i: number) => setForm((f) => ({ ...f, terms: f.terms.filter((_, idx) => idx !== i) }));
+  const updateTerm = (i: number, key: keyof VisaTerm, value: any) =>
+    setForm((f) => ({ ...f, terms: f.terms.map((t, idx) => idx === i ? { ...t, [key]: value } : t) }));
 
   // Changing the type pre-fills the document name (unless the admin already typed a custom one).
   const updateDocType = (i: number, value: DocumentType) =>
@@ -316,7 +349,6 @@ export default function VisaTypesPage() {
     setApplyPresetId('');
     setPresetName('');
     setActiveTab('info');
-    setPricingTab('standard');
     setInfoErrors({});
     setShowForm(!showForm);
   };
@@ -332,10 +364,6 @@ export default function VisaTypesPage() {
       childVfsFee: vt.childVfsFee ? String(vt.childVfsFee) : '',
       adultServiceFee: vt.adultServiceFee ? String(vt.adultServiceFee) : '',
       childServiceFee: vt.childServiceFee ? String(vt.childServiceFee) : '',
-      corporateAdultPrice: vt.corporateAdultPrice != null ? String(vt.corporateAdultPrice) : (vt.corporatePrice != null ? String(vt.corporatePrice) : ''),
-      corporateChildPrice: vt.corporateChildPrice != null ? String(vt.corporateChildPrice) : '',
-      corporateAdultVfsFee: vt.corporateAdultVfsFee != null ? String(vt.corporateAdultVfsFee) : '',
-      corporateChildVfsFee: vt.corporateChildVfsFee != null ? String(vt.corporateChildVfsFee) : '',
       corporateAdultServiceFee: vt.corporateAdultServiceFee != null ? String(vt.corporateAdultServiceFee) : '',
       corporateChildServiceFee: vt.corporateChildServiceFee != null ? String(vt.corporateChildServiceFee) : '',
       processingTime: vt.processingTime || '',
@@ -348,11 +376,11 @@ export default function VisaTypesPage() {
       process: vt.process || 'normal',
       formFields: (vt.formFields || []).map((f) => ({ ...f })),
       documentRequirements: (vt.documentRequirements || []).map((d) => ({ ...d })),
+      terms: (vt.terms || []).map((t) => ({ ...t })),
       additionalNotes: vt.additionalNotes || '',
     });
     setEditId(vt._id);
     setActiveTab('info');
-    setPricingTab('standard');
     setInfoErrors({});
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -362,22 +390,39 @@ export default function VisaTypesPage() {
   const GST_MULT = 1.18;
   const num = (s: string) => Number(s || 0);
   const inclGst = (n: number) => Math.round(n * GST_MULT);
-  // Live receipt preview for the pricing card. Corporate fields fall back to the
-  // standard value when left blank — same rule as backend computeVisaPricing.
-  const corpAnySet = [form.corporateAdultPrice, form.corporateAdultVfsFee, form.corporateAdultServiceFee, form.corporateChildPrice, form.corporateChildVfsFee, form.corporateChildServiceFee].some((v) => v !== '');
+  // Live "customer pays" preview for the pricing card. Visa + VFS are shared by both
+  // account types; only the service fee differs, and a blank corporate service fee
+  // falls back to the individual one — same rule as backend computeVisaPricing.
   const corpOrStd = (corp: string, std: string) => (corp !== '' ? num(corp) : num(std));
-  const pricingSubAdult = pricingTab === 'standard'
-    ? num(form.adultPrice) + num(form.adultVfsFee) + num(form.adultServiceFee)
-    : corpOrStd(form.corporateAdultPrice, form.adultPrice) + corpOrStd(form.corporateAdultVfsFee, form.adultVfsFee) + corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
-  const pricingSubChild = pricingTab === 'standard'
-    ? num(form.childPrice) + num(form.childVfsFee) + num(form.childServiceFee)
-    : corpOrStd(form.corporateChildPrice, form.childPrice) + corpOrStd(form.corporateChildVfsFee, form.childVfsFee) + corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
-  const pricingTotalAdult = inclGst(pricingSubAdult);
-  const pricingTotalChild = inclGst(pricingSubChild);
+  const passThroughAdult = num(form.adultPrice) + num(form.adultVfsFee);
+  const passThroughChild = num(form.childPrice) + num(form.childVfsFee);
+  const subIndivAdult = passThroughAdult + num(form.adultServiceFee);
+  const subIndivChild = passThroughChild + num(form.childServiceFee);
+  const subCorpAdult = passThroughAdult + corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
+  const subCorpChild = passThroughChild + corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
+  const corpFeeDiffers = form.corporateAdultServiceFee !== '' || form.corporateChildServiceFee !== '';
+
+  // Plain function (not a component) so React keeps the same input instances between
+  // renders — a nested component here would remount and steal focus on every keystroke.
+  const priceInput = (name: PriceField, placeholder = '0') => (
+    <div key={name} className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">₹</span>
+      <Input
+        type="number"
+        min="0"
+        className={`pl-7 pr-3 text-right tabular-nums ${name === 'adultPrice' && infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+        placeholder={placeholder}
+        value={form[name]}
+        onChange={(e) => { setForm({ ...form, [name]: e.target.value }); if (name === 'adultPrice') clearInfoError('adultPrice'); }}
+      />
+    </div>
+  );
+
   const stdAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * GST_MULT);
   const stdChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * GST_MULT);
-  const corpAdultTotal = (vt: VisaType) => Math.round(((vt.corporateAdultPrice || 0) + (vt.corporateAdultVfsFee || 0) + (vt.corporateAdultServiceFee || 0)) * GST_MULT);
-  const corpChildTotal = (vt: VisaType) => Math.round(((vt.corporateChildPrice || 0) + (vt.corporateChildVfsFee || 0) + (vt.corporateChildServiceFee || 0)) * GST_MULT);
+  // Corporate differs from standard only by the service fee component.
+  const corpAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0)) * GST_MULT);
+  const corpChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0)) * GST_MULT);
 
   const displayedVisaTypes = visaTypes
     .filter((vt) => {
@@ -414,10 +459,23 @@ export default function VisaTypesPage() {
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col gap-0">
           <DialogHeader className="border-b border-border pb-0 flex-shrink-0">
             <DialogTitle>{editId ? 'Edit Visa Type' : 'Create Visa Type'}</DialogTitle>
-            <div className="flex gap-1 -mb-px">
-              <TabButton step={1} label="Information" active={activeTab === 'info'} done={Object.keys(validateInfo()).length === 0} onClick={() => setActiveTab('info')} />
-              <TabButton step={2} label="Form" active={activeTab === 'form'} done={false} onClick={() => goToTab('form')} />
-              <TabButton step={3} label="Additional Notes" active={activeTab === 'notes'} done={false} onClick={() => goToTab('notes')} />
+            <div className="flex gap-1 -mb-px overflow-x-auto">
+              {TABS.map((tab, i) => {
+                const errs = validateInfo();
+                const done = tab === 'info'
+                  ? !errs.country && !errs.name && !errs.processingTime
+                  : tab === 'pricing' ? !errs.adultPrice : false;
+                return (
+                  <TabButton
+                    key={tab}
+                    step={i + 1}
+                    label={TAB_LABELS[tab]}
+                    active={activeTab === tab}
+                    done={done}
+                    onClick={() => goToTab(tab)}
+                  />
+                );
+              })}
             </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0">
@@ -443,91 +501,6 @@ export default function VisaTypesPage() {
                 <div>
                   <Label>Description</Label>
                   <Input className="mt-1" placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                </div>
-              </div>
-
-              {/* ── Pricing: a rate card that reads like the receipt it produces ── */}
-              <div className="rounded-xl border border-border overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-muted/40 border-b border-border">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Pricing</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Fees per traveler. 18% GST is added automatically.</p>
-                  </div>
-                  <div className="flex gap-1 bg-muted rounded-lg p-1">
-                    <button
-                      type="button"
-                      onClick={() => setPricingTab('standard')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${pricingTab === 'standard' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                      Standard
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPricingTab('corporate')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${pricingTab === 'corporate' ? 'bg-card text-warning shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                      Corporate
-                      {corpAnySet && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="Corporate overrides are set" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  {pricingTab === 'corporate' && (
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Corporate accounts pay these fees instead. Leave a field blank to charge the standard fee — enter 0 in Service fee to waive it.
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-[minmax(7rem,1fr)_minmax(6.5rem,9rem)_minmax(6.5rem,9rem)] gap-x-3 gap-y-2.5 items-center max-w-xl">
-                    <span />
-                    <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
-                    <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
-
-                    {PRICE_ROWS.map((row) => {
-                      const fields = pricingTab === 'standard' ? row.std : row.corp;
-                      return (
-                        <Fragment key={row.label}>
-                          <span className="text-sm text-foreground">
-                            {row.label}
-                            {row.required && pricingTab === 'standard' && <span className="text-destructive ml-0.5">*</span>}
-                            {row.hint && <span className="text-xs text-muted-foreground ml-1.5">({row.hint})</span>}
-                          </span>
-                          {fields.map((name, i) => (
-                            <div key={name} className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">₹</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                className={`pl-7 pr-3 text-right tabular-nums ${name === 'adultPrice' && infoErrors.adultPrice ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                                placeholder={pricingTab === 'corporate' ? (form[row.std[i]] || '0') : '0'}
-                                value={form[name]}
-                                onChange={(e) => { setForm({ ...form, [name]: e.target.value }); if (name === 'adultPrice') clearInfoError('adultPrice'); }}
-                              />
-                            </div>
-                          ))}
-                        </Fragment>
-                      );
-                    })}
-
-                    <div className="col-span-3 border-t border-border my-1" />
-
-                    <span className="text-xs text-muted-foreground">GST (18%)</span>
-                    <span className="text-xs text-muted-foreground text-right pr-3 tabular-nums">{pricingSubAdult > 0 ? formatCurrency(pricingTotalAdult - pricingSubAdult) : '—'}</span>
-                    <span className="text-xs text-muted-foreground text-right pr-3 tabular-nums">{pricingSubChild > 0 ? formatCurrency(pricingTotalChild - pricingSubChild) : '—'}</span>
-
-                    <span className="text-sm font-semibold text-foreground">
-                      Customer pays <span className="text-xs font-normal text-muted-foreground">incl. GST</span>
-                    </span>
-                    <span className={`text-sm font-bold text-right pr-3 tabular-nums ${pricingTab === 'corporate' ? 'text-warning' : 'text-primary'}`}>
-                      {pricingSubAdult > 0 ? formatCurrency(pricingTotalAdult) : '—'}
-                    </span>
-                    <span className={`text-sm font-bold text-right pr-3 tabular-nums ${pricingTab === 'corporate' ? 'text-warning' : 'text-primary'}`}>
-                      {pricingSubChild > 0 ? formatCurrency(pricingTotalChild) : '—'}
-                    </span>
-                  </div>
-
-                  {infoErrors.adultPrice && <p className="text-xs text-destructive mt-3">{infoErrors.adultPrice}</p>}
                 </div>
               </div>
 
@@ -590,6 +563,93 @@ export default function VisaTypesPage() {
               </div>
               </div>
 
+              {/* ── Step 2: Pricing ──
+                  Split by who the charge belongs to: visa + VFS are pass-through and
+                  identical for everyone, so they're entered once; the service fee is our
+                  margin and gets its own individual/corporate grid. ── */}
+              <div className={activeTab === 'pricing' ? '' : 'hidden'}>
+                <div className="rounded-xl border border-border overflow-hidden max-w-2xl">
+                  <div className="px-5 py-3.5 bg-muted/40 border-b border-border">
+                    <p className="text-sm font-semibold text-foreground">Pricing</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">All fees are per traveler. 18% GST is added automatically.</p>
+                  </div>
+
+                  <div className="p-5 space-y-6">
+                    {/* Pass-through charges — one set of values, everyone pays them */}
+                    <div>
+                      <div className="flex items-baseline justify-between gap-3 mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Government &amp; VFS charges</p>
+                        <p className="text-xs text-muted-foreground">Same for individual &amp; corporate</p>
+                      </div>
+                      <div className={PRICE_GRID}>
+                        <span />
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
+
+                        {PASS_THROUGH_ROWS.map((row) => (
+                          <Fragment key={row.label}>
+                            <span className="text-sm text-foreground">
+                              {row.label}
+                              {row.required && <span className="text-destructive ml-0.5">*</span>}
+                            </span>
+                            {row.fields.map((name) => priceInput(name))}
+                          </Fragment>
+                        ))}
+                      </div>
+                      {infoErrors.adultPrice && <p className="text-xs text-destructive mt-2">{infoErrors.adultPrice}</p>}
+                    </div>
+
+                    {/* Service fee — the only component that varies by account type */}
+                    <div className="pt-5 border-t border-border">
+                      <div className="flex items-baseline justify-between gap-3 mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Service fee</p>
+                        <p className="text-xs text-muted-foreground">Optional — enter 0 to waive</p>
+                      </div>
+                      <div className={PRICE_GRID}>
+                        <span />
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
+
+                        {SERVICE_FEE_ROWS.map((row, rowIdx) => (
+                          <Fragment key={row.label}>
+                            <span className="text-sm text-foreground">
+                              {row.label}
+                              {row.hint && <span className="block text-xs text-muted-foreground">{row.hint}</span>}
+                            </span>
+                            {row.fields.map((name, i) => priceInput(
+                              name,
+                              // Corporate inputs preview the individual fee they'd inherit.
+                              rowIdx === 1 ? (form[SERVICE_FEE_ROWS[0].fields[i]] || '0') : '0',
+                            ))}
+                          </Fragment>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* What each account type ends up paying */}
+                    <div className="pt-5 border-t border-border">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Customer pays <span className="font-normal normal-case tracking-normal">(incl. 18% GST)</span></p>
+                      <div className={PRICE_GRID}>
+                        <span />
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Adult</span>
+                        <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
+
+                        <span className="text-sm text-foreground">Individual</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(inclGst(subIndivAdult)) : '—'}</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(inclGst(subIndivChild)) : '—'}</span>
+
+                        <span className="text-sm text-foreground flex items-center gap-1.5">
+                          Corporate
+                          {corpFeeDiffers && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="A corporate service fee is set" />}
+                        </span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(inclGst(subCorpAdult)) : '—'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(inclGst(subCorpChild)) : '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className={activeTab === 'form' ? 'space-y-6' : 'hidden'}>
               {/* ── Form Presets ── */}
               <div className="p-4 rounded-xl bg-violet-500/5 border border-violet-500/15 space-y-3">
@@ -650,29 +710,28 @@ export default function VisaTypesPage() {
                 />
               </div>
 
+              {/* ── Step 5: Terms the applicant must accept before paying ── */}
+              <div className={activeTab === 'terms' ? '' : 'hidden'}>
+                <TermsEditor terms={form.terms} onAdd={addTerm} onUpdate={updateTerm} onRemove={removeTerm} />
+              </div>
+
             </div>
 
             <div className="flex items-center gap-2 px-6 py-4 border-t border-border flex-shrink-0">
-              {activeTab !== 'info' && (
-                <Button type="button" variant="outline" onClick={() => setActiveTab(activeTab === 'notes' ? 'form' : 'info')}>
+              {tabIndex > 0 && (
+                <Button type="button" variant="outline" onClick={goPrevTab}>
                   <ChevronLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
               )}
               <div className="ml-auto flex gap-2">
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
-                {activeTab === 'info' && (
-                  <Button type="button" onClick={() => goToTab('form')}>
-                    Continue to Form <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                )}
-                {activeTab === 'form' && (
-                  <Button type="button" onClick={() => goToTab('notes')}>
-                    Continue <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                )}
-                {activeTab === 'notes' && (
+                {activeTab === 'terms' ? (
                   <Button type="submit" disabled={saving}>
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editId ? 'Update Visa Type' : 'Create Visa Type'}
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={goNextTab}>
+                    Continue to {TAB_LABELS[TABS[tabIndex + 1]]} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 )}
               </div>
@@ -764,13 +823,15 @@ export default function VisaTypesPage() {
                   <TableCell className="text-muted-foreground text-xs" title="Visa + VFS + service fee, incl. 18% GST">
                     {vt.childPrice ? formatCurrency(stdChildTotal(vt)) : '—'}
                   </TableCell>
-                  <TableCell className="text-xs" title="Visa + VFS + service fee, incl. 18% GST">
-                    <span className={vt.corporateAdultPrice != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
-                      {vt.corporateAdultPrice != null ? formatCurrency(corpAdultTotal(vt)) : '—'}
+                  {/* Corporate differs only when a corporate service fee is set — otherwise
+                      it matches the standard total, so it's shown muted. */}
+                  <TableCell className="text-xs" title="Visa + VFS + corporate service fee, incl. 18% GST">
+                    <span className={vt.corporateAdultServiceFee != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
+                      {formatCurrency(corpAdultTotal(vt))}
                     </span>
                     <span className="text-muted-foreground/50"> / </span>
-                    <span className={vt.corporateChildPrice != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
-                      {vt.corporateChildPrice != null ? formatCurrency(corpChildTotal(vt)) : '—'}
+                    <span className={vt.corporateChildServiceFee != null ? 'text-warning font-semibold' : 'text-muted-foreground/50'}>
+                      {vt.childPrice ? formatCurrency(corpChildTotal(vt)) : '—'}
                     </span>
                   </TableCell>
                   <TableCell>

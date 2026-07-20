@@ -66,6 +66,9 @@ export interface IApplication extends Document {
   // 18% GST on the pre-GST subtotal, included in paymentAmount. 0 on legacy applications
   // created before GST was added on top (their paymentAmount has no GST component).
   gstAmount: number;
+  // Snapshot of the visa terms the applicant ticked at submission, so the record of
+  // what was agreed to survives later edits to the visa type's terms.
+  acceptedTerms: { text: string; required: boolean }[];
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -100,6 +103,7 @@ const ApplicationSchema = new Schema<IApplication>(
     childVfs: { type: Number, default: 0 },
     childFee: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
+    acceptedTerms: [{ text: { type: String }, required: { type: Boolean, default: false }, _id: false }],
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

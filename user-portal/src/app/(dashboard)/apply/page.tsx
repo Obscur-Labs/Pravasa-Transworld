@@ -656,17 +656,19 @@ export default function ApplyPage() {
 
   // Per-traveler pricing components: visa fee (base) + VFS fee + service fee, with 18% GST
   // applied on top of everything. Mirrors backend utils/pricing.ts exactly.
+  // Visa and VFS fees are pass-through charges, identical for every account type.
+  // Only the service fee has a corporate override.
   const rateParts = (v: VisaType) => {
-    const useCorpAdult = isCorporate && (v.corporateAdultPrice != null || v.corporateAdultVfsFee != null || v.corporateAdultServiceFee != null);
-    const useCorpChild = isCorporate && (v.corporateChildPrice != null || v.corporateChildVfsFee != null || v.corporateChildServiceFee != null);
+    const corpAdultFee = isCorporate && v.corporateAdultServiceFee != null;
+    const corpChildFee = isCorporate && v.corporateChildServiceFee != null;
     return {
-      adultBase: useCorpAdult && v.corporateAdultPrice != null ? v.corporateAdultPrice : (v.adultPrice || v.price),
-      adultVfs: useCorpAdult && v.corporateAdultVfsFee != null ? v.corporateAdultVfsFee : (v.adultVfsFee || 0),
-      adultFee: useCorpAdult && v.corporateAdultServiceFee != null ? v.corporateAdultServiceFee : (v.adultServiceFee || 0),
-      childBase: useCorpChild && v.corporateChildPrice != null ? v.corporateChildPrice : (v.childPrice || 0),
-      childVfs: useCorpChild && v.corporateChildVfsFee != null ? v.corporateChildVfsFee : (v.childVfsFee || 0),
-      childFee: useCorpChild && v.corporateChildServiceFee != null ? v.corporateChildServiceFee : (v.childServiceFee || 0),
-      corp: useCorpAdult || useCorpChild,
+      adultBase: v.adultPrice || v.price,
+      adultVfs: v.adultVfsFee || 0,
+      adultFee: (corpAdultFee ? v.corporateAdultServiceFee : v.adultServiceFee) || 0,
+      childBase: v.childPrice || 0,
+      childVfs: v.childVfsFee || 0,
+      childFee: (corpChildFee ? v.corporateChildServiceFee : v.childServiceFee) || 0,
+      corp: corpAdultFee || corpChildFee,
     };
   };
   // Pre-GST per-traveler rates (used in the checkout line items alongside an explicit GST line).
@@ -705,6 +707,15 @@ export default function ApplyPage() {
   const [promoResult, setPromoResult] = useState<{ code: string; discount: number; finalAmount: number; discountType: string; discountValue: number } | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState('');
+
+  // Consent checkboxes configured per visa type, shown at the bottom of Review & Pay.
+  // Keyed by index into selectedVisa.terms; reset whenever a different visa is picked.
+  const [termsAccepted, setTermsAccepted] = useState<Record<number, boolean>>({});
+  const visaTerms = useMemo(() => selectedVisa?.terms || [], [selectedVisa]);
+  useEffect(() => {
+    setTermsAccepted(Object.fromEntries(visaTerms.map((t, i) => [i, !!t.defaultChecked])));
+  }, [selectedVisa?._id, visaTerms]);
+  const allRequiredTermsAccepted = visaTerms.every((t, i) => !t.required || termsAccepted[i]);
 
   const travelers = useMemo(() => buildTravelers(adults, children), [adults, children]);
   // Must match backend computePaymentAmount exactly: order-level subtotal, then GST rounded once.
@@ -829,6 +840,10 @@ export default function ApplyPage() {
 
   const handleSubmit = async () => {
     if (!selectedVisa) return;
+    if (!allRequiredTermsAccepted) {
+      toast({ title: 'Please accept the required terms', description: 'Tick every mandatory term before submitting.', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
     try {
       setSubmitStatus('Creating application…');
@@ -853,7 +868,14 @@ export default function ApplyPage() {
       if (travelStartDate) responses['Travel Start Date'] = travelStartDate;
       if (travelEndDate) responses['Travel End Date'] = travelEndDate;
 
-      const r = await createApplication({ visaTypeId: selectedVisa._id, formResponses: responses, adults, children, travelDate: travelStartDate });
+      const r = await createApplication({
+        visaTypeId: selectedVisa._id,
+        formResponses: responses,
+        adults,
+        children,
+        travelDate: travelStartDate,
+        acceptedTerms: visaTerms.filter((_, i) => termsAccepted[i]).map((t) => t.text),
+      });
       const appId = r.data.data._id;
 
       const reqs = withDefaultPassport(selectedVisa.documentRequirements);
@@ -1665,6 +1687,34 @@ export default function ApplyPage() {
                   <strong>Secure payment via Razorpay</strong> — you&apos;ll be redirected to a secure checkout to pay with UPI, card, or netbanking.
                 </p>
               </div>
+
+              {/* Terms configured by the admin for this visa type — mandatory ones gate submission. */}
+              {visaTerms.length > 0 && (
+                <div className="border border-slate-200 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3">Terms &amp; Conditions</p>
+                  <div className="space-y-2.5">
+                    {visaTerms.map((term, i) => (
+                      <label key={term._id || i} className="flex items-start gap-2.5 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={!!termsAccepted[i]}
+                          onChange={(e) => setTermsAccepted((prev) => ({ ...prev, [i]: e.target.checked }))}
+                          className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                        />
+                        <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                          {term.text}
+                          {term.required
+                            ? <span className="text-red-500 ml-1">*</span>
+                            : <span className="text-xs text-slate-400 ml-1.5">(optional)</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {!allRequiredTermsAccepted && (
+                    <p className="text-xs text-red-500 mt-3">Please accept all required terms to continue.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1681,7 +1731,7 @@ export default function ApplyPage() {
             Next <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={submitting} className="min-w-[200px]">
+          <Button onClick={handleSubmit} disabled={submitting || !allRequiredTermsAccepted} className="min-w-[200px]">
             {submitting ? (
               <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">{submitStatus || 'Submitting…'}</span></span>
             ) : (
