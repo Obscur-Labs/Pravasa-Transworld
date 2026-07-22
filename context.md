@@ -99,7 +99,6 @@ Workspaces are managed via `npm workspaces`. The root `package.json` exposes con
 | GET/POST | `/visa-types` | List all / create visa type |
 | GET/PUT/DELETE | `/visa-types/:id` | Detail / update / delete visa type |
 | PATCH | `/visa-types/:id/toggle` | Toggle active status |
-| PATCH | `/visa-types/:id/corporate-price` | Update the corporate price for a visa type |
 | GET | `/applications` | Paginated list with filters |
 | GET | `/applications/:id` | Full application detail |
 | PUT | `/applications/:id/status` | Update application status |
@@ -249,20 +248,17 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   name: string
   description: string
   // Per-traveler pricing components. Total charged = (visa + VFS + service) × pax + 18% GST.
+  // Visa and VFS fees are pass-through charges — identical for individual and corporate.
+  // Only the service fee (our margin) has a corporate override.
   adultPrice: number          // adult visa fee (mandatory)
   childPrice: number          // child visa fee
   adultVfsFee: number         // adult VFS fee / pax (mandatory component, default 0)
   childVfsFee: number         // child VFS fee / pax
-  adultServiceFee: number     // adult service fee / pax (optional component)
-  childServiceFee: number     // child service fee / pax
-  corporateAdultPrice?: number        // corporate overrides — used only when set;
-  corporateChildPrice?: number        // service fee is often waived (0) for corporate
-  corporateAdultVfsFee?: number
-  corporateChildVfsFee?: number
-  corporateAdultServiceFee?: number
-  corporateChildServiceFee?: number
+  adultServiceFee: number     // adult service fee / pax (optional; individual rate)
+  childServiceFee: number     // child service fee / pax (individual rate)
+  corporateAdultServiceFee?: number   // corporate service-fee override — used only when set;
+  corporateChildServiceFee?: number   // 0 explicitly waives it, unset = same as individual
   price: number               // legacy mirror of adultPrice (listing "from" price)
-  corporatePrice?: number     // legacy mirror of corporateAdultPrice
   processingTime: string
   validity: string
   entry: string[]             // entry types (admin-configurable via VisaConfigOption)
@@ -271,12 +267,25 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   stayDuration: string
   formFields: FormField[]
   documentRequirements: DocumentRequirement[]
+  terms: VisaTerm[]           // consent checkboxes shown on Review & Pay (see below)
   additionalNotes: string     // shown at the BOTTOM of the user-side visa overview modal and visa summary PDF
   isActive: boolean
 }
 ```
 
-> **Pricing & GST rule:** GST is a fixed **18%** applied on top of every fee component (`utils/pricing.ts` → `GST_RATE`, `computeSubtotal`, `computeGst`, `computePaymentAmount`). Visa and VFS fees are mandatory components; the service fee is optional. All user-facing displayed totals are GST-inclusive; the full component breakdown appears only in the receipt PDF and in the checkout's hover (i) tooltip. Frontend checkout math mirrors the backend exactly (order-level subtotal, GST rounded once).
+> **Pricing & GST rule:** GST is a fixed **18%** applied on top of every fee component (`utils/pricing.ts` → `GST_RATE`, `computeSubtotal`, `computeGst`, `computePaymentAmount`). Visa and VFS fees are mandatory components; the service fee is optional. **Visa and VFS fees are the same for individual and corporate accounts (pass-through government/VFS charges); only the service fee varies by account type**, so it is the sole corporate override — a corporate service fee of 0 waives it, unset charges the standard (individual) service fee. All user-facing displayed totals are GST-inclusive; the full component breakdown appears only in the receipt PDF and in the checkout's hover (i) tooltip. Frontend checkout math mirrors the backend exactly (order-level subtotal, GST rounded once).
+
+**VisaTerm** (embedded sub-document):
+```typescript
+{
+  text: string                // the wording the applicant sees next to the checkbox
+  required: boolean           // mandatory terms block submission until ticked
+  defaultChecked: boolean     // pre-ticks the box (still un-tickable unless mandatory)
+  order: number
+}
+```
+
+> **Terms & Conditions:** admins build a per-visa list of consent checkboxes (Terms tab in the add/edit dialog). On the user-side Review & Pay step they render at the bottom, above the Pay button; mandatory terms gate submission both client-side (disabled button) and server-side (`createApplication` rejects a submission missing any required term). The exact wording ticked is snapshotted onto the application (`acceptedTerms`), so the record of what was agreed survives later edits to the visa type's terms.
 
 **FormField** (embedded sub-document):
 ```typescript
@@ -322,6 +331,7 @@ Unauthenticated routes for the landing page, country pages, and contact form.
   adultBase / adultVfs / adultFee: number
   childBase / childVfs / childFee: number
   gstAmount: number           // 18% GST included in paymentAmount; 0 = legacy pre-GST application
+  acceptedTerms: { text: string; required: boolean }[]  // snapshot of the visa terms ticked at submission
   referenceId: string         // format: PRS-{3-letter country code}-{4-digit number}, e.g. PRS-IND-4827
   createdAt: Date
   updatedAt: Date
@@ -473,7 +483,7 @@ All 10 statuses are represented by the `ApplicationStatus` union type, shared ac
 
 **Business rules:**
 - Payment UI is only unlocked after status reaches `documents_approved`
-- `paymentAmount` is locked at application creation — corporate users get `corporatePrice` if set
+- `paymentAmount` is locked at application creation — corporate users get the corporate service fee if set
 - Visa file upload by admin moves status to `visa_delivered`
 - `visa_rejected` is a terminal dead-end; no recovery path in V1
 
@@ -505,15 +515,15 @@ Both flows:
 
 ## Corporate Pricing
 
-When a user with `accountType: 'corporate'` submits an application:
+Visa and VFS fees are pass-through charges billed identically to every account type; **only the service fee differs for corporate accounts.** When a user with `accountType: 'corporate'` submits an application:
 - `createApplication` checks `req.user.accountType`
-- `computeVisaPricing` swaps in the corporate per-traveler overrides (`corporateAdultPrice`, `corporateAdultVfsFee`, `corporateAdultServiceFee`, and the child equivalents) wherever the admin has set them; unset fields fall back to standard rates. Setting a corporate service fee of 0 waives it.
+- `computeVisaPricing` takes visa and VFS fees straight from the standard fields and applies the corporate service-fee override (`corporateAdultServiceFee` / `corporateChildServiceFee`) only where the admin has set it; an unset corporate service fee falls back to the individual service fee, and 0 explicitly waives it.
 - The stored `paymentAmount` (subtotal + 18% GST) and fee snapshot are the source of truth for payment and receipt generation
 - Corporate receipts render as a **TAX INVOICE** with the client's GSTIN
 
 On the apply page (user portal):
-- Corporate users see their dedicated GST-inclusive rates on visa cards and the overview modal
-- The Review & Pay step shows a "Corporate" pill next to the total
+- Corporate users see their dedicated GST-inclusive rates (differing only by service fee) on visa cards and the overview modal
+- The Review & Pay step shows a "Corporate" pill next to the total when a corporate service fee applies
 
 ---
 
@@ -584,7 +594,7 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 
 `shared/src/types/index.ts` exports all interfaces consumed by both portals:
 - `ApplicationStatus` union + `STATUS_LABELS` map + `TIMELINE_STATUSES` array
-- `FormField`, `DocumentRequirement`, `Country`, `VisaType` (includes `corporatePrice?`)
+- `FormField`, `DocumentRequirement`, `VisaTerm`, `Country`, `VisaType` (per-traveler fee components + `corporateAdultServiceFee?`/`corporateChildServiceFee?` + `terms[]`)
 - `Application`, `Document`, `Notification`, `User`, `VisaFile`
 - `ApiResponse<T>` generic wrapper: `{ success, message, data }`
 - `DashboardStats`: `{ active, pending, approved, rejected, total }`
@@ -622,7 +632,7 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 | Route | Description |
 |---|---|
 | `/dashboard` | Stats + recent applications |
-| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 2 shows visa cards with GST-inclusive rates and a visa overview modal (details, documents, Additional Notes at the bottom, copy-all + summary-PDF buttons). Step 3 renders one upload slot per document requirement per traveller. Field/doc visibility controlled by `applicantType` (adult/child/both); OCR runs server-side on upload for passport docTypes. Step 4 (Review & Pay) shows per-traveller pre-GST lines, an explicit GST (18%) line, and a GST-inclusive total; an **(i) icon reveals the full fee breakdown on hover** (Visa Fee, VFS Fee/pax, Service Fee/pax, GST). Promo code input for users with `promoApplicable: true`; validated discounts apply to the GST-inclusive total and are passed to the payment order. |
+| `/apply` | 4-step visa application wizard. Step 1 fetches `GET /user/countries` (all active, no showOnWebsite filter). Step 2 shows visa cards with GST-inclusive rates and a visa overview modal (details, documents, Additional Notes at the bottom, copy-all + summary-PDF buttons). Step 3 renders one upload slot per document requirement per traveller. Field/doc visibility controlled by `applicantType` (adult/child/both); OCR runs server-side on upload for passport docTypes. Step 4 (Review & Pay) shows per-traveller pre-GST lines, an explicit GST (18%) line, and a GST-inclusive total; an **(i) icon reveals the full fee breakdown on hover** (Visa Fee, VFS Fee/pax, Service Fee/pax, GST). Promo code input for users with `promoApplicable: true`; validated discounts apply to the GST-inclusive total and are passed to the payment order. If the visa type defines **Terms**, a consent-checkbox card renders at the bottom (below the Razorpay notice) — mandatory terms show a red asterisk and disable the Pay button until ticked, and the accepted wording is sent with the application. |
 | `/applications` | Application list |
 | `/applications/[id]` | Application detail with document upload, Razorpay payment, and **Download Receipt** (shown right after payment and in all later statuses) |
 | `/my-visas` | Approved/delivered visas |
@@ -671,7 +681,7 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 - `/processing` — Kanban board
 - `/countries` — country management: name, flag, ISO code, Active toggle (green), "Show on Website" toggle (violet), "Edit Content" button
 - `/countries/[id]/content` — country web content editor. Two-column layout: left = form (photos, hero tagline, overview, highlights chips, requirements, processing info, tips, unlimited FAQs); right = sticky "What users see" page map (color-coded zones showing where each field renders on the public page) + live Content Status checklist (green/grey dots per field). Each form section has a colored location badge (violet = header, orange = slider, blue = overview, teal = requirements, amber = tips, rose = FAQs).
-- `/visa-types` — visa type management. Pricing panel captures the per-traveler fee components (Adult/Child Visa Fee, VFS Fee/pax, optional Service Fee/pax) plus corporate overrides; 18% GST is added automatically and the table shows GST-inclusive charged totals. List toolbar has name/description search, country + category + status filters, a sort dropdown (name A–Z/Z–A, price low↔high, newest/oldest), and a clear-filters shortcut
+- `/visa-types` — visa type management. The add/edit dialog is a **5-step wizard**: **Information** (country, name, description, visa details) → **Pricing** → **Form** (presets + dynamic fields & document requirements) → **Additional Notes** → **Terms**. Footer Back/Continue walk the steps; validation errors jump to the tab that owns them (missing visa fee → Pricing, missing country/name/processing time → Information), and each tab shows a green tick when its required fields are satisfied. The **Pricing** tab is split by who the charge belongs to: one *Government & VFS charges* grid (Adult/Child Visa Fee + VFS Fee, entered once — same for everyone) and one *Service fee* grid with Individual and Corporate rows (Adult/Child each), where a blank corporate cell inherits the individual fee and 0 waives it; a live "Customer pays (incl. 18% GST)" grid previews both account types. The **Terms** tab (`components/shared/terms-editor.tsx`) builds the per-visa consent checkboxes (free-text wording, Mandatory toggle, Default-selected toggle). List toolbar has name/description search, country + category + status filters, a sort dropdown (name A–Z/Z–A, price low↔high, newest/oldest), and a clear-filters shortcut; the table's Corporate column highlights in amber only when a corporate service fee is set.
 - `/users` — customer management with full CRUD for both Individual and Corporate profiles. Tabbed list (Individual / Corporate) with search and stat tiles; "Add Customer" button and per-row Edit/Delete actions. Create/edit share one dialog (`components/shared/customer-form-dialog.tsx`) with an Individual/Corporate segmented control — corporate selection reveals a required, auto-uppercased GST field — plus Active and Promo Eligible switches. Inline Promo Eligible/Blocked toggle per row (calls `PATCH /admin/users/:id/promo-applicable`). Delete confirms, then moves the customer to trash.
 - `/users/[id]` — customer profile page: header with type badge, GST, contact info, and Edit/Delete buttons; stat tiles (applications, approved, rejected, total spend); document vault with ZIP download; application history table
 - `/promo-codes` — full CRUD for promo codes (code, description, discount type/value, active toggle, show-on-website toggle, expiry date, usage limit, trash). Right-slide history drawer shows per-use breakdown (user, email, discount applied, date, application reference)
@@ -680,7 +690,8 @@ Four email templates, all styled with inline CSS (blue brand: `#1d4ed8`):
 
 **Key capabilities:**
 - No-code dynamic form builder — admin configures `formFields` per visa type
-- Per-traveler fee components (visa/VFS/service) with corporate overrides per visa type
+- Per-traveler fee components (visa/VFS shared, service fee with a corporate override) per visa type
+- Per-visa Terms & Conditions builder — consent checkboxes shown to the applicant before payment
 - Per-document review with approve/reject + reason
 - Bulk document approval
 - Manual payment override
@@ -740,6 +751,8 @@ Running `npm run seed` creates:
 | Dynamic form builder | Agencies can configure visa-specific fields without code changes |
 | Pricing snapshot at creation time | `paymentAmount` + per-traveler fee components + `gstAmount` are locked when the application is created — no price drift on receipts if the admin edits visa type fees later |
 | GST added on top (fixed 18%) | Single `GST_RATE` constant mirrored in backend and frontend; totals displayed everywhere are GST-inclusive, component breakdown reserved for the receipt PDF and the checkout hover tooltip |
+| Only the service fee varies by account type | Visa and VFS fees are pass-through government/VFS charges (same for everyone), so they're stored once; the service fee is our margin and is the sole corporate override. Cuts the corporate fields from six to two and lets the Pricing tab show both account types on one screen |
+| Terms snapshotted onto the application | `acceptedTerms` stores the exact wording ticked at submission, so the record of what was agreed survives later edits to the visa type's terms — same reasoning as the pricing snapshot. Required terms are enforced server-side, not just via the disabled button |
 | User-scoped Cloudinary folders | `users/{id}/documents`, `vault`, `profile` — isolates each user's assets, simplifies auditing and deletion |
 | Application reference format `PRS-{CC}-{NNNN}` | Human-readable, country-identifiable, short enough for receipts and support tickets |
 | Sidebar hidden on mobile | Small screens can't accommodate a persistent left sidebar; top navbar + drawer is standard mobile UX |

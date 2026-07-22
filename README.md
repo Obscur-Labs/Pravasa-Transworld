@@ -36,7 +36,8 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Browse countries and available visa types
 - **Transparent pricing** — every visa price is composed of Visa Fee + VFS Fee/pax + optional Service Fee/pax, with a fixed 18% GST added on top; displayed totals are always GST-inclusive
 - **Checkout breakdown tooltip** — an info (i) icon on the Review & Pay step reveals the full per-component fee breakdown on hover
-- **Corporate pricing** — corporate accounts see their dedicated per-traveler rates (visa/VFS/service overrides; service fee often waived)
+- **Terms & Conditions** — a visa type can define consent checkboxes; the applicant must accept the mandatory ones before paying, and the accepted wording is stored with the application
+- **Corporate pricing** — corporate accounts pay the same visa/VFS fees as individuals and differ only by the service fee, which the admin can override per visa type (often waived)
 - **Promo codes** — eligible users see a promo code field in the Review & Pay step; validates live with discount preview
 - **Promo popup** — homepage shows an auto-dismissing bottom-right popup with active promo codes after 5 seconds (copy button included)
 - Fill dynamic application forms (configured per visa type by admin)
@@ -54,7 +55,9 @@ Pravasa Transworld gives agencies a professional, end-to-end system for handling
 - Secure email + password console
 - Dashboard with live application stats
 - Full country and visa type management (including ISO country codes and corporate pricing)
-- **Per-traveler fee components** — each visa type defines adult/child Visa Fee, VFS Fee, and optional Service Fee (plus corporate overrides); 18% GST is applied automatically on top
+- **Per-traveler fee components** — each visa type defines adult/child Visa Fee, VFS Fee, and optional Service Fee; 18% GST is applied automatically on top. Visa and VFS fees are shared by all account types — only the service fee has a corporate override (0 waives it, blank matches the individual rate)
+- **5-step visa type wizard** — the add/edit dialog splits into Information → Pricing → Form → Additional Notes → Terms, with validation that jumps to the tab owning any error
+- **Per-visa Terms builder** — define consent checkboxes per visa type, each Mandatory or optional and optionally default-selected; mandatory terms gate the applicant's checkout
 - **Visa type filtering & sorting** — search by name, filter by country/category/status, sort by name, price, or creation date
 - No-code dynamic form builder — define custom fields per visa type; adult/child/both applicant type per field
 - OCR-only doc types (passport_front, passport_back); OCR runs server-side automatically
