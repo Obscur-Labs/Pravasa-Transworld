@@ -129,6 +129,13 @@ export default function VisaTypesPage() {
     getVisaConfig().then((r) => setConfigOptions(r.data.data)).catch(() => {});
   }, []);
 
+  // Deep link from a country card (/visa-types?country=<id>) pre-filters the list to
+  // that country. Read once on mount from the URL to avoid a Suspense boundary.
+  useEffect(() => {
+    const country = new URLSearchParams(window.location.search).get('country');
+    if (country) setSelectedCountry(country);
+  }, []);
+
   // Active options for a category, plus the currently-selected value even if it's since
   // been deactivated — so editing an older visa type never silently resets the field.
   const optionsFor = (category: VisaConfigCategory, currentValue?: string) => {
@@ -344,7 +351,9 @@ export default function VisaTypesPage() {
   };
 
   const openCreate = () => {
-    setForm(emptyForm());
+    // When the list is filtered to one country (e.g. arriving from a country card),
+    // pre-select that country so the admin doesn't have to pick it again.
+    setForm({ ...emptyForm(), country: selectedCountry || '' });
     setEditId(null);
     setApplyPresetId('');
     setPresetName('');

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText, ArrowUpDown, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Search, Globe, FileText, ArrowUpDown, MapPin, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -244,6 +244,11 @@ export default function CountriesPage() {
                     <button onClick={() => startEdit(c)} title="Edit basic info" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
+                    <Link href={`/visa-types?country=${c._id}`} title="Manage visa types">
+                      <span className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors flex items-center">
+                        <Plane className="w-3.5 h-3.5" />
+                      </span>
+                    </Link>
                     <Link href={`/countries/${c._id}/content`} title="Edit website content">
                       <span className="p-1.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-500/10 rounded-lg transition-colors flex items-center">
                         <FileText className="w-3.5 h-3.5" />
