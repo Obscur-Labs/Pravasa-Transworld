@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard, FileText, Globe2, CreditCard, Users, Kanban,
+  LayoutDashboard, FileText, Globe2, Users, Kanban,
   Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt,
 } from 'lucide-react';
 
@@ -15,18 +15,18 @@ export const topNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/applications', label: 'Applications', icon: FileText },
   { href: '/processing', label: 'Processing Board', icon: Kanban },
+  // Countries own their visa types — drill into a country to manage its visas.
+  { href: '/countries', label: 'Countries & Visas', icon: Globe2 },
 ];
 
 // Grouped under the "Configurations" accordion in the sidebar.
 export const configNavItems: NavItem[] = [
-  { href: '/countries', label: 'Countries', icon: Globe2 },
   { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate },
   { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal },
   { href: '/receipt-config', label: 'Receipt Config', icon: Receipt },
 ];
 
 export const bottomNavItems: NavItem[] = [
-  { href: '/visa-types', label: 'Visa Types', icon: CreditCard },
   { href: '/users', label: 'Customers', icon: Users },
   { href: '/promo-codes', label: 'Promo Codes', icon: Tag },
   { href: '/leads', label: 'Contact Leads', icon: MessageSquare },

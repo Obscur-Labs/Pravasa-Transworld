@@ -244,7 +244,7 @@ export default function CountriesPage() {
                     <button onClick={() => startEdit(c)} title="Edit basic info" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <Link href={`/visa-types?country=${c._id}`} title="Manage visa types">
+                    <Link href={`/countries/${c._id}`} title="Open country & manage visa types">
                       <span className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors flex items-center">
                         <Plane className="w-3.5 h-3.5" />
                       </span>
@@ -260,7 +260,7 @@ export default function CountriesPage() {
                   </div>
                 </div>
 
-                <p className="font-semibold text-foreground">{c.name}</p>
+                <Link href={`/countries/${c._id}`} className="font-semibold text-foreground hover:text-primary transition-colors">{c.name}</Link>
                 {c.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.description}</p>}
 
                 <div className="mt-4 pt-3 border-t border-border space-y-2.5">

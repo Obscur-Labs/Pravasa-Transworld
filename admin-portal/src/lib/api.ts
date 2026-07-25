@@ -36,6 +36,7 @@ export const getDashboardStats = () => api.get('/admin/dashboard');
 
 // Countries
 export const getCountries = () => api.get('/admin/countries');
+export const getCountry = (id: string) => api.get(`/admin/countries/${id}`);
 export const createCountry = (data: object) => api.post('/admin/countries', data);
 export const updateCountry = (id: string, data: object) => api.put(`/admin/countries/${id}`, data);
 export const deleteCountry = (id: string) => api.delete(`/admin/countries/${id}`);

@@ -11,6 +11,12 @@ export const getCountries = async (_req: AdminRequest, res: Response): Promise<v
   sendSuccess(res, countries);
 };
 
+export const getCountry = async (req: AdminRequest, res: Response): Promise<void> => {
+  const country = await Country.findById(req.params.id);
+  if (!country) { sendError(res, 'Country not found', 404); return; }
+  sendSuccess(res, country);
+};
+
 export const createCountry = async (req: AdminRequest, res: Response): Promise<void> => {
   const { name, flag, description } = req.body;
   if (!name || !flag) {

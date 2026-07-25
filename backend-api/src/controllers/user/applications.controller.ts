@@ -255,8 +255,15 @@ export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): P
 };
 
 export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promise<void> => {
-  const filter: Record<string, unknown> = { isActive: true };
-  if (req.query.country) filter.country = req.query.country;
+  // Deactivating a country hides all of its visa types, regardless of each visa's own
+  // isActive flag. This is enforced on read (non-destructive) so re-activating the country
+  // restores exactly the per-visa states it had before.
+  const activeCountryIds = await Country.find({ isActive: true }).distinct('_id');
+  const filter: Record<string, unknown> = { isActive: true, country: { $in: activeCountryIds } };
+  if (req.query.country) {
+    const requested = String(req.query.country);
+    filter.country = activeCountryIds.map(String).includes(requested) ? requested : { $in: [] as unknown[] };
+  }
   const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 }).lean();
   const includeCorporate = req.user?.accountType === 'corporate';
   sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));

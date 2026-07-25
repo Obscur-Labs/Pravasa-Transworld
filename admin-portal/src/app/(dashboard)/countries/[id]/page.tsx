@@ -1,9 +1,12 @@
 'use client';
 import { Fragment, useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, Search as SearchIcon, ArrowUpDown } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
@@ -14,7 +17,8 @@ import { FormFieldEditor } from '@/components/shared/form-field-editor';
 import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
 import { TermsEditor } from '@/components/shared/terms-editor';
 import {
-  getCountries, getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
+  getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
+  getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
   getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -76,7 +80,7 @@ const TAB_LABELS: Record<TabKey, string> = {
 };
 // Which tab a given validation error lives on, so a failed save jumps to the right step.
 const ERROR_TAB: Record<string, TabKey> = {
-  country: 'info', name: 'info', processingTime: 'info', adultPrice: 'pricing',
+  name: 'info', processingTime: 'info', adultPrice: 'pricing',
 };
 
 const emptyForm = () => ({
@@ -96,10 +100,13 @@ const emptyForm = () => ({
   additionalNotes: '',
 });
 
-export default function VisaTypesPage() {
-  const [countries, setCountries] = useState<Country[]>([]);
+export default function CountryDetailPage() {
+  const params = useParams();
+  const countryId = params.id as string;
+  const router = useRouter();
+
+  const [country, setCountry] = useState<Country | null>(null);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState('');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState<'' | 'active' | 'inactive'>('');
@@ -114,6 +121,14 @@ export default function VisaTypesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
 
+  // ── Country header (basic info edit + outer toggles) ──
+  const [showCountryForm, setShowCountryForm] = useState(false);
+  const [countryForm, setCountryForm] = useState({ name: '', flag: '', description: '' });
+  const [savingCountry, setSavingCountry] = useState(false);
+  const [togglingCountry, setTogglingCountry] = useState(false);
+  const [togglingWeb, setTogglingWeb] = useState(false);
+  const [deleteCountryOpen, setDeleteCountryOpen] = useState(false);
+
   // Form presets
   const [presets, setPresets] = useState<FormPreset[]>([]);
   const [applyPresetId, setApplyPresetId] = useState('');
@@ -123,18 +138,19 @@ export default function VisaTypesPage() {
   // Jurisdiction / category / sub-type / entry option lists — managed on the Visa Config page.
   const [configOptions, setConfigOptions] = useState<VisaConfigOption[]>([]);
 
+  const loadVisaTypes = () => getVisaTypes(countryId).then((r) => setVisaTypes(r.data.data));
+
   useEffect(() => {
-    getCountries().then((r) => setCountries(r.data.data));
+    getCountry(countryId).then((r) => setCountry(r.data.data)).catch(() => setCountry(null));
+    loadVisaTypes();
     getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
     getVisaConfig().then((r) => setConfigOptions(r.data.data)).catch(() => {});
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryId]);
 
-  // Deep link from a country card (/visa-types?country=<id>) pre-filters the list to
-  // that country. Read once on mount from the URL to avoid a Suspense boundary.
-  useEffect(() => {
-    const country = new URLSearchParams(window.location.search).get('country');
-    if (country) setSelectedCountry(country);
-  }, []);
+  // Deactivating a country cascades to every visa under it: none are shown to customers
+  // regardless of their own status, so the per-visa toggles are locked here to make that clear.
+  const countryInactive = !!country && !country.isActive;
 
   // Active options for a category, plus the currently-selected value even if it's since
   // been deactivated — so editing an older visa type never silently resets the field.
@@ -149,16 +165,11 @@ export default function VisaTypesPage() {
     return active;
   };
 
-  useEffect(() => {
-    getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
-  }, [selectedCountry]);
-
   // Fields that live on the Information tab still need to be validated when the Form
   // tab is active — hidden/unmounted fields don't participate in native HTML validation,
   // so this replaces reliance on the `required` attribute across tab boundaries.
   const validateInfo = (): Record<string, string> => {
     const errs: Record<string, string> = {};
-    if (!form.country) errs.country = 'Select a country';
     if (!form.name.trim()) errs.name = 'Visa name is required';
     if (!form.adultPrice) errs.adultPrice = 'Adult price is required';
     if (!form.processingTime.trim()) errs.processingTime = 'Processing time is required';
@@ -207,6 +218,7 @@ export default function VisaTypesPage() {
     try {
       const payload = {
         ...form,
+        country: countryId,
         adultPrice: Number(form.adultPrice),
         childPrice: Number(form.childPrice || 0),
         adultVfsFee: Number(form.adultVfsFee || 0),
@@ -227,7 +239,7 @@ export default function VisaTypesPage() {
       }
       setShowForm(false);
       setEditId(null);
-      getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
+      loadVisaTypes();
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
     } finally {
@@ -238,7 +250,7 @@ export default function VisaTypesPage() {
   const handleDelete = async (id: string) => {
     await deleteVisaType(id);
     toast({ title: 'Moved to Trash', description: 'Restore it anytime from the Trash page.' });
-    getVisaTypes(selectedCountry || undefined).then((r) => setVisaTypes(r.data.data));
+    loadVisaTypes();
   };
 
   const handleToggle = async (id: string) => {
@@ -252,6 +264,60 @@ export default function VisaTypesPage() {
     } finally {
       setToggling(null);
     }
+  };
+
+  // ── Country header actions ──
+  const startCountryEdit = () => {
+    if (!country) return;
+    setCountryForm({ name: country.name, flag: country.flag, description: country.description });
+    setShowCountryForm(true);
+  };
+
+  const handleCountrySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCountry(true);
+    try {
+      const res = await updateCountry(countryId, countryForm);
+      setCountry(res.data.data);
+      toast({ title: 'Country updated', variant: 'success' });
+      setShowCountryForm(false);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
+    } finally {
+      setSavingCountry(false);
+    }
+  };
+
+  const handleToggleCountry = async () => {
+    setTogglingCountry(true);
+    try {
+      const res = await toggleCountry(countryId);
+      setCountry((c) => c ? { ...c, isActive: res.data.data.isActive } : c);
+      toast({ title: res.data.data.isActive ? 'Country activated' : 'Country deactivated', variant: 'success' });
+    } catch {
+      toast({ title: 'Failed to toggle status', variant: 'destructive' });
+    } finally {
+      setTogglingCountry(false);
+    }
+  };
+
+  const handleToggleWeb = async () => {
+    setTogglingWeb(true);
+    try {
+      const res = await toggleCountryWebsite(countryId);
+      setCountry((c) => c ? { ...c, showOnWebsite: res.data.data.showOnWebsite } : c);
+      toast({ title: res.data.data.showOnWebsite ? 'Shown on website' : 'Hidden from website', variant: 'success' });
+    } catch {
+      toast({ title: 'Failed to toggle website visibility', variant: 'destructive' });
+    } finally {
+      setTogglingWeb(false);
+    }
+  };
+
+  const handleDeleteCountry = async () => {
+    await deleteCountry(countryId);
+    toast({ title: 'Moved to Trash', description: 'Restore it anytime from the Trash page.' });
+    router.push('/countries');
   };
 
   const addField = () => setForm((f) => ({ ...f, formFields: [...f.formFields, emptyField()] }));
@@ -351,20 +417,19 @@ export default function VisaTypesPage() {
   };
 
   const openCreate = () => {
-    // When the list is filtered to one country (e.g. arriving from a country card),
-    // pre-select that country so the admin doesn't have to pick it again.
-    setForm({ ...emptyForm(), country: selectedCountry || '' });
+    // Country is fixed to the page's country — pre-select it so it's never asked for.
+    setForm({ ...emptyForm(), country: countryId });
     setEditId(null);
     setApplyPresetId('');
     setPresetName('');
     setActiveTab('info');
     setInfoErrors({});
-    setShowForm(!showForm);
+    setShowForm(true);
   };
 
   const startEdit = (vt: VisaType) => {
     setForm({
-      country: String(vt.country?._id || vt.country),
+      country: countryId,
       name: vt.name,
       description: vt.description,
       adultPrice: String(vt.adultPrice || vt.price || ''),
@@ -392,7 +457,6 @@ export default function VisaTypesPage() {
     setActiveTab('info');
     setInfoErrors({});
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // GST-inclusive charged totals (visa + VFS + service, +18% GST) — matches checkout.
@@ -454,9 +518,97 @@ export default function VisaTypesPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <Link href="/countries" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
+        <ArrowLeft className="w-4 h-4" /> Back to Countries
+      </Link>
+
+      {/* ── Country header — outer active/website toggles + basic-info edit + delete ── */}
+      <Card className={`mb-6 ${countryInactive ? 'border-warning/40' : ''}`}>
+        <CardContent className="p-5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-4 min-w-0">
+              {country && <img src={`https://flagcdn.com/w80/${country.flag}.png`} alt={country.name} className="w-14 h-10 object-cover rounded shadow-sm flex-shrink-0" />}
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-foreground truncate">{country?.name || 'Loading…'}</h1>
+                {country?.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{country.description}</p>}
+                <div className="flex items-center gap-1 mt-3">
+                  <button onClick={startCountryEdit} title="Edit basic info" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <Link href={`/countries/${countryId}/content`} title="Edit website content">
+                    <span className="p-1.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-500/10 rounded-lg transition-colors flex items-center">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
+                  </Link>
+                  <button onClick={() => setDeleteCountryOpen(true)} title="Move country to trash" className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 sm:min-w-[190px] sm:border-l sm:border-border sm:pl-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    {country?.isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${country?.isActive ? 'bg-success' : 'bg-muted-foreground/40'}`}></span>
+                  </span>
+                  <span className={`text-xs font-semibold ${country?.isActive ? 'text-success' : 'text-muted-foreground'}`}>
+                    {country?.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <Switch checked={!!country?.isActive} onChange={handleToggleCountry} disabled={togglingCountry || !country} tone="success" />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Globe className={`w-3 h-3 ${country?.showOnWebsite ? 'text-violet-500' : 'text-muted-foreground/40'}`} />
+                  <span className={`text-xs font-semibold ${country?.showOnWebsite ? 'text-violet-600' : 'text-muted-foreground'}`}>
+                    {country?.showOnWebsite ? 'On Website' : 'Hidden'}
+                  </span>
+                </div>
+                <Switch checked={!!country?.showOnWebsite} onChange={handleToggleWeb} disabled={togglingWeb || !country} tone="violet" />
+              </div>
+            </div>
+          </div>
+
+          {showCountryForm && (
+            <form onSubmit={handleCountrySubmit} className="mt-5 pt-5 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Label>Country Name</Label>
+                <Input className="mt-1" placeholder="e.g. Canada" value={countryForm.name} onChange={(e) => setCountryForm({ ...countryForm, name: e.target.value })} required />
+              </div>
+              <div>
+                <Label>Flag Code (ISO 2-letter)</Label>
+                <Input className="mt-1" placeholder="e.g. ca, us, gb" value={countryForm.flag} onChange={(e) => setCountryForm({ ...countryForm, flag: e.target.value.toLowerCase() })} required />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input className="mt-1" placeholder="Short description" value={countryForm.description} onChange={(e) => setCountryForm({ ...countryForm, description: e.target.value })} />
+              </div>
+              <div className="sm:col-span-3 flex gap-2">
+                <Button type="submit" disabled={savingCountry}>
+                  {savingCountry ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowCountryForm(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {countryInactive && (
+        <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+          <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-warning-foreground flex-shrink-0">!</span>
+          <p className="text-sm text-foreground/80">
+            This country is <span className="font-semibold">deactivated</span>. All of its visa types are hidden from customers regardless of their own status. Reactivate the country to manage individual visa visibility.
+          </p>
+        </div>
+      )}
+
       <PageHeader
         title="Visa Types"
-        description="Manage visa types, per-traveler pricing, and dynamic form fields."
+        description="Manage this country's visa types, per-traveler pricing, and dynamic form fields."
         action={
           <Button onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" /> Add Visa Type
@@ -472,7 +624,7 @@ export default function VisaTypesPage() {
               {TABS.map((tab, i) => {
                 const errs = validateInfo();
                 const done = tab === 'info'
-                  ? !errs.country && !errs.name && !errs.processingTime
+                  ? !errs.name && !errs.processingTime
                   : tab === 'pricing' ? !errs.adultPrice : false;
                 return (
                   <TabButton
@@ -495,12 +647,11 @@ export default function VisaTypesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Country</Label>
-                  <select value={form.country} onChange={(e) => { setForm({ ...form, country: e.target.value }); clearInfoError('country'); }} required
-                    className={`mt-1 w-full h-10 px-3 rounded-lg border bg-card text-foreground text-sm focus:outline-none focus:ring-2 ${infoErrors.country ? 'border-destructive focus:ring-destructive' : 'border-input focus:ring-ring'}`}>
-                    <option value="">Select country...</option>
-                    {countries.map((c) => <option key={c._id} value={c._id}>{c.flag} {c.name}</option>)}
-                  </select>
-                  {infoErrors.country && <p className="text-xs text-destructive mt-1">{infoErrors.country}</p>}
+                  {/* Fixed to this page's country — shown read-only rather than as a picker. */}
+                  <div className="mt-1 h-10 px-3 flex items-center gap-2 rounded-lg border border-input bg-muted/40 text-sm text-foreground">
+                    {country && <img src={`https://flagcdn.com/w20/${country.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />}
+                    <span className="truncate">{country?.name || '—'}</span>
+                  </div>
                 </div>
                 <div>
                   <Label>Visa Name</Label>
@@ -760,10 +911,6 @@ export default function VisaTypesPage() {
             className="pl-9 h-9 w-56"
           />
         </div>
-        <select value={selectedCountry} onChange={(e) => setSelectedCountry(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-          <option value="">All Countries</option>
-          {countries.map((c) => <option key={c._id} value={c._id}>{c.flag} {c.name}</option>)}
-        </select>
         <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Categories</option>
           {optionsFor('visaCategory').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -784,9 +931,9 @@ export default function VisaTypesPage() {
             <option value="oldest">Oldest first</option>
           </select>
         </div>
-        {(search || filterCategory || filterStatus || selectedCountry) && (
+        {(search || filterCategory || filterStatus) && (
           <button
-            onClick={() => { setSearch(''); setFilterCategory(''); setFilterStatus(''); setSelectedCountry(''); }}
+            onClick={() => { setSearch(''); setFilterCategory(''); setFilterStatus(''); }}
             className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             <X className="w-3 h-3" /> Clear filters
@@ -798,19 +945,23 @@ export default function VisaTypesPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-muted/40">
-              {['Visa Type', 'Country', 'Adult ₹', 'Child ₹', 'Corporate (A / C)', 'Process', 'Time', 'Entry', 'Category', 'Status', ''].map((h) => (
+              {['Visa Type', 'Adult ₹', 'Child ₹', 'Corporate (A / C)', 'Process', 'Time', 'Entry', 'Category', 'Status', ''].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {displayedVisaTypes.length === 0 ? (
-              <TableRow><TableCell colSpan={11} className="px-4 py-10 text-center text-muted-foreground">
-                {visaTypes.length === 0 ? 'No visa types. Create one above.' : 'No visa types match the current filters.'}
+              <TableRow><TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
+                {visaTypes.length === 0 ? 'No visa types yet. Add one to get started.' : 'No visa types match the current filters.'}
               </TableCell></TableRow>
             ) : (
-              displayedVisaTypes.map((vt) => (
-                <TableRow key={vt._id} className={!vt.isActive ? 'opacity-60' : ''}>
+              displayedVisaTypes.map((vt) => {
+                // A visa is effectively hidden from customers if the country is off,
+                // even when its own toggle is on — reflect that here.
+                const effectivelyOff = countryInactive || !vt.isActive;
+                return (
+                <TableRow key={vt._id} className={effectivelyOff ? 'opacity-60' : ''}>
                   <TableCell>
                     <p className="font-semibold text-foreground">{vt.name}</p>
                     {vt.description && <p className="text-xs text-muted-foreground">{vt.description}</p>}
@@ -819,12 +970,6 @@ export default function VisaTypesPage() {
                         {configOptions.find((o) => o.category === 'visaSubType' && o.value === vt.visaSubType)?.label || vt.visaSubType}
                       </span>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="flex items-center gap-1.5">
-                      <img src={`https://flagcdn.com/w20/${vt.country?.flag}.png`} alt="" className="w-5 h-3 object-cover rounded" />
-                      {vt.country?.name}
-                    </span>
                   </TableCell>
                   <TableCell className="font-bold text-primary" title="Visa + VFS + service fee, incl. 18% GST">
                     {formatCurrency(stdAdultTotal(vt))}
@@ -862,13 +1007,20 @@ export default function VisaTypesPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <Switch checked={vt.isActive} onChange={() => handleToggle(vt._id)} disabled={toggling === vt._id} />
+                      <Switch
+                        checked={vt.isActive && !countryInactive}
+                        onChange={() => handleToggle(vt._id)}
+                        disabled={toggling === vt._id || countryInactive}
+                        title={countryInactive ? 'Reactivate the country to manage visa visibility' : undefined}
+                      />
                       <div className="flex items-center gap-1.5">
                         <span className="relative flex h-1.5 w-1.5">
-                          {vt.isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
-                          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${vt.isActive ? 'bg-success' : 'bg-muted-foreground/40'}`}></span>
+                          {vt.isActive && !countryInactive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
+                          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${vt.isActive && !countryInactive ? 'bg-success' : 'bg-muted-foreground/40'}`}></span>
                         </span>
-                        <span className={`text-xs font-semibold ${vt.isActive ? 'text-success' : 'text-muted-foreground'}`}>{vt.isActive ? 'Active' : 'Inactive'}</span>
+                        <span className={`text-xs font-semibold ${vt.isActive && !countryInactive ? 'text-success' : 'text-muted-foreground'}`}>
+                          {countryInactive ? 'Country off' : vt.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
                     </div>
                   </TableCell>
@@ -879,7 +1031,8 @@ export default function VisaTypesPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -900,6 +1053,14 @@ export default function VisaTypesPage() {
         description="You can restore it later from the Trash page."
         confirmLabel="Move to Trash"
         onConfirm={async () => { if (deletePresetId) await handleDeletePreset(deletePresetId); }}
+      />
+      <ConfirmDialog
+        open={deleteCountryOpen}
+        onOpenChange={setDeleteCountryOpen}
+        title="Move this country to Trash?"
+        description="Its visa types stay attached and can be restored with it from the Trash page."
+        confirmLabel="Move to Trash"
+        onConfirm={handleDeleteCountry}
       />
     </div>
   );

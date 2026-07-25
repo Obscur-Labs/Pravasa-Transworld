@@ -22,7 +22,7 @@ router.get('/dashboard', apps.getDashboardStats);
 
 // Countries
 router.route('/countries').get(countries.getCountries).post(countries.createCountry);
-router.route('/countries/:id').put(countries.updateCountry).delete(countries.deleteCountry);
+router.route('/countries/:id').get(countries.getCountry).put(countries.updateCountry).delete(countries.deleteCountry);
 router.patch('/countries/:id/toggle', countries.toggleCountryStatus);
 router.patch('/countries/:id/toggle-website', countries.toggleWebsiteVisibility);
 router.put('/countries/:id/web-content', countries.updateWebContent);
