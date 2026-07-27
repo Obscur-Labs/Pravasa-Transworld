@@ -234,9 +234,10 @@ export default function CountryDetailPage() {
   const vt = visaTypes[selectedVt];
   const faqs = wc?.faqs ?? [];
 
-  // Visa fee + VFS fee + service fee, with 18% GST on top — matches what is charged at checkout.
-  const adultTotal = vt ? Math.round((vt.adultPrice + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * 1.18) : 0;
-  const childTotal = vt ? Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * 1.18) : 0;
+  // Visa fee + VFS fee + service fee, with 18% GST on the service fee only (visa + VFS are
+  // untaxed) — matches what is charged at checkout.
+  const adultTotal = vt ? vt.adultPrice + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0) + Math.round((vt.adultServiceFee || 0) * 0.18) : 0;
+  const childTotal = vt ? (vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0) + Math.round((vt.childServiceFee || 0) * 0.18) : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">

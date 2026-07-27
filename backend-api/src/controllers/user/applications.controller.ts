@@ -77,7 +77,7 @@ export const createApplication = async (req: AuthRequest, res: Response): Promis
   const breakdown = computeVisaPricing(visaType, isCorporate);
   const { adultBase, adultVfs, adultFee, childBase, childVfs, childFee } = breakdown;
   const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
-  const gstAmount = computeGst(subtotal);
+  const gstAmount = computeGst(breakdown, numAdults, numChildren);
   const paymentAmount = subtotal + gstAmount;
 
   const application = await Application.create({

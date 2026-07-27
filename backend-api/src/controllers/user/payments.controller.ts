@@ -54,6 +54,7 @@ export const downloadReceipt = async (req: AuthRequest, res: Response): Promise<
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);
     res.end(pdfBuffer);
   } catch (err) {
+    console.error('[receipt] Failed to generate user receipt PDF:', err);
     sendError(res, 'Failed to generate receipt', 500);
   }
 };

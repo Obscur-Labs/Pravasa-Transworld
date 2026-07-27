@@ -32,7 +32,7 @@ type Traveler = { key: string; label: string; type: 'adult' | 'child' };
 const STEPS = ['Country', 'Visa Type', 'Applicant Details', 'Review & Pay'];
 const DRAFT_KEY = 'visa_app_draft';
 const ACCEPTED = '.jpg,.jpeg,.png,.pdf,.doc,.docx';
-// Fixed 18% GST applied on top of every fee component (visa + VFS + service) — mirrors backend.
+// Fixed 18% GST applied to the service fee only (visa + VFS are untaxed) — mirrors backend.
 const GST_RATE = 0.18;
 
 function formatBytes(bytes: number) {
@@ -654,8 +654,8 @@ export default function ApplyPage() {
   const { user } = useAuthStore();
   const isCorporate = user?.accountType === 'corporate';
 
-  // Per-traveler pricing components: visa fee (base) + VFS fee + service fee, with 18% GST
-  // applied on top of everything. Mirrors backend utils/pricing.ts exactly.
+  // Per-traveler pricing components: visa fee (base) + VFS fee + service fee. 18% GST is
+  // charged on the service fee only. Mirrors backend utils/pricing.ts exactly.
   // Visa and VFS fees are pass-through charges, identical for every account type.
   // Only the service fee has a corporate override.
   const rateParts = (v: VisaType) => {
@@ -675,8 +675,9 @@ export default function ApplyPage() {
   const adultNetRate = (v: VisaType) => { const r = rateParts(v); return r.adultBase + r.adultVfs + r.adultFee; };
   const childNetRate = (v: VisaType) => { const r = rateParts(v); return r.childBase + r.childVfs + r.childFee; };
   // GST-inclusive per-traveler display rates (cards, overview modal, summary PDF).
-  const adultRate = (v: VisaType) => Math.round(adultNetRate(v) * (1 + GST_RATE));
-  const childRate = (v: VisaType) => Math.round(childNetRate(v) * (1 + GST_RATE));
+  // GST is added on the service fee only, not on the visa/VFS portion.
+  const adultRate = (v: VisaType) => { const r = rateParts(v); return adultNetRate(v) + Math.round(r.adultFee * GST_RATE); };
+  const childRate = (v: VisaType) => { const r = rateParts(v); return childNetRate(v) + Math.round(r.childFee * GST_RATE); };
 
   const [step, setStep] = useState<Step>(1);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -718,9 +719,11 @@ export default function ApplyPage() {
   const allRequiredTermsAccepted = visaTerms.every((t, i) => !t.required || termsAccepted[i]);
 
   const travelers = useMemo(() => buildTravelers(adults, children), [adults, children]);
-  // Must match backend computePaymentAmount exactly: order-level subtotal, then GST rounded once.
+  // Must match backend computePaymentAmount exactly: GST is 18% of the order's total
+  // service fee (visa + VFS untaxed), rounded once at the order level.
   const orderSubtotal = (v: VisaType) => adults * adultNetRate(v) + children * childNetRate(v);
-  const orderGst = (v: VisaType) => Math.round(orderSubtotal(v) * GST_RATE);
+  const orderServiceFee = (v: VisaType) => { const r = rateParts(v); return adults * r.adultFee + children * r.childFee; };
+  const orderGst = (v: VisaType) => Math.round(orderServiceFee(v) * GST_RATE);
   const orderTotal = (v: VisaType) => orderSubtotal(v) + orderGst(v);
 
   useEffect(() => {

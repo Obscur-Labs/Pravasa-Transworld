@@ -234,8 +234,8 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
   totalRow('Sub-Total', inr(grossSubtotal), true);
 
   if (data.gstAmount > 0) {
-    // Current pricing: 18% GST is charged on top of every component (visa + VFS + service).
-    totalRow(`GST @ ${(GST_RATE * 100).toFixed(2)}%`, `+${inr(data.gstAmount)}`);
+    // Current pricing: 18% GST is charged on the service fee only (visa + VFS are untaxed).
+    totalRow(`GST @ ${(GST_RATE * 100).toFixed(2)}% (on service charges)`, `+${inr(data.gstAmount)}`);
   }
 
   if (discount > 0) {

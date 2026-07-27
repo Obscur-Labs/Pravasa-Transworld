@@ -174,8 +174,10 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
     const fullUser = await (await import('../../models/User')).default.findById(application.user);
     const isCorporate = fullUser?.accountType === 'corporate';
     const breakdown = computeVisaPricing(visaType, isCorporate);
-    const subtotal = computeSubtotal(breakdown, application.adults || 1, application.children || 0);
-    const gstAmount = computeGst(subtotal);
+    const numAdults = application.adults || 1;
+    const numChildren = application.children || 0;
+    const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
+    const gstAmount = computeGst(breakdown, numAdults, numChildren);
     application.paymentAmount = subtotal + gstAmount;
     application.adultBase = breakdown.adultBase;
     application.adultVfs = breakdown.adultVfs;
@@ -413,6 +415,7 @@ export const downloadApplicationReceipt = async (req: AdminRequest, res: Respons
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${app.referenceId}.pdf"`);
     res.end(pdfBuffer);
   } catch (err) {
+    console.error('[receipt] Failed to generate admin receipt PDF:', err);
     sendError(res, 'Failed to generate receipt', 500);
   }
 };

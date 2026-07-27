@@ -459,20 +459,23 @@ export default function CountryDetailPage() {
     setShowForm(true);
   };
 
-  // GST-inclusive charged totals (visa + VFS + service, +18% GST) — matches checkout.
-  const GST_MULT = 1.18;
+  // GST is 18% of the service fee only — visa and VFS fees are never taxed. Matches checkout.
+  const GST_RATE = 0.18;
   const num = (s: string) => Number(s || 0);
-  const inclGst = (n: number) => Math.round(n * GST_MULT);
+  const gstOnFee = (fee: number) => Math.round(fee * GST_RATE);
   // Live "customer pays" preview for the pricing card. Visa + VFS are shared by both
-  // account types; only the service fee differs, and a blank corporate service fee
-  // falls back to the individual one — same rule as backend computeVisaPricing.
+  // account types; only the service fee differs (and is the sole GST-taxed component), and
+  // a blank corporate service fee falls back to the individual one — same rule as backend.
   const corpOrStd = (corp: string, std: string) => (corp !== '' ? num(corp) : num(std));
   const passThroughAdult = num(form.adultPrice) + num(form.adultVfsFee);
   const passThroughChild = num(form.childPrice) + num(form.childVfsFee);
-  const subIndivAdult = passThroughAdult + num(form.adultServiceFee);
-  const subIndivChild = passThroughChild + num(form.childServiceFee);
-  const subCorpAdult = passThroughAdult + corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
-  const subCorpChild = passThroughChild + corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
+  const corpAdultFee = corpOrStd(form.corporateAdultServiceFee, form.adultServiceFee);
+  const corpChildFee = corpOrStd(form.corporateChildServiceFee, form.childServiceFee);
+  // Customer-pays totals = pass-through charges + service fee + GST on that service fee.
+  const subIndivAdult = passThroughAdult + num(form.adultServiceFee) + gstOnFee(num(form.adultServiceFee));
+  const subIndivChild = passThroughChild + num(form.childServiceFee) + gstOnFee(num(form.childServiceFee));
+  const subCorpAdult = passThroughAdult + corpAdultFee + gstOnFee(corpAdultFee);
+  const subCorpChild = passThroughChild + corpChildFee + gstOnFee(corpChildFee);
   const corpFeeDiffers = form.corporateAdultServiceFee !== '' || form.corporateChildServiceFee !== '';
 
   // Plain function (not a component) so React keeps the same input instances between
@@ -491,11 +494,12 @@ export default function CountryDetailPage() {
     </div>
   );
 
-  const stdAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0)) * GST_MULT);
-  const stdChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0)) * GST_MULT);
-  // Corporate differs from standard only by the service fee component.
-  const corpAdultTotal = (vt: VisaType) => Math.round(((vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0)) * GST_MULT);
-  const corpChildTotal = (vt: VisaType) => Math.round(((vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0)) * GST_MULT);
+  // Charged total = visa + VFS + service fee + GST (18% of the service fee only).
+  const stdAdultTotal = (vt: VisaType) => (vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + (vt.adultServiceFee || 0) + gstOnFee(vt.adultServiceFee || 0);
+  const stdChildTotal = (vt: VisaType) => (vt.childPrice || 0) + (vt.childVfsFee || 0) + (vt.childServiceFee || 0) + gstOnFee(vt.childServiceFee || 0);
+  // Corporate differs from standard only by the service fee component (and its GST).
+  const corpAdultTotal = (vt: VisaType) => { const fee = vt.corporateAdultServiceFee ?? vt.adultServiceFee ?? 0; return (vt.adultPrice || vt.price) + (vt.adultVfsFee || 0) + fee + gstOnFee(fee); };
+  const corpChildTotal = (vt: VisaType) => { const fee = vt.corporateChildServiceFee ?? vt.childServiceFee ?? 0; return (vt.childPrice || 0) + (vt.childVfsFee || 0) + fee + gstOnFee(fee); };
 
   const displayedVisaTypes = visaTypes
     .filter((vt) => {
@@ -731,7 +735,7 @@ export default function CountryDetailPage() {
                 <div className="rounded-xl border border-border overflow-hidden max-w-2xl">
                   <div className="px-5 py-3.5 bg-muted/40 border-b border-border">
                     <p className="text-sm font-semibold text-foreground">Pricing</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">All fees are per traveler. 18% GST is added automatically.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">All fees are per traveler. 18% GST applies to the service fee only.</p>
                   </div>
 
                   <div className="p-5 space-y-6">
@@ -795,15 +799,15 @@ export default function CountryDetailPage() {
                         <span className="text-xs font-semibold text-muted-foreground text-right pr-3">Child</span>
 
                         <span className="text-sm text-foreground">Individual</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(inclGst(subIndivAdult)) : '—'}</span>
-                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(inclGst(subIndivChild)) : '—'}</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivAdult > 0 ? formatCurrency(subIndivAdult) : '—'}</span>
+                        <span className="text-sm font-bold text-primary text-right pr-3 tabular-nums">{subIndivChild > 0 ? formatCurrency(subIndivChild) : '—'}</span>
 
                         <span className="text-sm text-foreground flex items-center gap-1.5">
                           Corporate
                           {corpFeeDiffers && <span className="w-1.5 h-1.5 rounded-full bg-warning" title="A corporate service fee is set" />}
                         </span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(inclGst(subCorpAdult)) : '—'}</span>
-                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(inclGst(subCorpChild)) : '—'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpAdult > 0 ? formatCurrency(subCorpAdult) : '—'}</span>
+                        <span className={`text-sm font-bold text-right pr-3 tabular-nums ${corpFeeDiffers ? 'text-warning' : 'text-primary'}`}>{subCorpChild > 0 ? formatCurrency(subCorpChild) : '—'}</span>
                       </div>
                     </div>
                   </div>

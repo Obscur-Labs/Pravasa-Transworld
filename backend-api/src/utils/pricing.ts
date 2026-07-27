@@ -1,6 +1,7 @@
 import { IVisaType } from '../models/VisaType';
 
-// GST is a fixed 18% applied on top of every fee component (visa + VFS + service).
+// GST is a fixed 18% and applies ONLY to the service fee — our own margin. Visa fees
+// and VFS fees are pass-through government/VFS charges and are never taxed, in any case.
 export const GST_RATE = 0.18;
 
 export interface PriceBreakdown {
@@ -39,7 +40,7 @@ export function computeVisaPricing(visaType: PricingFields, isCorporate: boolean
   };
 }
 
-// Pre-GST order subtotal across all travelers.
+// Pre-GST order subtotal across all travelers (visa + VFS + service).
 export function computeSubtotal(breakdown: PriceBreakdown, numAdults: number, numChildren: number): number {
   return (
     numAdults * (breakdown.adultBase + breakdown.adultVfs + breakdown.adultFee) +
@@ -47,12 +48,17 @@ export function computeSubtotal(breakdown: PriceBreakdown, numAdults: number, nu
   );
 }
 
-export function computeGst(subtotal: number): number {
-  return Math.round(subtotal * GST_RATE);
+// Total service fee across all travelers — the only GST-taxable component.
+export function computeServiceFeeTotal(breakdown: PriceBreakdown, numAdults: number, numChildren: number): number {
+  return numAdults * breakdown.adultFee + numChildren * breakdown.childFee;
 }
 
-// Final payable amount: subtotal + 18% GST.
+// GST = 18% of the service fee total only. Visa and VFS fees are untaxed.
+export function computeGst(breakdown: PriceBreakdown, numAdults: number, numChildren: number): number {
+  return Math.round(computeServiceFeeTotal(breakdown, numAdults, numChildren) * GST_RATE);
+}
+
+// Final payable amount: subtotal + GST (GST charged on the service fee only).
 export function computePaymentAmount(breakdown: PriceBreakdown, numAdults: number, numChildren: number): number {
-  const subtotal = computeSubtotal(breakdown, numAdults, numChildren);
-  return subtotal + computeGst(subtotal);
+  return computeSubtotal(breakdown, numAdults, numChildren) + computeGst(breakdown, numAdults, numChildren);
 }
