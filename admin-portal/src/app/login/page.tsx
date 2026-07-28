@@ -5,6 +5,7 @@ import { Shield, Loader2, ArrowLeft, Mail, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { sendAdminOtp, verifyAdminOtp } from '@/lib/api';
 import { useAdminAuthStore } from '@/store/auth.store';
@@ -67,10 +68,27 @@ export default function AdminLoginPage() {
     }
   };
 
+  // This screen sets its own dark palette rather than the theme tokens, so the
+  // skeletons override the default surface colour to match.
   if (checking) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <Skeleton className="w-14 h-14 rounded-2xl bg-slate-800" />
+            <Skeleton className="h-7 w-40 bg-slate-800" />
+            <Skeleton className="h-4 w-64 bg-slate-800" />
+          </div>
+          <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 space-y-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-3.5 w-20 bg-slate-700" />
+                <Skeleton className="h-10 w-full rounded-lg bg-slate-700" />
+              </div>
+            ))}
+            <Skeleton className="h-10 w-full rounded-lg bg-slate-700" />
+          </div>
+        </div>
       </div>
     );
   }

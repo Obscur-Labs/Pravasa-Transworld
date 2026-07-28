@@ -302,8 +302,6 @@ export interface VisaSummaryData {
   countryName: string;
   description?: string;
   additionalNotes?: string;
-  adultRate: number;
-  childRate: number;
   processingTime?: string;
   validity?: string;
   stayDuration?: string;
@@ -351,16 +349,13 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
   doc.rect(0, 0, doc.page.width, 70).fill('#1d4ed8');
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18).text('Pravasa Transworld', MARGIN, 22);
   doc.fontSize(10).font('Helvetica').text('Visa Details', MARGIN, 46);
-  doc.fontSize(9).text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'right' });
 
   doc.y = 95;
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16).text(`${data.visaName} — ${data.countryName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
+  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16).text(`${data.countryName} — ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
   doc.moveDown(0.8);
 
   // Key info grid
   const info: [string, string][] = [
-    ['Adult Price', inr(data.adultRate)],
-    ...(data.childRate > 0 ? [['Child Price', inr(data.childRate)] as [string, string]] : []),
     ...(data.processingTime ? [['Processing Time', data.processingTime] as [string, string]] : []),
     ...(data.validity ? [['Validity', data.validity] as [string, string]] : []),
     ...(data.stayDuration ? [['Stay Duration', data.stayDuration] as [string, string]] : []),
@@ -369,19 +364,21 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
     ...(data.entryLabels?.length ? [['Entry', data.entryLabels.join(' / ')] as [string, string]] : []),
   ];
 
-  const colW = (PAGE_RIGHT - MARGIN) / 2;
-  doc.rect(MARGIN, doc.y, PAGE_RIGHT - MARGIN, Math.ceil(info.length / 2) * 20 + 12).fill('#f1f5f9');
-  let gy = doc.y + 8;
-  info.forEach(([label, value], i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const x = MARGIN + col * colW + 10;
-    const y = gy + row * 20;
-    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text(label, x, y, { continued: true, width: colW - 20 });
-    doc.font('Helvetica-Bold').fillColor('#0f172a').text(`  ${value}`, { width: colW - 20 });
-  });
-  doc.y = gy + Math.ceil(info.length / 2) * 20 + 10;
-  doc.moveDown(0.8);
+  if (info.length > 0) {
+    const colW = (PAGE_RIGHT - MARGIN) / 2;
+    doc.rect(MARGIN, doc.y, PAGE_RIGHT - MARGIN, Math.ceil(info.length / 2) * 20 + 12).fill('#f1f5f9');
+    const gy = doc.y + 8;
+    info.forEach(([label, value], i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = MARGIN + col * colW + 10;
+      const y = gy + row * 20;
+      doc.font('Helvetica').fontSize(8).fillColor('#64748b').text(label, x, y, { continued: true, width: colW - 20 });
+      doc.font('Helvetica-Bold').fillColor('#0f172a').text(`  ${value}`, { width: colW - 20 });
+    });
+    doc.y = gy + Math.ceil(info.length / 2) * 20 + 10;
+    doc.moveDown(0.8);
+  }
 
   // Description
   if (data.description?.trim()) {
@@ -392,7 +389,7 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
 
   // Documents table
   if (data.documents.length > 0) {
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Documents Required', MARGIN, doc.y);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Information Required', MARGIN, doc.y);
     doc.moveDown(0.4);
 
     const headerH = 20;

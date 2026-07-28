@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton, TableSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { FormFieldEditor } from '@/components/shared/form-field-editor';
 import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
@@ -106,7 +107,9 @@ export default function CountryDetailPage() {
   const router = useRouter();
 
   const [country, setCountry] = useState<Country | null>(null);
+  const [countryLoading, setCountryLoading] = useState(true);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
+  const [visaTypesLoading, setVisaTypesLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState<'' | 'active' | 'inactive'>('');
@@ -138,10 +141,14 @@ export default function CountryDetailPage() {
   // Jurisdiction / category / sub-type / entry option lists — managed on the Visa Config page.
   const [configOptions, setConfigOptions] = useState<VisaConfigOption[]>([]);
 
-  const loadVisaTypes = () => getVisaTypes(countryId).then((r) => setVisaTypes(r.data.data));
+  const loadVisaTypes = () =>
+    getVisaTypes(countryId).then((r) => setVisaTypes(r.data.data)).finally(() => setVisaTypesLoading(false));
 
   useEffect(() => {
-    getCountry(countryId).then((r) => setCountry(r.data.data)).catch(() => setCountry(null));
+    getCountry(countryId)
+      .then((r) => setCountry(r.data.data))
+      .catch(() => setCountry(null))
+      .finally(() => setCountryLoading(false));
     loadVisaTypes();
     getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
     getVisaConfig().then((r) => setConfigOptions(r.data.data)).catch(() => {});
@@ -531,10 +538,16 @@ export default function CountryDetailPage() {
         <CardContent className="p-5">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-start gap-4 min-w-0">
-              {country && <img src={`https://flagcdn.com/w80/${country.flag}.png`} alt={country.name} className="w-14 h-10 object-cover rounded shadow-sm flex-shrink-0" />}
+              {countryLoading
+                ? <Skeleton className="w-14 h-10 rounded flex-shrink-0" />
+                : country && <img src={`https://flagcdn.com/w80/${country.flag}.png`} alt={country.name} className="w-14 h-10 object-cover rounded shadow-sm flex-shrink-0" />}
               <div className="min-w-0">
-                <h1 className="text-xl font-bold text-foreground truncate">{country?.name || 'Loading…'}</h1>
-                {country?.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{country.description}</p>}
+                {countryLoading
+                  ? <Skeleton className="h-6 w-44" />
+                  : <h1 className="text-xl font-bold text-foreground truncate">{country?.name}</h1>}
+                {countryLoading
+                  ? <Skeleton className="h-4 w-64 mt-1.5" />
+                  : country?.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{country.description}</p>}
                 <div className="flex items-center gap-1 mt-3">
                   <button onClick={startCountryEdit} title="Edit basic info" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
@@ -955,7 +968,9 @@ export default function CountryDetailPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayedVisaTypes.length === 0 ? (
+            {visaTypesLoading ? (
+              <TableSkeleton rows={5} cols={10} />
+            ) : displayedVisaTypes.length === 0 ? (
               <TableRow><TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                 {visaTypes.length === 0 ? 'No visa types yet. Add one to get started.' : 'No visa types match the current filters.'}
               </TableCell></TableRow>

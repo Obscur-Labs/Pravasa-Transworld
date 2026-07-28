@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, updateCountryWebContent, uploadCountryImage, removeCountryImage } from '@/lib/api';
 import type { Country, CountryWebContent, CountryFaq } from '@/types';
@@ -273,8 +274,21 @@ export default function CountryContentPage() {
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="p-6 pb-16 max-w-6xl mx-auto">
+        <Skeleton className="h-4 w-36 mb-4" />
+        <div className="flex items-center gap-3 mb-7">
+          <Skeleton className="w-10 h-7 rounded" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-72" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 space-y-5">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-56 w-full rounded-2xl" />)}
+          </div>
+          <Skeleton className="h-80 w-full rounded-2xl" />
+        </div>
       </div>
     );
   }

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
@@ -344,7 +345,7 @@ function VisaOverviewModal({
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const response = await downloadVisaSummaryPdf(visa._id, adultRate, childRate);
+      const response = await downloadVisaSummaryPdf(visa._id);
       const url = URL.createObjectURL(response.data as Blob);
       const a = document.createElement('a');
       a.href = url;
@@ -488,7 +489,7 @@ function VisaOverviewModal({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-slate-800">
-                  Documents Required
+                  Information Required
                   <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
                 </p>
                 <div className="flex items-center gap-2">
@@ -681,6 +682,7 @@ export default function ApplyPage() {
 
   const [step, setStep] = useState<Step>(1);
   const [countries, setCountries] = useState<Country[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
   const [visaTypes, setVisaTypes] = useState<VisaType[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
@@ -727,7 +729,9 @@ export default function ApplyPage() {
   const orderTotal = (v: VisaType) => orderSubtotal(v) + orderGst(v);
 
   useEffect(() => {
-    getActiveCountries().then((r) => setCountries(r.data.data));
+    getActiveCountries()
+      .then((r) => setCountries(r.data.data))
+      .finally(() => setCountriesLoading(false));
     getVaultDocuments().then((r) => setVaultDocs(r.data.data || [])).catch(() => {});
 
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -1233,7 +1237,9 @@ export default function ApplyPage() {
               <Input className="pl-9" placeholder="Search countries..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
             </div>
 
-            {(() => {
+            {countriesLoading ? (
+              <CardGridSkeleton count={6} className="gap-3" cardClassName="h-40" />
+            ) : (() => {
               const filtered = countries.filter((c) => c.name.toLowerCase().includes(countrySearch.toLowerCase()));
               if (filtered.length === 0) return (
                 <div className="text-center py-12 text-slate-400">
@@ -1309,7 +1315,7 @@ export default function ApplyPage() {
               );
             })()}
 
-            {countries.length === 0 && !countrySearch && (
+            {!countriesLoading && countries.length === 0 && !countrySearch && (
               <div className="text-center py-12 text-slate-400">
                 <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />
                 <p className="text-sm">No countries available for visa processing right now.</p>
@@ -1351,10 +1357,7 @@ export default function ApplyPage() {
             </div>
 
             {loading ? (
-              <div className="text-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-                <p className="text-xs text-slate-400">Loading visa types…</p>
-              </div>
+              <CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-2" cardClassName="h-52" />
             ) : visaTypes.length === 0 ? (
               <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                 <Globe className="w-10 h-10 mx-auto mb-3 text-slate-200" />

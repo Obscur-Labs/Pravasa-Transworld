@@ -5,6 +5,7 @@ import { FileText, Clock, CheckCircle, XCircle, Plus, ArrowRight } from 'lucide-
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getDashboard } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { formatDate } from '@/lib/utils';
@@ -64,7 +65,9 @@ export default function DashboardPage() {
                 <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mb-3`}>
                   <Icon className={`w-5 h-5 ${s.color}`} />
                 </div>
-                <p className="text-2xl font-bold text-slate-900">{loading ? '—' : s.value}</p>
+                {loading
+                  ? <Skeleton className="h-8 w-10" />
+                  : <p className="text-2xl font-bold text-slate-900">{s.value}</p>}
                 <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
               </CardContent>
             </Card>
@@ -81,7 +84,20 @@ export default function DashboardPage() {
         </div>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-center text-slate-400 text-sm">Loading...</div>
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-8 h-5 rounded" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+              ))}
+            </div>
           ) : recent.length === 0 ? (
             <div className="p-12 text-center">
               <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />

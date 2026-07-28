@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, uploadDocument, createPaymentOrder, verifyPayment,
@@ -259,7 +260,23 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-slate-400">Loading application...</div>;
+  if (loading) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <Skeleton className="h-4 w-36" />
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-12 h-8 rounded" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+        </div>
+        <Skeleton className="h-28 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      </div>
+    );
+  }
   if (!application) return <div className="p-6 text-center text-slate-400">Application not found.</div>;
 
   const canUploadDocs = ['payment_completed', 'documents_under_review'].includes(application.status);

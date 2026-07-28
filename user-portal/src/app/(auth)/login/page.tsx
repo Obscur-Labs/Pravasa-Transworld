@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Globe, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { sendLoginOTP, verifyOTP } from '@/lib/api';
@@ -163,8 +164,21 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <Skeleton className="h-10 w-56 rounded-xl" />
+            <Skeleton className="h-7 w-44" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 space-y-5">
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+            <Skeleton className="h-11 w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }

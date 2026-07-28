@@ -405,7 +405,27 @@ export default function PromoCodesPage() {
           </div>
 
           {histLoading ? (
-            <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            <div className="flex-1 overflow-hidden">
+              <div className="grid grid-cols-3 gap-0 border-b border-border">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-5 py-3 flex flex-col items-center gap-1.5 border-r border-border last:border-r-0">
+                    <Skeleton className="h-6 w-10" />
+                    <Skeleton className="h-2.5 w-14" />
+                  </div>
+                ))}
+              </div>
+              <div className="divide-y divide-border">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="px-5 py-3.5 flex items-center gap-2.5">
+                    <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-44" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : history ? (
             <div className="flex-1 overflow-y-auto">
               {/* Stats row */}

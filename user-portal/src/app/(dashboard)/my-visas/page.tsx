@@ -5,6 +5,7 @@ import { Download, Stamp, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { getApplications } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Application } from '@/types';
@@ -36,7 +37,7 @@ export default function MyVisasPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Loading...</div>
+        <CardGridSkeleton count={4} className="md:grid-cols-2 lg:grid-cols-2 gap-5" cardClassName="h-56" />
       ) : visas.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <Stamp className="w-12 h-12 text-slate-200 mx-auto mb-4" />

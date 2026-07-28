@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, CheckCheck, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -70,7 +71,18 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-slate-400">Loading...</div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 flex items-start gap-3">
+              <Skeleton className="w-2 h-2 rounded-full mt-2 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="h-3.5 w-full max-w-md" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : notifications.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <Bell className="w-10 h-10 text-slate-200 mx-auto mb-3" />

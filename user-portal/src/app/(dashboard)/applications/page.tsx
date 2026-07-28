@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { FileText, Plus, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getApplications } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { Application } from '@/types';
@@ -39,7 +40,30 @@ export default function ApplicationsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Loading applications...</div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="hidden sm:grid grid-cols-6 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className={`h-3 ${i === 0 ? 'col-span-2 w-24' : 'w-16'}`} />
+            ))}
+          </div>
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-6 gap-2 sm:gap-4 px-6 py-4 items-center">
+                <div className="sm:col-span-2 flex items-center gap-3">
+                  <Skeleton className="w-8 h-5 rounded flex-shrink-0" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : applications.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />

@@ -11,6 +11,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCommandPaletteStore } from '@/store/command-palette.store';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -23,10 +24,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (_hasHydrated && !isAuthenticated) router.push('/login');
   }, [isAuthenticated, _hasHydrated, router]);
 
+  // Mirrors the real chrome (sidebar + header + content) so the shell doesn't
+  // jump around once the persisted auth store rehydrates.
   if (!_hasHydrated) {
     return (
-      <div className="flex min-h-screen bg-background items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-screen overflow-hidden bg-background">
+        <div className="hidden md:flex flex-col gap-2 w-64 shrink-0 border-r border-border p-4">
+          <Skeleton className="h-8 w-36 mb-4" />
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
+        </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 shrink-0">
+            <Skeleton className="h-9 w-64 rounded-lg" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+            <Skeleton className="h-9 w-56" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+            </div>
+            <Skeleton className="h-72 w-full rounded-2xl" />
+          </div>
+        </div>
       </div>
     );
   }

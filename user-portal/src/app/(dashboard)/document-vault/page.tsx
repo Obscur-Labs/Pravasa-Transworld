@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getVaultDocuments, getVaultDocumentUrl, uploadVaultDocument, deleteVaultDocument } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
+import { Skeleton, CardGridSkeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/utils';
 
 /* ─────────────────────────── types ─────────────────────────────────────── */
@@ -937,7 +938,10 @@ export default function DocumentVaultPage() {
 
       {/* vault gallery */}
       {loading ? (
-        <div className="text-center py-16 text-slate-400"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" />Loading your vault…</div>
+        <div>
+          <Skeleton className="h-5 w-48 mb-4" />
+          <CardGridSkeleton count={6} className="md:grid-cols-3" cardClassName="h-48" />
+        </div>
       ) : docs.length === 0 && !active ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <div className="text-5xl mb-3">🔐</div>

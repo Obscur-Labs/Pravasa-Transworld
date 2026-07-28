@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Download, CreditCard, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getUserPayments, downloadReceipt } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
@@ -87,7 +88,29 @@ export default function PaymentHistoryPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Loading...</div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="hidden sm:grid grid-cols-6 gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-3 w-20" />)}
+          </div>
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-6 gap-2 sm:gap-4 px-5 py-4 items-center">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-5 h-3 rounded flex-shrink-0" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className="h-3 w-14" />
+                  </div>
+                </div>
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3.5 w-16" />
+                <Skeleton className="h-8 w-24 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : payments.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <CreditCard className="w-12 h-12 text-slate-200 mx-auto mb-4" />

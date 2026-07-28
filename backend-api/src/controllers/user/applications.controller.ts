@@ -269,15 +269,11 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
   sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));
 };
 
-// Public "Download PDF" button on the visa details view. adultRate/childRate are passed
-// in from the frontend (already resolved for corporate vs standard pricing there) rather
-// than re-derived here, so the PDF always matches exactly what's on screen.
+// Public "Download PDF" button on the visa details view. Pricing is deliberately
+// left out — the PDF is an information sheet, not a quote.
 export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): Promise<void> => {
   const visaType = await VisaType.findOne({ _id: req.params.id, isActive: true }).populate('country', 'name');
   if (!visaType) { sendError(res, 'Visa type not found', 404); return; }
-
-  const adultRate = Number(req.query.adultRate) || 0;
-  const childRate = Number(req.query.childRate) || 0;
 
   const configOptions = await VisaConfigOption.find({ isActive: true }).select('category value label');
   const labelFor = (category: string, value: string | undefined) =>
@@ -291,8 +287,6 @@ export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): P
       countryName: country?.name || 'N/A',
       description: visaType.description,
       additionalNotes: visaType.additionalNotes,
-      adultRate,
-      childRate,
       processingTime: visaType.processingTime,
       validity: visaType.validity,
       stayDuration: visaType.stayDuration,

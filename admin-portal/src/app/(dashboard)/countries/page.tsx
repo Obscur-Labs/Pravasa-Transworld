@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { getCountries, createCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite } from '@/lib/api';
 import type { Country } from '@/types';
@@ -31,8 +32,12 @@ export default function CountriesPage() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [togglingWeb, setTogglingWeb] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchCountries = () => getCountries().then((r) => setCountries(r.data.data));
+  const fetchCountries = () =>
+    getCountries()
+      .then((r) => setCountries(r.data.data))
+      .finally(() => setLoading(false));
 
   useEffect(() => { fetchCountries(); }, []);
 
@@ -227,7 +232,9 @@ export default function CountriesPage() {
         </Card>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <CardGridSkeleton count={8} />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={MapPin}
           title={search ? `No countries match "${search}"` : 'No countries yet'}

@@ -2,8 +2,9 @@ import Groq from 'groq-sdk';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// llama-4-scout is the best free vision model on Groq as of 2025
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+// Groq retires vision models fairly often (llama-4-scout was decommissioned),
+// so keep this overridable without a redeploy.
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
 
 export interface ExtractedDocumentData {
   name?: string;
@@ -37,6 +38,10 @@ async function callGroqVision(imageBuffer: Buffer, prompt: string): Promise<stri
 
   const response = await groq.chat.completions.create({
     model: VISION_MODEL,
+    // Reasoning models burn the token budget on <think> traces and then wrap
+    // the answer in prose — turn both off so we get bare JSON back.
+    reasoning_effort: 'none',
+    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'user',
@@ -50,20 +55,26 @@ async function callGroqVision(imageBuffer: Buffer, prompt: string): Promise<stri
       },
     ],
     temperature: 0,
-    max_tokens: 1024,
-  });
+    max_tokens: 2048,
+  } as any);
 
   return response.choices[0]?.message?.content || '';
 }
 
 function extractJSON(text: string): Record<string, any> | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]);
-  } catch {
-    return null;
+  // Strip reasoning traces and markdown fences before hunting for the object.
+  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '');
+  const start = cleaned.indexOf('{');
+  if (start === -1) return null;
+  // Walk back from the end so a trailing brace inside a string can't truncate us.
+  for (let end = cleaned.lastIndexOf('}'); end > start; end = cleaned.lastIndexOf('}', end - 1)) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      // keep shrinking
+    }
   }
+  return null;
 }
 
 function str(val: unknown): string | undefined {
