@@ -35,6 +35,9 @@ export interface IDocumentRequirement {
   applicantType: ApplicantType;
   docType: DocumentType;
   ocrEnabled: boolean;
+  // Shares one sequence with IFormField.order: fields and documents are authored and
+  // rendered as a single interleaved list, so ordering has to span both arrays.
+  order: number;
 }
 
 // A consent checkbox the applicant sees before paying. `required` blocks submission
@@ -109,6 +112,7 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
     default: 'custom',
   },
   ocrEnabled: { type: Boolean },
+  order: { type: Number, default: 0 },
 });
 
 const VisaTermSchema = new Schema<IVisaTerm>({

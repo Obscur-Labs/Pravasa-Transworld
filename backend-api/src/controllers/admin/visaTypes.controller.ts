@@ -4,6 +4,7 @@ import VisaType from '../../models/VisaType';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
 import { logActivity } from '../../utils/activityLog';
+import { normalizeFormItems } from '../../utils/formItems';
 
 export const getVisaTypes = async (req: AdminRequest, res: Response): Promise<void> => {
   const filter = req.query.country ? { country: req.query.country } : {};
@@ -24,9 +25,10 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
   const {
     country, name, description, adultPrice, childPrice, adultVfsFee, childVfsFee, adultServiceFee, childServiceFee,
     corporateAdultServiceFee, corporateChildServiceFee,
-    processingTime, formFields, documentRequirements, terms, entry, visaSubType, stayDuration,
+    processingTime, terms, entry, visaSubType, stayDuration,
     jurisdiction, visaCategory, process, validity, additionalNotes,
   } = req.body;
+  const { formFields, documentRequirements } = normalizeFormItems(req.body);
   if (!country || !name || adultPrice === undefined || !processingTime) {
     sendError(res, 'Country, name, adult price, and processingTime are required');
     return;
@@ -54,7 +56,7 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
 };
 
 export const updateVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
-  const body = { ...req.body };
+  const body = normalizeFormItems({ ...req.body });
   // Keep legacy `price` mirrored to the per-adult base rate.
   if (body.adultPrice !== undefined) {
     body.adultPrice = Number(body.adultPrice);

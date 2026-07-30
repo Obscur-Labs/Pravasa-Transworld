@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { asyncRouter } from '../utils/asyncRouter';
 import { adminProtect } from '../middleware/adminAuth.middleware';
 import { upload } from '../middleware/upload.middleware';
 import * as countries from '../controllers/admin/countries.controller';
@@ -14,7 +15,7 @@ import * as activityLogs from '../controllers/admin/activityLogs.controller';
 import * as visaConfig from '../controllers/admin/visaConfig.controller';
 import * as receiptConfig from '../controllers/admin/receiptConfig.controller';
 
-const router = Router();
+const router = asyncRouter();
 router.use(adminProtect);
 
 // Dashboard

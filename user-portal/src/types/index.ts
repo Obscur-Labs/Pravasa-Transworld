@@ -110,7 +110,7 @@ export interface FormField {
   _id: string;
   label: string;
   fieldName: string;
-  type: 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
+  type: 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea';
   required: boolean;
   options: string[];
   placeholder: string;
@@ -126,6 +126,37 @@ export interface DocumentRequirement {
   applicantType?: ApplicantType;
   docType?: string;
   ocrEnabled?: boolean;
+  // Shares one sequence with FormField.order — see mergeFormItems().
+  order?: number;
+}
+
+/** A single row of the application form: either a question or a document upload. */
+export type FormItem =
+  | { kind: 'field'; order: number; field: FormField }
+  | { kind: 'document'; order: number; doc: DocumentRequirement };
+
+/**
+ * Interleaves fields and documents into the single ordered list the applicant fill.
+ *
+ * `order` spans both arrays. When those orders are coherent (all distinct) they are
+ * used as-is. Records written before documents had an `order` at all have every
+ * document sitting at 0, which would interleave nonsensically — that duplication is
+ * the tell, and such records fall back to "fields first, then documents" in stored
+ * array order, exactly how they used to render. Opening and re-saving one in the
+ * admin rewrites proper orders, so legacy data heals itself on first edit.
+ */
+export function mergeFormItems(fields: FormField[], docs: DocumentRequirement[]): FormItem[] {
+  const items: FormItem[] = [
+    ...fields.map((field): FormItem => ({ kind: 'field', order: field.order ?? 0, field })),
+    ...docs.map((doc): FormItem => ({ kind: 'document', order: doc.order ?? 0, doc })),
+  ];
+
+  const orders = items.map((it) => it.order);
+  if (new Set(orders).size !== orders.length) {
+    return items.map((item, i) => ({ ...item, order: i }));
+  }
+
+  return items.sort((a, b) => a.order - b.order);
 }
 
 export interface Application {

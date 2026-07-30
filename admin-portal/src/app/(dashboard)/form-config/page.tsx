@@ -10,15 +10,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { FormFieldEditor } from '@/components/shared/form-field-editor';
-import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
+import { ApplicationFormBuilder } from '@/components/shared/application-form-builder';
 import { getFormPresets, createFormPreset, updateFormPreset, deleteFormPreset } from '@/lib/api';
-import { DOC_TYPE_OPTIONS } from '@/types';
-import type { FormField, DocumentRequirement, FormPreset, DocumentType } from '@/types';
+import { orderedFormArrays } from '@/types';
+import type { FormField, DocumentRequirement, FormPreset } from '@/types';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
-const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
 
 const emptyForm = () => ({
   name: '', description: '',
@@ -54,26 +52,6 @@ export default function FormConfigPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const addField = () => setForm((f) => ({ ...f, formFields: [...f.formFields, emptyField()] }));
-  const removeField = (i: number) => setForm((f) => ({ ...f, formFields: f.formFields.filter((_, idx) => idx !== i) }));
-  const updateField = (i: number, key: keyof FormField, value: any) =>
-    setForm((f) => ({ ...f, formFields: f.formFields.map((field, idx) => idx === i ? { ...field, [key]: value } : field) }));
-
-  const addDocReq = () => setForm((f) => ({ ...f, documentRequirements: [...f.documentRequirements, emptyDocReq()] }));
-  const removeDocReq = (i: number) => setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.filter((_, idx) => idx !== i) }));
-  const updateDocReq = (i: number, key: keyof DocumentRequirement, value: any) =>
-    setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => idx === i ? { ...d, [key]: value } : d) }));
-
-  // Changing the type pre-fills the document name (unless the admin already typed a custom one).
-  const updateDocType = (i: number, value: DocumentType) =>
-    setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => {
-      if (idx !== i) return d;
-      const opt = DOC_TYPE_OPTIONS.find((o) => o.value === value);
-      const prevDefault = DOC_TYPE_OPTIONS.find((o) => o.value === (d.docType || 'custom'))?.defaultName;
-      const name = (!d.name.trim() || d.name === prevDefault) && opt?.defaultName ? opt.defaultName : d.name;
-      return { ...d, docType: value, name, ocrEnabled: isOcrDocType(value) };
-    }) }));
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast({ title: 'Preset name is required', variant: 'destructive' }); return; }
@@ -82,8 +60,7 @@ export default function FormConfigPage() {
       const payload = {
         name: form.name.trim(),
         description: form.description,
-        formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
-        documentRequirements: form.documentRequirements,
+        ...orderedFormArrays(form.formFields, form.documentRequirements),
       };
       if (editId) {
         await updateFormPreset(editId, payload);
@@ -113,8 +90,7 @@ export default function FormConfigPage() {
       await createFormPreset({
         name: `${p.name} (Copy)`,
         description: p.description,
-        formFields: p.formFields,
-        documentRequirements: p.documentRequirements,
+        ...orderedFormArrays(p.formFields || [], p.documentRequirements || []),
       });
       toast({ title: `Duplicated "${p.name}"`, variant: 'success' });
       load();
@@ -154,8 +130,11 @@ export default function FormConfigPage() {
                 </div>
               </div>
 
-              <FormFieldEditor fields={form.formFields} onAdd={addField} onUpdate={updateField} onRemove={removeField} />
-              <DocumentRequirementEditor docs={form.documentRequirements} onAdd={addDocReq} onUpdate={updateDocReq} onUpdateType={updateDocType} onRemove={removeDocReq} />
+              <ApplicationFormBuilder
+                fields={form.formFields}
+                docs={form.documentRequirements}
+                onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+              />
 
               <div className="flex gap-2 pt-2">
                 <Button type="submit" disabled={saving}>

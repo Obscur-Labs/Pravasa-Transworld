@@ -4,6 +4,7 @@ import FormPreset from '../../models/FormPreset';
 import { sendSuccess, sendError } from '../../utils/response';
 import { moveToTrash } from '../../utils/trash';
 import { logActivity } from '../../utils/activityLog';
+import { normalizeFormItems } from '../../utils/formItems';
 
 export const getFormPresets = async (_req: AdminRequest, res: Response): Promise<void> => {
   const presets = await FormPreset.find().sort({ updatedAt: -1 });
@@ -11,8 +12,9 @@ export const getFormPresets = async (_req: AdminRequest, res: Response): Promise
 };
 
 export const createFormPreset = async (req: AdminRequest, res: Response): Promise<void> => {
-  const { name, description, formFields, documentRequirements } = req.body;
+  const { name, description } = req.body;
   if (!name) { sendError(res, 'Preset name is required'); return; }
+  const { formFields, documentRequirements } = normalizeFormItems(req.body);
   const preset = await FormPreset.create({
     name,
     description: description || '',
@@ -24,7 +26,7 @@ export const createFormPreset = async (req: AdminRequest, res: Response): Promis
 };
 
 export const updateFormPreset = async (req: AdminRequest, res: Response): Promise<void> => {
-  const preset = await FormPreset.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const preset = await FormPreset.findByIdAndUpdate(req.params.id, normalizeFormItems({ ...req.body }), { new: true, runValidators: true });
   if (!preset) { sendError(res, 'Form preset not found', 404); return; }
   logActivity(req, 'update', 'Form Preset', preset.name);
   sendSuccess(res, preset, 'Form preset updated');

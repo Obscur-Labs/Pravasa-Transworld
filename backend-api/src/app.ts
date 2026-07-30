@@ -93,4 +93,40 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.use((_req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 
+// ── Error Handler ────────────────────────────────────────────────────────────
+// Must be last, and must keep all four parameters for Express to recognise it.
+// Routes are built with asyncRouter(), so rejected promises land here instead of
+// becoming unhandled rejections that kill the process.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) return next(err);
+
+  // Mongoose schema validation — surface the specific field(s) that failed.
+  if (err?.name === 'ValidationError' && err.errors) {
+    const errors = Object.values(err.errors).map((e: any) => e.message);
+    return res.status(400).json({ success: false, message: errors[0] || 'Validation failed', errors });
+  }
+
+  // Malformed ObjectId in a path/query param.
+  if (err?.name === 'CastError') {
+    return res.status(400).json({ success: false, message: `Invalid ${err.path}` });
+  }
+
+  // Unique index violation.
+  if (err?.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0];
+    return res.status(409).json({ success: false, message: field ? `That ${field} is already in use` : 'Duplicate value' });
+  }
+
+  if (err?.message === 'Not allowed by CORS') {
+    return res.status(403).json({ success: false, message: 'Origin not allowed' });
+  }
+
+  console.error('[ERROR]', err);
+  return res.status(err?.status || err?.statusCode || 500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err?.message || 'Something went wrong',
+  });
+});
+
 export default app;

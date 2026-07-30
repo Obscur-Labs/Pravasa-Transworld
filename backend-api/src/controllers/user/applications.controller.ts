@@ -293,9 +293,18 @@ export const downloadVisaSummaryPdf = async (req: AuthRequest, res: Response): P
       visaSubTypeLabel: labelFor('visaSubType', visaType.visaSubType),
       visaCategoryLabel: labelFor('visaCategory', visaType.visaCategory),
       entryLabels: (visaType.entry || []).map((e) => labelFor('entryType', e) || e),
-      documents: (visaType.documentRequirements || []).map((d) => ({
-        name: d.name, description: d.description, required: d.required, applicantType: d.applicantType,
-      })),
+      // Fields and documents are one authored sequence — the sheet lists them in that
+      // same order so it matches what the applicant will actually see on the form.
+      documents: [
+        ...(visaType.formFields || []).map((f) => ({
+          kind: 'field' as const, order: f.order ?? 0,
+          name: f.label || f.fieldName, description: f.placeholder || '', required: f.required, applicantType: f.applicantType,
+        })),
+        ...(visaType.documentRequirements || []).map((d) => ({
+          kind: 'document' as const, order: d.order ?? 0,
+          name: d.name, description: d.description, required: d.required, applicantType: d.applicantType,
+        })),
+      ].sort((a, b) => a.order - b.order || (a.kind === b.kind ? 0 : a.kind === 'field' ? -1 : 1)),
     });
 
     res.setHeader('Content-Type', 'application/pdf');

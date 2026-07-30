@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { asyncRouter } from '../utils/asyncRouter';
 import { protect } from '../middleware/auth.middleware';
 import { upload } from '../middleware/upload.middleware';
 import * as apps from '../controllers/user/applications.controller';
@@ -8,7 +9,7 @@ import * as payments from '../controllers/user/payments.controller';
 import * as profile from '../controllers/user/profile.controller';
 import * as promos from '../controllers/user/promoCodes.controller';
 
-const router = Router();
+const router = asyncRouter();
 router.use(protect);
 
 // Profile

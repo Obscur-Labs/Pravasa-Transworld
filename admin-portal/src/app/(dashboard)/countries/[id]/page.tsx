@@ -14,8 +14,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton, TableSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
-import { FormFieldEditor } from '@/components/shared/form-field-editor';
-import { DocumentRequirementEditor } from '@/components/shared/document-requirement-editor';
+import { ApplicationFormBuilder } from '@/components/shared/application-form-builder';
 import { TermsEditor } from '@/components/shared/terms-editor';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
@@ -23,12 +22,12 @@ import {
   getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import { DOC_TYPE_OPTIONS } from '@/types';
+import { orderedFormArrays } from '@/types';
 import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm } from '@/types';
 
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
-const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false });
+const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
 const emptyTerm = (): VisaTerm => ({ text: '', required: true, defaultChecked: false, order: 0 });
 
 function TabButton({ step, label, active, done, onClick }: { step: number; label: string; active: boolean; done: boolean; onClick: () => void }) {
@@ -234,7 +233,7 @@ export default function CountryDetailPage() {
         childServiceFee: Number(form.childServiceFee || 0),
         corporateAdultServiceFee: form.corporateAdultServiceFee === '' ? '' : Number(form.corporateAdultServiceFee),
         corporateChildServiceFee: form.corporateChildServiceFee === '' ? '' : Number(form.corporateChildServiceFee),
-        formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
+        ...orderedFormArrays(form.formFields, form.documentRequirements),
         terms: form.terms.filter((t) => t.text.trim()).map((t, i) => ({ ...t, text: t.text.trim(), order: i })),
       };
       if (editId) {
@@ -327,30 +326,10 @@ export default function CountryDetailPage() {
     router.push('/countries');
   };
 
-  const addField = () => setForm((f) => ({ ...f, formFields: [...f.formFields, emptyField()] }));
-  const removeField = (i: number) => setForm((f) => ({ ...f, formFields: f.formFields.filter((_, idx) => idx !== i) }));
-  const updateField = (i: number, key: keyof FormField, value: any) =>
-    setForm((f) => ({ ...f, formFields: f.formFields.map((field, idx) => idx === i ? { ...field, [key]: value } : field) }));
-
-  const addDocReq = () => setForm((f) => ({ ...f, documentRequirements: [...f.documentRequirements, emptyDocReq()] }));
-  const removeDocReq = (i: number) => setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.filter((_, idx) => idx !== i) }));
-  const updateDocReq = (i: number, key: keyof DocumentRequirement, value: any) =>
-    setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => idx === i ? { ...d, [key]: value } : d) }));
-
-  const addTerm = () => setForm((f) => ({ ...f, terms: [...f.terms, emptyTerm()] }));
+  const addTerm =() => setForm((f) => ({ ...f, terms: [...f.terms, emptyTerm()] }));
   const removeTerm = (i: number) => setForm((f) => ({ ...f, terms: f.terms.filter((_, idx) => idx !== i) }));
   const updateTerm = (i: number, key: keyof VisaTerm, value: any) =>
     setForm((f) => ({ ...f, terms: f.terms.map((t, idx) => idx === i ? { ...t, [key]: value } : t) }));
-
-  // Changing the type pre-fills the document name (unless the admin already typed a custom one).
-  const updateDocType = (i: number, value: DocumentType) =>
-    setForm((f) => ({ ...f, documentRequirements: f.documentRequirements.map((d, idx) => {
-      if (idx !== i) return d;
-      const opt = DOC_TYPE_OPTIONS.find((o) => o.value === value);
-      const prevDefault = DOC_TYPE_OPTIONS.find((o) => o.value === (d.docType || 'custom'))?.defaultName;
-      const name = (!d.name.trim() || d.name === prevDefault) && opt?.defaultName ? opt.defaultName : d.name;
-      return { ...d, docType: value, name, ocrEnabled: isOcrDocType(value) };
-    }) }));
 
   // ── Form Presets ──
   const reloadPresets = () => getFormPresets().then((r) => setPresets(r.data.data)).catch(() => {});
@@ -358,12 +337,20 @@ export default function CountryDetailPage() {
   const applyPreset = () => {
     const preset = presets.find((p) => p._id === applyPresetId);
     if (!preset) return;
-    setForm((f) => ({
-      ...f,
-      formFields: preset.formFields.map((ff) => ({ ...ff, options: [...(ff.options || [])] })),
-      documentRequirements: preset.documentRequirements.map((d) => ({ ...d })),
-    }));
-    toast({ title: `Applied preset "${preset.name}"`, description: `${preset.formFields.length} field(s) loaded.`, variant: 'success' });
+    // Run the preset through the same normaliser used on save, so a preset stored
+    // before fields and documents shared one sequence lands in a coherent order
+    // rather than carrying stale positions into this visa type.
+    const normalized = orderedFormArrays(
+      (preset.formFields || []).map((ff) => ({ ...ff, options: [...(ff.options || [])] })),
+      (preset.documentRequirements || []).map((d) => ({ ...d })),
+    );
+    setForm((f) => ({ ...f, ...normalized }));
+    const total = normalized.formFields.length + normalized.documentRequirements.length;
+    toast({
+      title: `Applied preset "${preset.name}"`,
+      description: `${total} item${total === 1 ? '' : 's'} loaded — ${normalized.formFields.length} field(s), ${normalized.documentRequirements.length} document(s).`,
+      variant: 'success',
+    });
   };
 
   const saveAsPreset = async () => {
@@ -376,8 +363,7 @@ export default function CountryDetailPage() {
     try {
       await createFormPreset({
         name,
-        formFields: form.formFields.map((f, i) => ({ ...f, order: i })),
-        documentRequirements: form.documentRequirements,
+        ...orderedFormArrays(form.formFields, form.documentRequirements),
       });
       toast({ title: `Preset "${name}" saved`, variant: 'success' });
       setPresetName('');
@@ -407,8 +393,7 @@ export default function CountryDetailPage() {
       await createFormPreset({
         name: `${p.name} (Copy)`,
         description: p.description,
-        formFields: p.formFields,
-        documentRequirements: p.documentRequirements,
+        ...orderedFormArrays(p.formFields || [], p.documentRequirements || []),
       });
       toast({ title: `Duplicated "${p.name}"`, variant: 'success' });
       reloadPresets();
@@ -834,13 +819,13 @@ export default function CountryDetailPage() {
                   <LayoutTemplate className="w-4 h-4 text-violet-600" />
                   <p className="text-sm font-semibold text-violet-600">Form Presets</p>
                 </div>
-                <p className="text-xs text-violet-600/70">Apply a saved layout of form fields & documents in one click, or save the current layout as a reusable preset.</p>
+                <p className="text-xs text-violet-600/70">Apply a saved application form in one click, or save the current one as a reusable preset.</p>
 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <select value={applyPresetId} onChange={(e) => setApplyPresetId(e.target.value)}
                     className="h-9 px-3 rounded-lg border border-violet-500/20 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-violet-500 flex-1">
                     <option value="">Select a preset to apply…</option>
-                    {presets.map((p) => <option key={p._id} value={p._id}>{p.name} ({p.formFields.length} fields, {p.documentRequirements.length} docs)</option>)}
+                    {presets.map((p) => { const n = (p.formFields?.length || 0) + (p.documentRequirements?.length || 0); return <option key={p._id} value={p._id}>{p.name} ({n} item{n === 1 ? '' : 's'})</option>; })}
                   </select>
                   <Button type="button" variant="outline" disabled={!applyPresetId} onClick={applyPreset}>
                     <Check className="w-3.5 h-3.5 mr-1" /> Apply Preset
@@ -873,8 +858,11 @@ export default function CountryDetailPage() {
                 )}
               </div>
 
-              <FormFieldEditor fields={form.formFields} onAdd={addField} onUpdate={updateField} onRemove={removeField} />
-              <DocumentRequirementEditor docs={form.documentRequirements} onAdd={addDocReq} onUpdate={updateDocReq} onUpdateType={updateDocType} onRemove={removeDocReq} />
+              <ApplicationFormBuilder
+                fields={form.formFields}
+                docs={form.documentRequirements}
+                onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+              />
               </div>
 
               <div className={activeTab === 'notes' ? 'space-y-2' : 'hidden'}>

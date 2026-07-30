@@ -34,7 +34,9 @@ export const SELECTABLE_STATUSES: ApplicationStatus[] = [
   'submitted', 'payment_completed', 'visa_processing', 'visa_approved', 'visa_rejected',
 ];
 
-export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea' | 'file';
+// 'file' was dropped when fields and documents merged into one ordered list — a
+// document requirement covers uploads properly (review lifecycle + OCR).
+export type FieldType = 'text' | 'number' | 'email' | 'date' | 'select' | 'radio' | 'textarea';
 export type ApplicantType = 'adult' | 'child' | 'both';
 
 export interface FormField {
@@ -69,6 +71,87 @@ export interface DocumentRequirement {
   applicantType?: ApplicantType;
   docType?: DocumentType;
   ocrEnabled?: boolean;
+  // Shares one sequence with FormField.order — see mergeFormItems().
+  order: number;
+}
+
+/** A single row of the application form: either a question or a document upload. */
+export type FormItem =
+  | { kind: 'field'; order: number; field: FormField }
+  | { kind: 'document'; order: number; doc: DocumentRequirement };
+
+/**
+ * Interleaves fields and documents into the single ordered list admins author and applicants fill.
+ *
+ * `order` spans both arrays. When those orders are coherent (all distinct) they are
+ * used as-is. Records written before documents had an `order` at all have every
+ * document sitting at 0, which would interleave nonsensically — that duplication is
+ * the tell, and such records fall back to "fields first, then documents" in stored
+ * array order, exactly how they used to render. Opening and re-saving one in the
+ * admin rewrites proper orders, so legacy data heals itself on first edit.
+ */
+export function mergeFormItems(fields: FormField[], docs: DocumentRequirement[]): FormItem[] {
+  const items: FormItem[] = [
+    ...fields.map((field): FormItem => ({ kind: 'field', order: field.order ?? 0, field })),
+    ...docs.map((doc): FormItem => ({ kind: 'document', order: doc.order ?? 0, doc })),
+  ];
+
+  const orders = items.map((it) => it.order);
+  if (new Set(orders).size !== orders.length) {
+    return items.map((item, i) => ({ ...item, order: i }));
+  }
+
+  return items.sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Derives the machine key a field is stored under from its human label:
+ * "Phone Number" → "phoneNumber". Admins never need to type this themselves.
+ */
+export function toFieldName(label: string): string {
+  const camel = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : ''));
+  if (!camel) return '';
+  // Mongo Map keys can't contain dots, and a leading digit makes an awkward key.
+  return /^\d/.test(camel) ? `field${camel[0].toUpperCase()}${camel.slice(1)}` : camel;
+}
+
+/**
+ * Prepares both arrays for saving:
+ *  - drops rows the admin added but never filled in (a stray "Add Field" click),
+ *  - fills any missing `fieldName` from the label, keeping keys unique,
+ *  - rewrites `order` from position in the merged list, so the sequence an admin
+ *    sees is exactly what gets persisted.
+ *
+ * Blank rows are dropped rather than rejected — the same way empty terms already are —
+ * so an untouched row can never fail server-side validation.
+ */
+export function orderedFormArrays(fields: FormField[], docs: DocumentRequirement[]) {
+  const kept = mergeFormItems(fields, docs).filter((it) =>
+    it.kind === 'field'
+      ? !!(it.field.label.trim() || it.field.fieldName.trim())
+      : !!it.doc.name.trim(),
+  );
+
+  const seen = new Set<string>();
+  const uniqueFieldName = (field: FormField): string => {
+    const base = field.fieldName.trim() || toFieldName(field.label) || 'field';
+    let name = base;
+    for (let n = 2; seen.has(name); n++) name = `${base}${n}`;
+    seen.add(name);
+    return name;
+  };
+
+  return {
+    formFields: kept.flatMap((it, i) =>
+      it.kind === 'field' ? [{ ...it.field, label: it.field.label.trim() || it.field.fieldName.trim(), fieldName: uniqueFieldName(it.field), order: i }] : [],
+    ),
+    documentRequirements: kept.flatMap((it, i) =>
+      it.kind === 'document' ? [{ ...it.doc, name: it.doc.name.trim(), order: i }] : [],
+    ),
+  };
 }
 
 // A consent checkbox shown to the applicant before payment. `required` blocks

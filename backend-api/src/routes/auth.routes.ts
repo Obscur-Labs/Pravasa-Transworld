@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import { asyncRouter } from '../utils/asyncRouter';
 import { sendOtp, sendLoginOtp, verifyOtp, sendAdminOtp, verifyAdminOtp } from '../controllers/auth.controller';
 import { otpRateLimiter } from '../middleware/rateLimiter';
 
-const router = Router();
+const router = asyncRouter();
 
 router.post('/send-otp', otpRateLimiter, sendOtp);
 router.post('/send-login-otp', otpRateLimiter, sendLoginOtp);

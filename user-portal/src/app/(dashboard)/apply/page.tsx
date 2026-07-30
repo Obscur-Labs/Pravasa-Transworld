@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronLeft, Loader2, Check, Upload, X, FileText, Search,
   Vault, CreditCard, BookOpen, Calendar, Globe, Clock, MapPin, Tag, Copy,
-  Users, Minus, Plus, Shield, ArrowRight, Download, Info,
+  Users, Minus, Plus, Shield, ArrowRight, Download, Info, PencilLine,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,8 @@ import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from 
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
-import type { Country, VisaType, FormField, DocumentRequirement, VaultDocument } from '@/types';
+import { mergeFormItems } from '@/types';
+import type { Country, VisaType, FormField, FormItem, DocumentRequirement, VaultDocument } from '@/types';
 
 type Step = 1 | 2 | 3 | 4;
 type DocSource =
@@ -48,8 +49,10 @@ const isPassportReq = (name: string) => name.toLowerCase().includes('passport');
 // document merely named "passport ..." (e.g. an extra/external page) should not be
 // swept into the pair card, it just needs a single simple upload.
 const isPassportPair = (req: DocumentRequirement) => req.docType === 'passport';
+// order -1 keeps the implicit passport ahead of every authored row, matching the
+// prepend it used to get before fields and documents shared one ordering.
 const PASSPORT_DEFAULT_REQ: DocumentRequirement = {
-  _id: '__passport_default__', name: 'Passport', description: '', required: true, applicantType: 'both', docType: 'passport', ocrEnabled: true,
+  _id: '__passport_default__', name: 'Passport', description: '', required: true, applicantType: 'both', docType: 'passport', ocrEnabled: true, order: -1,
 };
 const withDefaultPassport = (docs: DocumentRequirement[]): DocumentRequirement[] => {
   const hasPassport = docs.some((d) => (!!d.docType && d.docType.startsWith('passport')) || isPassportReq(d.name));
@@ -94,6 +97,11 @@ const fieldsForTraveler = (fields: FormField[], tr: Traveler) =>
 
 const docsForTraveler = (docs: DocumentRequirement[], tr: Traveler) =>
   docs.filter((d) => appliesToTraveler(d.applicantType, tr.type));
+
+// Questions and document uploads are one list for the applicant — the admin authors
+// them in a single sequence, so they render interleaved in exactly that order.
+const itemsForTraveler = (fields: FormField[], docs: DocumentRequirement[], tr: Traveler): FormItem[] =>
+  mergeFormItems(fieldsForTraveler(fields, tr), docsForTraveler(docs, tr));
 
 function Counter({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
   return (
@@ -297,8 +305,7 @@ function VisaOverviewModal({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { labelFor } = useVisaConfigLabels();
 
-  const requiredDocs = visa.documentRequirements.filter((r) => r.required);
-  const optionalDocs = visa.documentRequirements.filter((r) => !r.required);
+  const overviewItems = mergeFormItems(visa.formFields || [], visa.documentRequirements);
 
   const fullText = (() => {
     const lines: string[] = [];
@@ -310,10 +317,18 @@ function VisaOverviewModal({
     if (childRate > 0) lines.push(`- Child Price: ${formatCurrency(childRate)} (incl. 18% GST)`);
     if (visa.processingTime) lines.push(`- Processing Time: ${visa.processingTime}`);
     if (visa.validity) lines.push(`- Validity: ${visa.validity}`);
-    if (visa.documentRequirements?.length) {
+    const items = mergeFormItems(visa.formFields || [], visa.documentRequirements || []);
+    if (items.length) {
       lines.push('');
-      lines.push('DOCUMENTS');
-      visa.documentRequirements.forEach((r) => lines.push(`- ${r.name}${r.required ? ' (required)' : ' (optional)'}${r.applicantType === 'child' ? ' [children only]' : r.applicantType === 'both' ? ' [all travellers]' : ''}`));
+      lines.push('INFORMATION REQUIRED');
+      items.forEach((item) => {
+        const isDoc = item.kind === 'document';
+        const name = isDoc ? item.doc.name : (item.field.label || item.field.fieldName);
+        const required = isDoc ? item.doc.required : item.field.required;
+        const applicantType = isDoc ? item.doc.applicantType : item.field.applicantType;
+        const applies = applicantType === 'child' ? ' [children only]' : applicantType === 'both' ? ' [all travellers]' : '';
+        lines.push(`- ${name} (${isDoc ? 'upload' : 'answer'}, ${required ? 'required' : 'optional'})${applies}`);
+      });
     }
     if (visa.additionalNotes?.trim()) {
       lines.push('');
@@ -484,13 +499,13 @@ function VisaOverviewModal({
             </div>
           )}
 
-          {/* Documents */}
-          {visa.documentRequirements.length > 0 && (
+          {/* Information Required — fields and documents, in authored order */}
+          {overviewItems.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-slate-800">
                   Information Required
-                  <span className="ml-1.5 text-xs font-normal text-slate-400">({visa.documentRequirements.length} total)</span>
+                  <span className="ml-1.5 text-xs font-normal text-slate-400">({overviewItems.length} total)</span>
                 </p>
                 <div className="flex items-center gap-2">
                   <button onClick={handleCopy}
@@ -505,41 +520,37 @@ function VisaOverviewModal({
                 </div>
               </div>
 
-              {requiredDocs.length > 0 && (
-                <div className="mb-3 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">Required</p>
-                  {requiredDocs.map((req) => (
-                    <div key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-red-50/60 rounded-xl border border-red-100">
-                      <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
+              {/* Listed in the order the admin authored them, so this preview matches
+                  the form the applicant is about to fill and the downloadable PDF. */}
+              <div className="space-y-2">
+                {overviewItems.map((item) => {
+                  const isDoc = item.kind === 'document';
+                  const name = isDoc ? item.doc.name : (item.field.label || item.field.fieldName);
+                  const description = isDoc ? item.doc.description : item.field.placeholder;
+                  const required = isDoc ? item.doc.required : item.field.required;
+                  const applicantType = isDoc ? item.doc.applicantType : item.field.applicantType;
+                  return (
+                    <div key={`${item.kind}:${(isDoc ? item.doc._id : item.field._id) || name}`}
+                      className={`flex items-start gap-2.5 p-3 rounded-xl border ${required ? 'bg-red-50/60 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${required ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-500'}`}>
+                        {isDoc ? <FileText className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
+                      </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 leading-snug">{req.name}</p>
-                        {req.description && <p className="text-xs text-slate-500 mt-0.5">{req.description}</p>}
-                        {req.applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
-                        {req.applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
+                        <p className={`text-sm font-semibold leading-snug ${required ? 'text-slate-800' : 'text-slate-700'}`}>{name}</p>
+                        {description && <p className={`text-xs mt-0.5 ${required ? 'text-slate-500' : 'text-slate-400'}`}>{description}</p>}
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{isDoc ? 'Upload' : 'Answer'}</span>
+                          {applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
+                          {applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full flex-shrink-0">Required</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${required ? 'font-bold text-red-500 bg-red-100' : 'font-medium text-slate-400 bg-slate-200'}`}>
+                        {required ? 'Required' : 'Optional'}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {optionalDocs.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Optional</p>
-                  {optionalDocs.map((req) => (
-                    <div key={req._id || req.name} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5"><FileText className="w-3.5 h-3.5" /></span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-700 leading-snug">{req.name}</p>
-                        {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
-                        {req.applicantType === 'child' && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Children only</span>}
-                        {req.applicantType === 'both' && <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">All travellers</span>}
-                      </div>
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full flex-shrink-0">Optional</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1039,25 +1050,6 @@ export default function ApplyPage() {
         </div>
       );
     }
-    if (field.type === 'file') {
-      return (
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50">
-          <div className="flex-1 min-w-0">
-            {formData[key] ? <span className="text-sm text-green-700 font-medium truncate">✓ {formData[key]}</span> : <span className="text-sm text-slate-400">{field.placeholder || 'No file selected'}</span>}
-          </div>
-          <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors flex-shrink-0"
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = ACCEPTED;
-              input.onchange = (e: any) => { const file = e.target?.files?.[0]; if (file) setFormData({ ...formData, [key]: file.name }); };
-              input.click();
-            }}>
-            <Upload className="w-3.5 h-3.5" /> Browse
-          </button>
-        </div>
-      );
-    }
     return <Input {...common} type={field.type} placeholder={field.placeholder} />;
   };
 
@@ -1408,33 +1400,31 @@ export default function ApplyPage() {
               })}
             </div>
 
-            {activeTr && (
+            {activeTr && (() => {
+              const items = itemsForTraveler(sortedFields, requirements, activeTr);
+              const hasDocs = items.some((it) => it.kind === 'document');
+              return (
               <div className="space-y-6">
-                {fieldsForTraveler(sortedFields, activeTr).length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Details</p>
-                    <div className="space-y-4">
-                      {fieldsForTraveler(sortedFields, activeTr).map((field) => (
-                        <div key={field._id || field.fieldName}>
-                          <Label htmlFor={`${activeTr.key}__${field.fieldName}`}>
-                            {field.label}
-                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                {items.length > 0 && (
+                  <div className="space-y-4">
+                    {items.map((item) =>
+                      item.kind === 'field' ? (
+                        <div key={`f:${item.field._id || item.field.fieldName}`}>
+                          <Label htmlFor={`${activeTr.key}__${item.field.fieldName}`}>
+                            {item.field.label}
+                            {item.field.required && <span className="text-red-500 ml-1">*</span>}
                           </Label>
-                          <div className="mt-1">{renderField(field, activeTr.key)}</div>
+                          <div className="mt-1">{renderField(item.field, activeTr.key)}</div>
                         </div>
-                      ))}
-                    </div>
+                      ) : (
+                        <div key={`d:${item.doc._id || item.doc.name}`}>{renderDocCard(activeTr, item.doc)}</div>
+                      ),
+                    )}
                   </div>
                 )}
 
-                {docsForTraveler(requirements, activeTr).length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Documents</p>
-                    <div className="space-y-3">
-                      {docsForTraveler(requirements, activeTr).map((req) => renderDocCard(activeTr, req))}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-3">Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file</p>
-                  </div>
+                {hasDocs && (
+                  <p className="text-xs text-slate-400">Accepted formats: PDF, JPG, PNG, DOC, DOCX · Max 10 MB per file</p>
                 )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -1450,7 +1440,8 @@ export default function ApplyPage() {
                   ) : <span className="text-xs text-slate-400">All travellers</span>}
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

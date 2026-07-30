@@ -1,11 +1,12 @@
 import { Router } from 'express';
+import { asyncRouter } from '../utils/asyncRouter';
 import { getPublicCountries, getPublicVisaTypes, getPublicCountryBySlug, downloadVisaSummaryPdf } from '../controllers/user/applications.controller';
 import { submitContactLead } from '../controllers/admin/contactLeads.controller';
 import { getWebsitePromos } from '../controllers/public/promoCodes.controller';
 import { getPublicVisaConfig } from '../controllers/public/visaConfig.controller';
 import { optionalAuth } from '../middleware/auth.middleware';
 
-const router = Router();
+const router = asyncRouter();
 
 router.get('/countries', getPublicCountries as any);
 router.get('/countries/:slug', optionalAuth as any, getPublicCountryBySlug as any);

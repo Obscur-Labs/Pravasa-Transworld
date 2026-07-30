@@ -32,6 +32,7 @@ const DocumentRequirementSchema = new Schema<IDocumentRequirement>({
     default: 'custom',
   },
   ocrEnabled: { type: Boolean },
+  order: { type: Number, default: 0 },
 });
 
 const FormPresetSchema = new Schema<IFormPreset>(

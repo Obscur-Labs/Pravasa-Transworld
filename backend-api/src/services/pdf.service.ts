@@ -290,7 +290,11 @@ function drawColumnDividers(doc: PDFKit.PDFDocument, y: number, height: number) 
 
 // ── Visa Details summary PDF (public "download PDF" button, apply flow) ──────
 
+// One row of the "Information Required" table. Since fields and documents are a
+// single ordered list, both kinds appear here — `kind` tells the applicant whether
+// to answer it on the form or bring a file.
 export interface VisaSummaryDocRow {
+  kind: 'field' | 'document';
   name: string;
   description: string;
   required: boolean;
@@ -312,20 +316,22 @@ export interface VisaSummaryData {
 }
 
 const DOC_COLS = {
-  name: { x: MARGIN, w: 160 },
-  desc: { x: MARGIN + 160, w: 195 },
-  required: { x: MARGIN + 355, w: 85 },
-  applies: { x: MARGIN + 440, w: 75 },
+  name: { x: MARGIN, w: 150 },
+  desc: { x: MARGIN + 150, w: 175 },
+  provide: { x: MARGIN + 325, w: 65 },
+  required: { x: MARGIN + 390, w: 70 },
+  applies: { x: MARGIN + 460, w: 55 },
 };
 
 function drawDocTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
   doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, height).fill('#e2e8f0');
   doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8);
-  doc.text('Document', DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 6 });
+  doc.text('Item', DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 6 });
   doc.text('Description', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 6 });
+  doc.text('Provide', DOC_COLS.provide.x, y + 6, { width: DOC_COLS.provide.w - 6, align: 'center' });
   doc.text('Requirement', DOC_COLS.required.x, y + 6, { width: DOC_COLS.required.w - 6, align: 'center' });
   doc.text('Applies To', DOC_COLS.applies.x, y + 6, { width: DOC_COLS.applies.w - 6, align: 'center' });
-  const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
+  const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.provide.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
   doc.strokeColor('#cbd5e1').lineWidth(0.5);
   xs.forEach((x) => doc.moveTo(x, y).lineTo(x, y + height).stroke());
   doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#0f172a').stroke();
@@ -407,12 +413,14 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
 
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#0f172a').text(row.name, DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 8 });
       doc.font('Helvetica').fillColor('#475569').text(row.description || '—', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 8 });
+      doc.fillColor('#475569').font('Helvetica')
+        .text(row.kind === 'document' ? 'Upload' : 'Answer', DOC_COLS.provide.x, y + 6, { width: DOC_COLS.provide.w - 6, align: 'center' });
       doc.fillColor(row.required ? '#b91c1c' : '#64748b').font('Helvetica-Bold')
         .text(row.required ? 'Required' : 'Optional', DOC_COLS.required.x, y + 6, { width: DOC_COLS.required.w - 6, align: 'center' });
       const appliesLabel = row.applicantType === 'child' ? 'Child' : row.applicantType === 'both' ? 'All' : 'Adult';
       doc.fillColor('#0f172a').font('Helvetica').text(appliesLabel, DOC_COLS.applies.x, y + 6, { width: DOC_COLS.applies.w - 6, align: 'center' });
 
-      const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
+      const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.provide.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
       doc.strokeColor('#e2e8f0').lineWidth(0.5);
       xs.forEach((x) => doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke());
 
