@@ -32,6 +32,8 @@ router.delete('/countries/:id/images', countries.removeCountryImage);
 
 // Visa Types
 router.route('/visa-types').get(visaTypes.getVisaTypes).post(visaTypes.createVisaType);
+// Must stay above '/visa-types/:id', otherwise 'reorder' is matched as an id.
+router.put('/visa-types/reorder', visaTypes.reorderVisaTypes);
 router.route('/visa-types/:id').get(visaTypes.getVisaType).put(visaTypes.updateVisaType).delete(visaTypes.deleteVisaType);
 router.patch('/visa-types/:id/toggle', visaTypes.toggleVisaTypeStatus);
 

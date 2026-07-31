@@ -249,7 +249,7 @@ function sanitizeVisaType(visaType: Record<string, unknown>, includeCorporate: b
 export const getPublicCountryBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
   const country = await Country.findOne({ slug: req.params.slug, isActive: true, showOnWebsite: true });
   if (!country) { sendError(res, 'Country not found', 404); return; }
-  const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ name: 1 }).lean();
+  const visaTypes = await VisaType.find({ country: country._id, isActive: true }).sort({ order: 1, name: 1 }).lean();
   const includeCorporate = req.user?.accountType === 'corporate';
   sendSuccess(res, { country, visaTypes: visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)) });
 };
@@ -264,7 +264,9 @@ export const getPublicVisaTypes = async (req: AuthRequest, res: Response): Promi
     const requested = String(req.query.country);
     filter.country = activeCountryIds.map(String).includes(requested) ? requested : { $in: [] as unknown[] };
   }
-  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 }).lean();
+  // Same admin-arranged sequence the dashboard shows — see VisaType.order. `order` is
+  // scoped per country, so group by country first for the (unfiltered) all-countries case.
+  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ country: 1, order: 1, name: 1 }).lean();
   const includeCorporate = req.user?.accountType === 'corporate';
   sendSuccess(res, visaTypes.map((vt) => sanitizeVisaType(vt, includeCorporate)));
 };

@@ -253,6 +253,8 @@ export interface VisaType {
   documentRequirements: DocumentRequirement[];
   terms?: VisaTerm[];
   additionalNotes?: string;
+  /** Admin-arranged position within its country. Listings sort on this, then name. */
+  order?: number;
   isActive: boolean;
   createdAt: string;
 }

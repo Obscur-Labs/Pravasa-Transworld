@@ -8,8 +8,22 @@ import { normalizeFormItems } from '../../utils/formItems';
 
 export const getVisaTypes = async (req: AdminRequest, res: Response): Promise<void> => {
   const filter = req.query.country ? { country: req.query.country } : {};
-  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ name: 1 });
+  const visaTypes = await VisaType.find(filter).populate('country', 'name flag').sort({ order: 1, name: 1 });
   sendSuccess(res, visaTypes);
+};
+
+/**
+ * Persists the admin's drag-arranged sequence. The client sends the full list of ids
+ * for one country in display order; position in that array becomes `order`.
+ */
+export const reorderVisaTypes = async (req: AdminRequest, res: Response): Promise<void> => {
+  const ids: unknown = req.body?.ids;
+  if (!Array.isArray(ids) || ids.length === 0) { sendError(res, 'ids must be a non-empty array'); return; }
+  await VisaType.bulkWrite(
+    ids.map((id, order) => ({ updateOne: { filter: { _id: id }, update: { $set: { order } } } }))
+  );
+  logActivity(req, 'update', 'Visa Type', `Reordered ${ids.length} visa types`);
+  sendSuccess(res, null, 'Order saved');
 };
 
 export const getVisaType = async (req: AdminRequest, res: Response): Promise<void> => {
@@ -35,9 +49,17 @@ export const createVisaType = async (req: AdminRequest, res: Response): Promise<
   }
   // `price` mirrors the per-adult base rate for backward compatibility (listing "from" price).
   const price = Number(adultPrice);
+  // New visas land at the end of the country's list rather than jumping into the middle.
+  // The count covers records saved before `order` existed (the field is simply absent,
+  // so the max is undefined); the max covers gaps left behind by deletions.
+  const [last, count] = await Promise.all([
+    VisaType.findOne({ country }).sort({ order: -1 }).select('order').lean(),
+    VisaType.countDocuments({ country }),
+  ]);
   const visaType = await VisaType.create({
     country, name, description,
     price,
+    order: Math.max((last?.order ?? -1) + 1, count),
     adultPrice: Number(adultPrice),
     childPrice: Number(childPrice || 0),
     adultVfsFee: Number(adultVfsFee || 0),

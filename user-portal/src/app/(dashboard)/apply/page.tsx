@@ -1700,9 +1700,7 @@ export default function ApplyPage() {
                         />
                         <span className="text-sm text-slate-700 group-hover:text-slate-900">
                           {term.text}
-                          {term.required
-                            ? <span className="text-red-500 ml-1">*</span>
-                            : <span className="text-xs text-slate-400 ml-1.5">(optional)</span>}
+                          {term.required && <span className="text-red-500 ml-1">*</span>}
                         </span>
                       </label>
                     ))}

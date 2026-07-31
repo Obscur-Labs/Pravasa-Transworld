@@ -87,6 +87,10 @@ export interface IVisaType extends Document {
   documentRequirements: IDocumentRequirement[];
   terms: IVisaTerm[];
   additionalNotes: string;
+  // Admin-arranged position within its country. Every listing sorts on this first so
+  // the visas the admin wants promoted lead the list; name breaks ties, which keeps
+  // pre-ordering records (all at 0) in the alphabetical order they used to have.
+  order: number;
   isActive: boolean;
 }
 
@@ -148,6 +152,7 @@ const VisaTypeSchema = new Schema<IVisaType>(
     documentRequirements: [DocumentRequirementSchema],
     terms: [VisaTermSchema],
     additionalNotes: { type: String, default: '' },
+    order: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

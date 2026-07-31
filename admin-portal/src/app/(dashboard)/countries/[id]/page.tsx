@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Save, LayoutTemplate, Check, Copy, Eraser, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, GripVertical, Search as SearchIcon, ArrowUpDown, ArrowLeft, Globe, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ import { ApplicationFormBuilder } from '@/components/shared/application-form-bui
 import { TermsEditor } from '@/components/shared/terms-editor';
 import {
   getCountry, updateCountry, deleteCountry, toggleCountry, toggleCountryWebsite,
-  getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType,
+  getVisaTypes, createVisaType, updateVisaType, deleteVisaType, toggleVisaType, reorderVisaTypes,
   getFormPresets, createFormPreset, deleteFormPreset, getVisaConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -112,7 +112,10 @@ export default function CountryDetailPage() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState<'' | 'active' | 'inactive'>('');
-  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest' | 'oldest'>('name-asc');
+  const [sortBy, setSortBy] = useState<'custom' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest' | 'oldest'>('custom');
+  // Drag-to-reorder state for the custom sort (see canReorder / moveVisaType below).
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -508,9 +511,31 @@ export default function CountryDetailPage() {
         case 'price-desc': return stdAdultTotal(b) - stdAdultTotal(a);
         case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'oldest': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        default: return a.name.localeCompare(b.name);
+        case 'name-asc': return a.name.localeCompare(b.name);
+        // Custom: the admin's arranged sequence. Name breaks ties, so visa types saved
+        // before ordering existed (all at 0) still read alphabetically until dragged.
+        default: return ((a.order ?? 0) - (b.order ?? 0)) || a.name.localeCompare(b.name);
       }
     });
+
+  // Reordering a filtered or differently-sorted view would write positions the admin
+  // can't see, so the handles only appear on the full list in custom order.
+  const canReorder = sortBy === 'custom' && !search && !filterCategory && !filterStatus;
+
+  const moveVisaType = async (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || to >= displayedVisaTypes.length) return;
+    const next = [...displayedVisaTypes];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const previous = visaTypes;
+    setVisaTypes(next.map((vt, i) => ({ ...vt, order: i })));
+    try {
+      await reorderVisaTypes(next.map((vt) => vt._id));
+    } catch {
+      setVisaTypes(previous);
+      toast({ title: 'Could not save the new order', variant: 'destructive' });
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -928,6 +953,7 @@ export default function CountryDetailPage() {
         <div className="flex items-center gap-2 ml-auto">
           <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="h-9 px-3 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="custom">Custom order (drag)</option>
             <option value="name-asc">Name (A–Z)</option>
             <option value="name-desc">Name (Z–A)</option>
             <option value="price-asc">Price (low to high)</option>
@@ -946,11 +972,20 @@ export default function CountryDetailPage() {
         )}
       </div>
 
+      {sortBy === 'custom' && !visaTypesLoading && visaTypes.length > 1 && (
+        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+          <GripVertical className="w-3.5 h-3.5" />
+          {canReorder
+            ? 'Drag a row to arrange the order applicants see — #1 is shown first.'
+            : 'Clear the search and filters to rearrange the order.'}
+        </p>
+      )}
+
       <div className="bg-card rounded-2xl border border-border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-muted/40">
-              {['Visa Type', 'Adult ₹', 'Child ₹', 'Corporate (A / C)', 'Process', 'Time', 'Entry', 'Category', 'Status', ''].map((h) => (
+              {['#', 'Visa Type', 'Adult ₹', 'Child ₹', 'Corporate (A / C)', 'Process', 'Time', 'Entry', 'Category', 'Status', ''].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -959,16 +994,44 @@ export default function CountryDetailPage() {
             {visaTypesLoading ? (
               <TableSkeleton rows={5} cols={10} />
             ) : displayedVisaTypes.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
+              <TableRow><TableCell colSpan={11} className="px-4 py-10 text-center text-muted-foreground">
                 {visaTypes.length === 0 ? 'No visa types yet. Add one to get started.' : 'No visa types match the current filters.'}
               </TableCell></TableRow>
             ) : (
-              displayedVisaTypes.map((vt) => {
+              displayedVisaTypes.map((vt, i) => {
                 // A visa is effectively hidden from customers if the country is off,
                 // even when its own toggle is on — reflect that here.
                 const effectivelyOff = countryInactive || !vt.isActive;
+                const isDropTarget = canReorder && !!dragId && dropId === vt._id && dragId !== vt._id;
                 return (
-                <TableRow key={vt._id} className={effectivelyOff ? 'opacity-60' : ''}>
+                <TableRow
+                  key={vt._id}
+                  className={`${effectivelyOff ? 'opacity-60' : ''} ${dragId === vt._id ? 'opacity-40' : ''} ${isDropTarget ? 'bg-primary/5 outline outline-2 -outline-offset-2 outline-dashed outline-primary' : ''}`}
+                  onDragOver={canReorder && dragId ? (e) => { e.preventDefault(); setDropId(vt._id); } : undefined}
+                  onDrop={canReorder && dragId ? (e) => {
+                    e.preventDefault();
+                    moveVisaType(displayedVisaTypes.findIndex((v) => v._id === dragId), i);
+                    setDragId(null); setDropId(null);
+                  } : undefined}
+                >
+                  <TableCell className="pr-0">
+                    <div className="flex items-center gap-1.5">
+                      {canReorder ? (
+                        <span
+                          draggable
+                          onDragStart={() => setDragId(vt._id)}
+                          onDragEnd={() => { setDragId(null); setDropId(null); }}
+                          className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-foreground"
+                          title="Drag to reorder"
+                        >
+                          <GripVertical className="w-4 h-4" />
+                        </span>
+                      ) : (
+                        <span className="w-4" />
+                      )}
+                      <span className="text-xs font-semibold tabular-nums text-muted-foreground">{i + 1}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <p className="font-semibold text-foreground">{vt.name}</p>
                     {vt.description && <p className="text-xs text-muted-foreground">{vt.description}</p>}
@@ -1033,6 +1096,13 @@ export default function CountryDetailPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      {/* Keyboard-reachable equivalent of dragging the handle. */}
+                      {canReorder && (
+                        <>
+                          <button onClick={() => moveVisaType(i, i - 1)} disabled={i === 0} title="Move up" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => moveVisaType(i, i + 1)} disabled={i === displayedVisaTypes.length - 1} title="Move down" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown className="w-3.5 h-3.5" /></button>
+                        </>
+                      )}
                       <button onClick={() => startEdit(vt)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={() => setDeleteId(vt._id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
