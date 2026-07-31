@@ -25,6 +25,23 @@ import { formatCurrency } from '@/lib/utils';
 import { orderedFormArrays } from '@/types';
 import type { Country, VisaType, FormField, DocumentRequirement, EntryType, FormPreset, DocumentType, VisaConfigOption, VisaConfigCategory, VisaTerm } from '@/types';
 
+/**
+ * Names a duplicate: "Tourist Visa" → "Tourist Visa Copy", then "… Copy 2", "… Copy 3"
+ * as those get taken. Copying a copy strips the old suffix first, so you never end up
+ * with "Tourist Visa Copy Copy".
+ */
+const copyName = (source: string, existing: string[]): string => {
+  const base = source.replace(/\s+copy(\s+\d+)?$/i, '').trim() || source.trim();
+  const taken = new Set(existing.map((n) => n.trim().toLowerCase()));
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? `${base} Copy` : `${base} Copy ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+};
+
+/** Subdocument ids belong to the original — a duplicate gets fresh ones from Mongo. */
+const withoutIds = <T extends { _id?: string }>(rows: T[]) => rows.map(({ _id, ...rest }) => rest);
+
 const emptyField = (): FormField => ({ label: '', fieldName: '', type: 'text', required: false, options: [], placeholder: '', order: 0, applicantType: 'adult' });
 const isOcrDocType = (t: string) => t === 'passport_front' || t === 'passport_back';
 const emptyDocReq = (): DocumentRequirement => ({ name: '', description: '', required: true, applicantType: 'adult', docType: 'custom', ocrEnabled: false, order: 0 });
@@ -120,6 +137,7 @@ export default function CountryDetailPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [infoErrors, setInfoErrors] = useState<Record<string, string>>({});
@@ -253,6 +271,56 @@ export default function CountryDetailPage() {
       toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Clones a visa type — pricing, form items, terms and all — under a "Copy" name, and
+   * drops it directly below the original rather than at the end of the list.
+   */
+  const duplicateVisa = async (vt: VisaType) => {
+    setDuplicating(vt._id);
+    try {
+      const { formFields, documentRequirements } = orderedFormArrays(vt.formFields || [], vt.documentRequirements || []);
+      const res = await createVisaType({
+        country: countryId,
+        name: copyName(vt.name, visaTypes.map((v) => v.name)),
+        description: vt.description || '',
+        adultPrice: vt.adultPrice || vt.price || 0,
+        childPrice: vt.childPrice || 0,
+        adultVfsFee: vt.adultVfsFee || 0,
+        childVfsFee: vt.childVfsFee || 0,
+        adultServiceFee: vt.adultServiceFee || 0,
+        childServiceFee: vt.childServiceFee || 0,
+        // '' clears the override on the server; `undefined` would silently keep it unset anyway.
+        corporateAdultServiceFee: vt.corporateAdultServiceFee ?? '',
+        corporateChildServiceFee: vt.corporateChildServiceFee ?? '',
+        processingTime: vt.processingTime,
+        validity: vt.validity || '',
+        entry: vt.entry || [],
+        visaSubType: vt.visaSubType,
+        stayDuration: vt.stayDuration || '',
+        jurisdiction: vt.jurisdiction,
+        visaCategory: vt.visaCategory,
+        process: vt.process || 'normal',
+        formFields: withoutIds(formFields),
+        documentRequirements: withoutIds(documentRequirements),
+        terms: withoutIds(vt.terms || []).map((t, i) => ({ ...t, order: i })),
+        additionalNotes: vt.additionalNotes || '',
+      });
+      const created: VisaType = res.data.data;
+      // Slot the copy in right after its source so the two sit together.
+      const sequence = [...visaTypes]
+        .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)) || a.name.localeCompare(b.name))
+        .map((v) => v._id);
+      sequence.splice(sequence.indexOf(vt._id) + 1, 0, created._id);
+      await reorderVisaTypes(sequence).catch(() => {});
+      toast({ title: `Duplicated as "${created.name}"`, description: 'Edit it to change the details.', variant: 'success' });
+      loadVisaTypes();
+    } catch (err: any) {
+      toast({ title: 'Could not duplicate this visa type', description: err.response?.data?.message, variant: 'destructive' });
+    } finally {
+      setDuplicating(null);
     }
   };
 
@@ -1103,8 +1171,16 @@ export default function CountryDetailPage() {
                           <button onClick={() => moveVisaType(i, i + 1)} disabled={i === displayedVisaTypes.length - 1} title="Move down" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown className="w-3.5 h-3.5" /></button>
                         </>
                       )}
-                      <button onClick={() => startEdit(vt)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeleteId(vt._id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => startEdit(vt)} title="Edit" className="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded-lg"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button
+                        onClick={() => duplicateVisa(vt)}
+                        disabled={duplicating === vt._id}
+                        title="Duplicate this visa type"
+                        className="p-1.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-500/10 rounded-lg disabled:opacity-50"
+                      >
+                        {duplicating === vt._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                      <button onClick={() => setDeleteId(vt._id)} title="Delete" className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </TableCell>
                 </TableRow>
