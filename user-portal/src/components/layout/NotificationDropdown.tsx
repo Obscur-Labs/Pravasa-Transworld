@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell, X } from 'lucide-react';
 import { useSocket } from '@/components/providers/SocketProvider';
 import {
@@ -13,6 +14,17 @@ import { Button } from '@/components/ui/button';
 export default function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useSocket();
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  // A rejected document has to be re-uploaded on the application page — take the user
+  // straight there rather than leaving them to hunt for it.
+  const handleClick = (notif: { _id: string; read: boolean; application?: string | null }) => {
+    if (!notif.read) markAsRead(notif._id);
+    if (notif.application) {
+      setOpen(false);
+      router.push(`/applications/${notif.application}`);
+    }
+  };
 
   const sorted = [...notifications].sort((a, b) => {
     if (a.read === b.read) return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -45,7 +57,7 @@ export default function NotificationDropdown() {
             sorted.map((notif) => (
               <div
                 key={notif._id}
-                onClick={() => !notif.read && markAsRead(notif._id)}
+                onClick={() => handleClick(notif)}
                 className={`group px-4 py-3 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
                   notif.read ? 'bg-white hover:bg-slate-50 opacity-75' : 'bg-blue-50/50 hover:bg-blue-50'
                 }`}

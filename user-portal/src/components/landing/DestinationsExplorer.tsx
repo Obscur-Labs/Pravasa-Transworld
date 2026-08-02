@@ -87,7 +87,6 @@ export default function DestinationsExplorer({ initialCountries }: { initialCoun
 function CountryCard({ country }: { country: Country }) {
   const href = country.slug ? `/countries/${country.slug}` : `/countries/${country._id}`;
   const coverImage = country.images?.[0];
-  const highlight = country.webContent?.highlights?.[0];
 
   return (
     <Link href={href} className="group block">
@@ -123,11 +122,6 @@ function CountryCard({ country }: { country: Country }) {
             <p className="text-xs text-slate-500 font-medium line-clamp-2 mb-2.5 leading-relaxed">
               {country.description}
             </p>
-          )}
-          {highlight && (
-            <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full border border-blue-100 mb-3">
-              <BadgeCheck className="w-2.5 h-2.5" /> {highlight}
-            </span>
           )}
           <div className="flex items-center gap-1 text-blue-600 text-xs font-bold group-hover:gap-1.5 transition-all duration-200">
             View Visa Details <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />

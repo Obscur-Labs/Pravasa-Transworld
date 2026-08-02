@@ -193,6 +193,8 @@ export interface Notification {
   title: string;
   message: string;
   type: string;
+  /** Set when the notification is about a specific application — makes it clickable through to it. */
+  application?: string | null;
   read: boolean;
   createdAt: string;
 }

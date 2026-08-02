@@ -2,7 +2,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2, Circle, Receipt } from 'lucide-react';
+import {
+  ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2,
+  Circle, Receipt, FileText, PencilLine, AlertTriangle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +16,7 @@ import {
   manualPaymentOverride, downloadApplicationDocumentsZip, deleteApplication, downloadApplicationReceipt,
 } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
+import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import type { Application, Document, VisaFile } from '@/types';
 import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
 
@@ -35,17 +39,14 @@ function getStepState(status: string, stepIdx: number): 'done' | 'active' | 'pen
   return 'pending';
 }
 
-// Parse traveler label from document requirementName (e.g. "Adult 1 - Passport" → "Adult 1")
-function getDocTravelerLabel(requirementName: string): string {
-  const m = requirementName.match(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i);
-  return m ? m[1] : 'Other';
-}
-
-// Parse traveler label from form response key (e.g. "Adult 1 — Full Name" → "Adult 1")
-function getFormTravelerLabel(key: string): string {
-  const m = key.match(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i);
-  return m ? m[1] : 'General';
-}
+// Common reasons, one click away — most rejections are one of these.
+const QUICK_REJECT_REASONS = [
+  'Image is blurred or unreadable',
+  'Wrong document uploaded',
+  'Document is expired',
+  'Details do not match the application',
+  'Page is cropped — full document required',
+];
 
 export default function AdminApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -65,8 +66,9 @@ export default function AdminApplicationDetailPage() {
   const [embassyName, setEmbassyName] = useState('');
   const [submissionDate, setSubmissionDate] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
-  const [activeDocTab, setActiveDocTab] = useState('');
-  const [activeFormTab, setActiveFormTab] = useState('');
+  const [activeTab, setActiveTab] = useState('');
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchData = async () => {
     try {
@@ -87,45 +89,26 @@ export default function AdminApplicationDetailPage() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // Group documents by traveler tab
-  const docGroups = useMemo(() => {
-    const groups: Record<string, Document[]> = {};
-    for (const doc of documents) {
-      const tab = getDocTravelerLabel(doc.requirementName);
-      if (!groups[tab]) groups[tab] = [];
-      groups[tab].push(doc);
-    }
-    return groups;
-  }, [documents]);
-
-  const docTabs = Object.keys(docGroups);
+  // One tab per traveller. Applications submitted before traveller prefixes existed
+  // have none — they get a single unlabelled tab holding everything.
+  const tabs = useMemo(() => {
+    const found = travelerTabs(application, documents);
+    return found.length > 0 ? found : [''];
+  }, [application, documents]);
 
   useEffect(() => {
-    if (docTabs.length > 0 && !docTabs.includes(activeDocTab)) {
-      setActiveDocTab(docTabs[0]);
-    }
-  }, [docTabs.join(',')]);
+    if (!tabs.includes(activeTab)) setActiveTab(tabs[0]);
+  }, [tabs.join(',')]);
 
-  // Group form responses by traveler tab
-  const formGroups = useMemo(() => {
-    if (!application) return {};
-    const groups: Record<string, Record<string, string>> = {};
-    for (const [k, v] of Object.entries(application.formResponses)) {
-      const tab = getFormTravelerLabel(k);
-      if (!groups[tab]) groups[tab] = {};
-      const displayKey = k.replace(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i, '');
-      groups[tab][displayKey] = v;
-    }
-    return groups;
-  }, [application]);
+  // Uploads and answers replayed in the order the applicant filled the form.
+  const reviewRows = useMemo(
+    () => buildReviewRows(activeTab, application, documents),
+    [activeTab, application, documents],
+  );
 
-  const formTabs = Object.keys(formGroups);
+  const generalRows = useMemo(() => generalAnswers(application), [application]);
 
-  useEffect(() => {
-    if (formTabs.length > 0 && !formTabs.includes(activeFormTab)) {
-      setActiveFormTab(formTabs[0]);
-    }
-  }, [formTabs.join(',')]);
+  const docCountFor = (tab: string) => documents.filter((d) => travelerOf(d.requirementName) === tab).length;
 
   const handleDownloadZip = async () => {
     setDownloadingZip(true);
@@ -169,13 +152,24 @@ export default function AdminApplicationDetailPage() {
     setProcessing(true);
     try {
       await reviewDocument(id, { documentId, status, rejectionReason: reason });
-      toast({ title: `Document ${status}`, variant: status === 'approved' ? 'success' : 'destructive' });
+      toast({
+        title: status === 'approved' ? 'Document approved' : 'Document rejected',
+        description: status === 'rejected' ? 'The applicant was notified and can upload a replacement.' : undefined,
+        variant: status === 'approved' ? 'success' : 'destructive',
+      });
+      setRejectingId(null);
+      setRejectReason('');
       fetchData();
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
+  };
+
+  const openReject = (documentId: string) => {
+    setRejectingId(documentId);
+    setRejectReason('');
   };
 
   const handleApproveAll = async () => {
@@ -284,7 +278,7 @@ export default function AdminApplicationDetailPage() {
   if (!application) return <div className="p-6 text-center text-muted-foreground">Application not found.</div>;
 
   const pendingDocs = documents.filter((d) => d.status === 'pending');
-  const currentDocList = docGroups[activeDocTab] || [];
+  const rejectedDocs = documents.filter((d) => d.status === 'rejected');
 
   // Manual dropdown mirrors the 4-step progress (+ Rejected). Keep the current status
   // visible even if it's an internal sub-status set automatically by the workflow.
@@ -345,16 +339,30 @@ export default function AdminApplicationDetailPage() {
                   <p className="font-medium text-foreground">{formatDate(application.createdAt)}</p>
                 </div>
               </div>
+
+              {/* Answers that belong to the trip rather than any one traveller (travel dates, …) */}
+              {generalRows.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  {generalRows.map(([k, v]) => (
+                    <div key={k}>
+                      <p className="text-muted-foreground text-xs">{k}</p>
+                      <p className="font-medium text-foreground">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Document Review - tab by traveler */}
-          {documents.length > 0 && (
+          {/* Submitted Form — uploads and answers replayed in the order they were filled */}
+          {(documents.length > 0 || Object.keys(application.formResponses).length > 0) && (
             <Card>
               <div className="p-5 border-b border-border flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h3 className="font-semibold text-foreground">Documents</h3>
-                  <p className="text-xs text-muted-foreground">{documents.length} document(s) submitted</p>
+                  <h3 className="font-semibold text-foreground">Submitted Form</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {documents.length} document(s) &middot; reviewed in the order the applicant filled them
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {documents.length > 0 && (
@@ -364,30 +372,40 @@ export default function AdminApplicationDetailPage() {
                   )}
                   {pendingDocs.length > 0 && (
                     <Button size="sm" onClick={handleApproveAll} disabled={processing}>
-                      {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Approve All'}
+                      {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : `Approve All (${pendingDocs.length})`}
                     </Button>
                   )}
                 </div>
               </div>
 
-              {/* Traveler tabs */}
-              {docTabs.length > 1 && (
-                <div className="flex gap-1 px-5 pt-3 border-b border-border pb-0">
-                  {docTabs.map((tab) => {
+              {rejectedDocs.length > 0 && (
+                <div className="px-5 py-3 bg-destructive/10 border-b border-destructive/20 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-destructive">
+                    <span className="font-semibold">{rejectedDocs.length} document(s) rejected.</span>{' '}
+                    The applicant has been notified and can upload a replacement for each one.
+                  </p>
+                </div>
+              )}
+
+              {/* Traveller tabs */}
+              {tabs.length > 1 && (
+                <div className="flex gap-1 px-5 pt-3 border-b border-border pb-0 overflow-x-auto">
+                  {tabs.map((tab) => {
                     const isChild = tab.toLowerCase().startsWith('child');
                     return (
                       <button
                         key={tab}
-                        onClick={() => setActiveDocTab(tab)}
-                        className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
-                          activeDocTab === tab
+                        onClick={() => { setActiveTab(tab); setRejectingId(null); }}
+                        className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${
+                          activeTab === tab
                             ? (isChild ? 'border-success text-success bg-success/10' : 'border-primary text-primary bg-accent')
                             : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        {tab}
+                        {tab || 'Applicant'}
                         <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                          {docGroups[tab]?.length}
+                          {docCountFor(tab)}
                         </span>
                       </button>
                     );
@@ -395,106 +413,139 @@ export default function AdminApplicationDetailPage() {
                 </div>
               )}
 
-              <div className="divide-y divide-border">
-                {currentDocList.map((doc) => (
-                  <div key={doc._id} className="p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {doc.status === 'approved' ? (
-                          <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-                        ) : doc.status === 'rejected' ? (
-                          <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-warning flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground text-sm">
-                            {doc.requirementName.replace(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i, '')}
-                          </p>
-                          {doc.rejectionReason && (
+              <CardContent className="p-5 space-y-2.5">
+                {reviewRows.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nothing submitted for this traveller yet.</p>
+                )}
+
+                {reviewRows.map((row, idx) => {
+                  const step = (
+                    <span className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-[11px] font-bold flex items-center justify-center flex-shrink-0 tabular-nums">
+                      {idx + 1}
+                    </span>
+                  );
+
+                  if (row.kind === 'answer') {
+                    return (
+                      <div key={row.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-muted/30">
+                        {step}
+                        <PencilLine className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground flex-1 min-w-0 truncate">{row.label}</p>
+                        <p className="text-sm font-medium text-foreground text-right break-words">{row.value}</p>
+                      </div>
+                    );
+                  }
+
+                  if (row.kind === 'missing') {
+                    return (
+                      <div key={row.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-warning/40 bg-warning/5">
+                        {step}
+                        <FileText className="w-3.5 h-3.5 text-warning flex-shrink-0" />
+                        <p className="text-sm font-medium text-foreground flex-1 min-w-0">{row.label}</p>
+                        <Badge variant="warning">Not uploaded</Badge>
+                      </div>
+                    );
+                  }
+
+                  const doc = row.doc;
+                  const isRejecting = rejectingId === doc._id;
+                  return (
+                    <div
+                      key={row.id}
+                      className={`rounded-xl border overflow-hidden ${
+                        doc.status === 'approved' ? 'border-success/30 bg-success/5'
+                          : doc.status === 'rejected' ? 'border-destructive/30 bg-destructive/5'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="p-3 flex items-center gap-3 flex-wrap">
+                        {step}
+                        {doc.status === 'approved' ? <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                          : doc.status === 'rejected' ? <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
+                          : <Clock className="w-4 h-4 text-warning flex-shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground text-sm">{row.label}</p>
+                          {doc.status === 'rejected' && doc.rejectionReason && (
                             <p className="text-xs text-destructive">Reason: {doc.rejectionReason}</p>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                        {doc.status !== 'approved' && (
-                          <Button size="sm" variant="outline" className="text-success border-success/20 hover:bg-success/10"
-                            onClick={() => handleDocReview(doc._id, 'approved')} disabled={processing}>
-                            Approve
-                          </Button>
-                        )}
-                        {doc.status !== 'rejected' && (
-                          <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10"
-                            onClick={() => {
-                              const reason = prompt('Rejection reason:');
-                              if (reason) handleDocReview(doc._id, 'rejected', reason);
-                            }}
-                            disabled={processing}>
-                            Reject
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {doc.extractedData && Object.keys(doc.extractedData).length > 0 && (
-                      <div className="mt-3 ml-7 p-3 bg-muted/50 rounded-lg border border-border">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Auto-extracted details</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
-                          {Object.entries(doc.extractedData).map(([k, v]) => (
-                            <div key={k} className="text-xs">
-                              <span className="text-muted-foreground">{k}: </span>
-                              <span className="font-medium text-foreground">{v}</span>
-                            </div>
-                          ))}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80">
+                            <ExternalLink className="w-3.5 h-3.5" /> View
+                          </a>
+                          {doc.status !== 'approved' && (
+                            <Button size="sm" variant="outline" className="text-success border-success/20 hover:bg-success/10"
+                              onClick={() => handleDocReview(doc._id, 'approved')} disabled={processing}>
+                              Approve
+                            </Button>
+                          )}
+                          {doc.status !== 'rejected' && (
+                            <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10"
+                              onClick={() => (isRejecting ? setRejectingId(null) : openReject(doc._id))} disabled={processing}>
+                              Reject
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
 
-          {/* Form Responses - tab by traveler */}
-          {Object.keys(application.formResponses).length > 0 && (
-            <Card>
-              <div className="p-5 border-b border-border">
-                <h3 className="font-semibold text-foreground">Application Responses</h3>
-              </div>
+                      {/* OCR values are shown here, at the scan they came from — the applicant's
+                          answers list never repeats them. */}
+                      {doc.extractedData && Object.keys(doc.extractedData).length > 0 && (
+                        <div className="mx-3 mb-3 p-3 bg-muted/50 rounded-lg border border-border">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Read from this document</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                            {Object.entries(doc.extractedData).map(([k, v]) => (
+                              <div key={k} className="text-xs">
+                                <span className="text-muted-foreground">{k}: </span>
+                                <span className="font-medium text-foreground">{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
-              {/* Form traveler tabs */}
-              {formTabs.length > 1 && (
-                <div className="flex gap-1 px-5 pt-3 border-b border-border">
-                  {formTabs.map((tab) => {
-                    const isChild = tab.toLowerCase().startsWith('child');
-                    return (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveFormTab(tab)}
-                        className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
-                          activeFormTab === tab
-                            ? (isChild ? 'border-success text-success bg-success/10' : 'border-primary text-primary bg-accent')
-                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              <CardContent className="p-5">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {Object.entries(formGroups[activeFormTab] || {}).map(([k, v]) => (
-                    <div key={k}>
-                      <p className="text-xs text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
-                      <p className="font-medium text-foreground">{String(v)}</p>
+                      {isRejecting && (
+                        <div className="mx-3 mb-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5 space-y-2">
+                          <p className="text-xs font-semibold text-destructive">
+                            Why is this rejected? The applicant sees this and can re-upload just this document.
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {QUICK_REJECT_REASONS.map((r) => (
+                              <button
+                                key={r}
+                                onClick={() => setRejectReason(r)}
+                                className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                                  rejectReason === r
+                                    ? 'bg-destructive text-destructive-foreground border-destructive'
+                                    : 'border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive'
+                                }`}
+                              >
+                                {r}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            rows={2}
+                            placeholder="Add or edit the reason…"
+                            className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="destructive" disabled={!rejectReason.trim() || processing}
+                              onClick={() => handleDocReview(doc._id, 'rejected', rejectReason.trim())}>
+                              {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Reject & notify applicant'}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setRejectingId(null)} disabled={processing}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </CardContent>
             </Card>
           )}

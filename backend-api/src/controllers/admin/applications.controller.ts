@@ -131,11 +131,19 @@ export const reviewDocument = async (req: AdminRequest, res: Response): Promise<
 
   const application = await Application.findById(req.params.id);
   if (application) {
+    // A rejection is a request for a new file, so the applicant needs the upload window
+    // open again — an application already waved through to 'documents_approved' goes back
+    // under review until the replacement arrives.
+    if (status === 'rejected' && application.status === 'documents_approved') {
+      application.status = 'documents_under_review';
+      await application.save();
+    }
+
     const notif = await Notification.create({
       user: application.user,
-      title: status === 'rejected' ? 'Document Rejected' : 'Document Reviewed',
-      message: status === 'rejected' 
-        ? `Your document "${doc.requirementName}" was rejected: ${rejectionReason}`
+      title: status === 'rejected' ? 'Document Rejected — Re-upload Needed' : 'Document Reviewed',
+      message: status === 'rejected'
+        ? `Your document "${doc.requirementName}" was rejected: ${rejectionReason}. Open the application to upload a replacement — only this document needs to be sent again.`
         : `Your document "${doc.requirementName}" has been reviewed.`,
       type: status === 'rejected' ? 'document_rejected' : 'general',
       application: application._id,
@@ -166,6 +174,16 @@ export const approveAllDocuments = async (req: AdminRequest, res: Response): Pro
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
   await Document.updateMany({ application: application._id, status: 'pending' }, { status: 'approved', reviewedAt: new Date() });
+
+  // A rejected document is still waiting on a replacement — approving the rest must not
+  // close the applicant's upload window behind it.
+  const stillRejected = await Document.countDocuments({ application: application._id, status: 'rejected' });
+  if (stillRejected > 0) {
+    application.status = 'documents_under_review';
+    await application.save();
+    sendSuccess(res, application, `Pending documents approved. ${stillRejected} rejected document(s) still awaiting re-upload.`);
+    return;
+  }
 
   const visaType = await (await import('../../models/VisaType')).default.findById(application.visaType);
   application.status = 'documents_approved';

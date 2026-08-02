@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Bell, CheckCheck, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, CheckCheck, ChevronRight, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
@@ -11,6 +12,7 @@ import type { Notification } from '@/types';
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const fetchNotifications = async () => {
     try {
@@ -26,6 +28,13 @@ export default function NotificationsPage() {
   const handleMarkRead = async (id: string) => {
     await markNotificationRead(id);
     setNotifications((prev) => prev.map((n) => n._id === id ? { ...n, read: true } : n));
+  };
+
+  // A rejected document has to be re-uploaded on the application page — take the user
+  // straight there rather than leaving them to hunt for it.
+  const handleOpen = (n: Notification) => {
+    if (!n.read) handleMarkRead(n._id);
+    if (n.application) router.push(`/applications/${n.application}`);
   };
 
   const handleMarkAll = async () => {
@@ -94,7 +103,7 @@ export default function NotificationsPage() {
             <div
               key={n._id}
               className={`group p-4 transition-colors cursor-pointer ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/60'}`}
-              onClick={() => !n.read && handleMarkRead(n._id)}
+              onClick={() => handleOpen(n)}
             >
               <div className="flex items-start gap-3">
                 <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-blue-500'}`} />
@@ -102,6 +111,11 @@ export default function NotificationsPage() {
                   <p className={`text-sm font-semibold ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>{n.title}</p>
                   <p className="text-sm text-slate-500 mt-0.5">{n.message}</p>
                   <p className="text-xs text-slate-400 mt-1">{formatDate(n.createdAt)}</p>
+                  {n.application && (
+                    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-600 mt-1.5">
+                      Open application <ChevronRight className="w-3 h-3" />
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={(e) => handleDelete(n._id, e)}

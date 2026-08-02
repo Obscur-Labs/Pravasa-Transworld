@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Upload, Download, CreditCard, Loader2, CheckCircle2, XCircle,
-  Clock, FileText, PlusCircle, Archive, ChevronDown, X,
+  Clock, FileText, PlusCircle, Archive, ChevronDown, X, PencilLine, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
 import { formatDate, formatCurrency } from '@/lib/utils';
+import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
 import type { Application, Document as AppDocument, VisaFile, DocumentRequirement, VaultDocument } from '@/types';
 import { STATUS_LABELS } from '@/types';
@@ -40,15 +41,6 @@ function getVaultType(reqName: string): string | null {
   if (n.includes('bank')) return 'bank_statement';
   if (n.includes('degree') || n.includes('diploma')) return 'degree';
   return null;
-}
-
-function getTravelerLabel(name: string): string {
-  const m = name.match(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i);
-  return m ? m[1] : '';
-}
-
-function stripTravelerPrefix(name: string): string {
-  return name.replace(/^(Adult \d+|Child \d+)\s*[-–—]\s*/i, '');
 }
 
 const docStatusIcon = (status: string) => {
@@ -155,49 +147,31 @@ export default function ApplicationDetailPage() {
   };
 
   // Sorted traveller tabs derived from uploaded docs + form response keys
-  const travelerTabs = useMemo(() => {
-    const set = new Set<string>();
-    for (const doc of documents) {
-      const t = getTravelerLabel(doc.requirementName);
-      if (t) set.add(t);
-    }
-    for (const k of Object.keys(application?.formResponses || {})) {
-      const t = getTravelerLabel(k);
-      if (t) set.add(t);
-    }
-    return Array.from(set).sort((a, b) => {
-      const aAdult = a.toLowerCase().startsWith('adult');
-      const bAdult = b.toLowerCase().startsWith('adult');
-      if (aAdult !== bAdult) return aAdult ? -1 : 1;
-      const aNum = parseInt(a.match(/\d+/)?.[0] || '0');
-      const bNum = parseInt(b.match(/\d+/)?.[0] || '0');
-      return aNum - bNum;
-    });
-  }, [documents, application]);
+  const tabs = useMemo(() => travelerTabs(application, documents), [documents, application]);
 
   useEffect(() => {
-    if (travelerTabs.length > 0 && !travelerTabs.includes(activeTravelerTab)) {
-      setActiveTravelerTab(travelerTabs[0]);
+    if (tabs.length > 0 && !tabs.includes(activeTravelerTab)) {
+      setActiveTravelerTab(tabs[0]);
     }
-  }, [travelerTabs.join(',')]);
+  }, [tabs.join(',')]);
 
-  const activeTravelerDocs = documents.filter((d) => getTravelerLabel(d.requirementName) === activeTravelerTab);
-  const nonTravelerDocs = documents.filter((d) => !getTravelerLabel(d.requirementName));
+  // Uploads and answers in the order they were filled — passport details read by OCR
+  // appear under their scan only, never again as a separate answer.
+  const reviewRows = useMemo(
+    () => buildReviewRows(activeTravelerTab, application, documents),
+    [activeTravelerTab, application, documents],
+  );
 
-  const activeTravelerResponses = useMemo(() => {
-    if (!application) return {} as Record<string, string>;
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(application.formResponses)) {
-      if (getTravelerLabel(k) === activeTravelerTab) out[stripTravelerPrefix(k)] = v;
-    }
-    return out;
-  }, [application, activeTravelerTab]);
+  const docCountFor = (tab: string) => documents.filter((d) => travelerOf(d.requirementName) === tab).length;
+
+  const nonTravelerDocs = documents.filter((d) => !travelerOf(d.requirementName));
+  const rejectedDocs = documents.filter((d) => d.status === 'rejected');
 
   const generalResponses = useMemo(() => {
     if (!application) return {} as Record<string, string>;
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(application.formResponses)) {
-      if (!getTravelerLabel(k)) out[k] = v;
+      if (!travelerOf(k)) out[k] = v;
     }
     return out;
   }, [application]);
@@ -282,8 +256,19 @@ export default function ApplicationDetailPage() {
   const canUploadDocs = ['payment_completed', 'documents_under_review'].includes(application.status);
   const requirements: DocumentRequirement[] = application.visaType?.documentRequirements || [];
 
+  // A rejection is a request for a replacement, so a rejected document stays replaceable
+  // even once the application has moved past the normal upload stages.
+  const canReplace = (doc: AppDocument) => canUploadDocs || doc.status === 'rejected';
+
+  // Documents shown nowhere else. Without traveller tabs the flat requirements list
+  // below already covers every document that matches a requirement, so only genuinely
+  // extra uploads belong here.
+  const extraDocs = tabs.length > 0
+    ? nonTravelerDocs
+    : nonTravelerDocs.filter((d) => !requirements.some((r) => r.name === d.requirementName));
+
   // Use traveller tabs when docs/responses have traveller prefixes; otherwise fall back to requirements
-  const hasTravelerData = travelerTabs.length > 0;
+  const hasTravelerData = tabs.length > 0;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -336,6 +321,47 @@ export default function ApplicationDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Action needed — one or more documents came back rejected */}
+          {rejectedDocs.length > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-red-900 mb-1">
+                      {rejectedDocs.length === 1 ? 'One document needs to be sent again' : `${rejectedDocs.length} documents need to be sent again`}
+                    </h3>
+                    <p className="text-red-700 text-sm mb-3">
+                      Only these need re-uploading — everything else you submitted stays as it is.
+                    </p>
+                    <div className="space-y-2">
+                      {rejectedDocs.map((doc) => (
+                        <div key={doc._id} className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-white px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">{doc.requirementName}</p>
+                            {doc.rejectionReason && <p className="text-xs text-red-500 mt-0.5">{doc.rejectionReason}</p>}
+                          </div>
+                          {uploading === doc.requirementName ? (
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 flex-shrink-0">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
+                            >
+                              <Upload className="w-3.5 h-3.5" /> Upload again
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Awaiting payment */}
           {['submitted', 'payment_pending'].includes(application.status) && (
@@ -449,14 +475,14 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
-          {/* ── Traveller-tabbed documents + responses ── */}
+          {/* ── Traveller-tabbed submission: uploads and answers in the order they were filled ── */}
           {hasTravelerData && (
             <Card>
               <div className="p-5 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-slate-900">Documents</h3>
+                  <h3 className="font-semibold text-slate-900">What You Submitted</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {canUploadDocs ? 'Upload or replace documents for each traveller.' : 'Documents submitted for this application.'}
+                    {canUploadDocs ? 'Your answers and uploads, in the order you filled them.' : 'Your answers and uploads for this application.'}
                   </p>
                 </div>
                 <Badge variant="secondary">{documents.length} uploaded</Badge>
@@ -464,9 +490,9 @@ export default function ApplicationDetailPage() {
 
               {/* Traveller tabs */}
               <div className="flex gap-1 px-5 pt-3 border-b border-slate-100 overflow-x-auto">
-                {travelerTabs.map((tab) => {
+                {tabs.map((tab) => {
                   const isChild = tab.toLowerCase().startsWith('child');
-                  const tabDocCount = documents.filter((d) => getTravelerLabel(d.requirementName) === tab).length;
+                  const tabDocCount = docCountFor(tab);
                   return (
                     <button
                       key={tab}
@@ -493,67 +519,103 @@ export default function ApplicationDetailPage() {
               </div>
 
               <CardContent className="p-5 space-y-5">
-                {/* Docs for active traveller */}
-                {activeTravelerDocs.length > 0 ? (
-                  <div className="space-y-3">
-                    {activeTravelerDocs.map((doc) => (
-                      <div key={doc._id} className={`rounded-xl border overflow-hidden ${
-                        doc.status === 'approved' ? 'border-green-200 bg-green-50/30' :
-                        doc.status === 'rejected' ? 'border-red-200 bg-red-50/30' : 'border-slate-200'
-                      }`}>
-                        <div className="p-3.5 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            {docStatusIcon(doc.status)}
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{stripTravelerPrefix(doc.requirementName)}</p>
-                              {doc.status === 'rejected' && doc.rejectionReason && (
-                                <p className="text-xs text-red-500 mt-0.5">Reason: {doc.rejectionReason}</p>
-                              )}
-                            </div>
+                {reviewRows.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-4">Nothing submitted for {activeTravelerTab} yet.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {reviewRows.map((row, idx) => {
+                      const step = (
+                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center flex-shrink-0 tabular-nums">
+                          {idx + 1}
+                        </span>
+                      );
+
+                      if (row.kind === 'answer') {
+                        return (
+                          <div key={row.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-slate-50/60">
+                            {step}
+                            <PencilLine className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <p className="text-xs text-slate-400 flex-1 min-w-0 truncate">{row.label}</p>
+                            <p className="text-sm font-medium text-slate-900 text-right break-words">{row.value}</p>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {doc.status === 'approved' ? (
-                              <Badge variant="success">Approved</Badge>
-                            ) : canUploadDocs ? (
-                              uploading === doc.requirementName ? (
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        );
+                      }
+
+                      if (row.kind === 'missing') {
+                        return (
+                          <div key={row.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-amber-200 bg-amber-50/50">
+                            {step}
+                            <FileText className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                            <p className="text-sm font-medium text-slate-900 flex-1 min-w-0">{row.label}</p>
+                            {canUploadDocs ? (
+                              uploading === row.requirementName ? (
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500 flex-shrink-0">
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
-                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                                  onClick={() => triggerFileUpload((file) => handleUpload(file, row.requirementName))}
+                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors flex-shrink-0"
                                 >
-                                  <Upload className="w-3.5 h-3.5" /> Replace file
+                                  <Upload className="w-3.5 h-3.5" /> Upload
                                 </button>
                               )
                             ) : (
-                              <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
-                                {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
-                              </Badge>
+                              <Badge variant="secondary">Not uploaded</Badge>
                             )}
                           </div>
-                        </div>
-                        <ExtractedDetails data={doc.extractedData} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-4">No documents uploaded for {activeTravelerTab} yet.</p>
-                )}
+                        );
+                      }
 
-                {/* Form responses for active traveller */}
-                {Object.keys(activeTravelerResponses).length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Details</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {Object.entries(activeTravelerResponses).map(([k, v]) => (
-                        <div key={k}>
-                          <p className="text-xs text-slate-400">{k}</p>
-                          <p className="text-sm font-medium text-slate-900 mt-0.5">{String(v)}</p>
+                      const doc = row.doc;
+                      return (
+                        <div key={row.id} className={`rounded-xl border overflow-hidden ${
+                          doc.status === 'approved' ? 'border-green-200 bg-green-50/30' :
+                          doc.status === 'rejected' ? 'border-red-200 bg-red-50/30' : 'border-slate-200'
+                        }`}>
+                          <div className="p-3.5 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              {step}
+                              {docStatusIcon(doc.status)}
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">{row.label}</p>
+                                {doc.status === 'rejected' && doc.rejectionReason && (
+                                  <p className="text-xs text-red-500 mt-0.5">Reason: {doc.rejectionReason}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {doc.status === 'approved' ? (
+                                <Badge variant="success">Approved</Badge>
+                              ) : canReplace(doc) ? (
+                                uploading === doc.requirementName ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => triggerFileUpload((file) => handleUpload(file, doc.requirementName))}
+                                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                                      doc.status === 'rejected'
+                                        ? 'bg-red-600 border-red-600 text-white hover:bg-red-700'
+                                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                                    }`}
+                                  >
+                                    <Upload className="w-3.5 h-3.5" />
+                                    {doc.status === 'rejected' ? 'Upload again' : 'Replace file'}
+                                  </button>
+                                )
+                              ) : (
+                                <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                  {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <ExtractedDetails data={doc.extractedData} />
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -695,7 +757,7 @@ export default function ApplicationDetailPage() {
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {doc?.status === 'approved' ? (
                                 <Badge variant="success">Approved</Badge>
-                              ) : canUploadDocs ? (
+                              ) : canUploadDocs || doc?.status === 'rejected' ? (
                                 isUploading ? (
                                   <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
@@ -722,9 +784,8 @@ export default function ApplicationDetailPage() {
                                   </div>
                                 )
                               ) : doc ? (
-                                <Badge variant={doc.status === 'rejected' ? 'destructive' : 'secondary'}>
-                                  {doc.status === 'rejected' ? 'Rejected' : 'Under Review'}
-                                </Badge>
+                                // Approved and rejected are handled above, so only pending reaches here.
+                                <Badge variant="secondary">Under Review</Badge>
                               ) : (
                                 <Badge variant="secondary">Not Uploaded</Badge>
                               )}
@@ -826,13 +887,13 @@ export default function ApplicationDetailPage() {
           )}
 
           {/* Non-traveller docs (uploaded without prefix) */}
-          {nonTravelerDocs.length > 0 && (
+          {extraDocs.length > 0 && (
             <Card>
               <div className="p-5 border-b border-slate-100">
                 <h3 className="font-semibold text-slate-900">Additional Documents</h3>
               </div>
               <div className="divide-y divide-slate-100">
-                {nonTravelerDocs.map((doc) => (
+                {extraDocs.map((doc) => (
                   <div key={doc._id} className="p-4 flex items-center gap-3">
                     {docStatusIcon(doc.status)}
                     <p className="text-sm font-medium text-slate-900 flex-1">{doc.requirementName}</p>

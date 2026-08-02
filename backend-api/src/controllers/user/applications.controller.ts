@@ -145,6 +145,16 @@ export const getApplication = async (req: AuthRequest, res: Response): Promise<v
   sendSuccess(res, { application, documents, visaFile });
 };
 
+// Stages during which an applicant may still add or swap documents.
+const UPLOAD_STAGES = ['submitted', 'payment_completed', 'documents_under_review', 'documents_approved'];
+
+// Rejecting a document is an explicit request for a replacement, so that one document
+// stays replaceable even once the application has moved past the upload stages.
+async function canReplace(applicationId: unknown, requirementName: string): Promise<boolean> {
+  const existing = await Document.findOne({ application: applicationId, requirementName });
+  return existing?.status === 'rejected';
+}
+
 export const uploadDocument = async (req: AuthRequest, res: Response): Promise<void> => {
   if (!req.file) { sendError(res, 'File is required'); return; }
   const { requirementName } = req.body;
@@ -153,7 +163,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
 
-  if (!['submitted', 'payment_completed', 'documents_under_review', 'documents_approved'].includes(application.status)) {
+  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application._id, requirementName))) {
     sendError(res, 'Cannot upload documents at this stage'); return;
   }
 
@@ -325,7 +335,7 @@ export const addDocumentFromVault = async (req: AuthRequest, res: Response): Pro
 
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }
-  if (!['submitted', 'payment_completed', 'documents_under_review', 'documents_approved'].includes(application.status)) {
+  if (!UPLOAD_STAGES.includes(application.status) && !(await canReplace(application._id, requirementName))) {
     sendError(res, 'Cannot add documents at this stage'); return;
   }
 
