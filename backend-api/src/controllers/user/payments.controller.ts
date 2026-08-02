@@ -134,6 +134,88 @@ export const createPaymentOrder = async (req: AuthRequest, res: Response): Promi
   }
 };
 
+/**
+ * A turned-down payment is a dead end for the applicant unless someone is told, so
+ * every failure raises it on both sides: the applicant gets the gateway's own wording
+ * and a nudge to retry, the admin gets a heads-up that the application is stuck at
+ * payment. The application also drops to 'payment_pending' so it stops reading as a
+ * fresh submission awaiting review.
+ */
+async function announcePaymentFailure(
+  application: any,
+  payment: any,
+  userId: unknown,
+  userName: string,
+): Promise<void> {
+  if (application.status === 'submitted') {
+    application.status = 'payment_pending';
+    await application.save();
+  }
+
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  const Notification = (await import('../../models/Notification')).default;
+  const reason = payment.failureReason || 'The payment could not be completed';
+
+  const adminNotif = await AdminNotification.create({
+    title: 'Payment Failed',
+    message: `${userName}'s payment of ₹${Number(payment.amount || 0).toLocaleString('en-IN')} for application ${application.referenceId} failed: ${reason}`,
+    type: 'payment_failed',
+    application: application._id,
+  });
+
+  const userNotif = await Notification.create({
+    user: userId,
+    title: 'Payment Failed',
+    message: `Your payment for application ${application.referenceId} did not go through: ${reason}. No money has been taken — you can try again from the application page.`,
+    type: 'payment_failed',
+    application: application._id,
+  });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to('admin_room').emit('admin_notification', adminNotif);
+    getIO().to(`user_${userId}`).emit('notification', userNotif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+}
+
+/**
+ * Records a checkout the gateway turned down. Razorpay reports these to the browser
+ * through its `payment.failed` event and never calls our server, so the client hands
+ * the reason over here — otherwise a declined card is indistinguishable from the user
+ * simply closing the window.
+ */
+export const recordPaymentFailure = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { razorpayOrderId, razorpayPaymentId, code, description, reason } = req.body || {};
+
+  const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+
+  // Pin to the order the failure belongs to; fall back to the open attempt when the
+  // client could not tell us (the order id is absent on some gateway error payloads).
+  const payment = razorpayOrderId
+    ? await Payment.findOne({ application: application._id, user: req.user!._id, razorpayOrderId })
+    : await Payment.findOne({ application: application._id, user: req.user!._id, status: 'pending' }).sort({ createdAt: -1 });
+
+  if (!payment) { sendError(res, 'Payment order not found', 404); return; }
+  // A late failure report must never undo a payment that already went through.
+  if (payment.status === 'completed') { sendSuccess(res, payment, 'Payment already completed'); return; }
+  // Retries of the same report must not re-notify anyone about the same failure.
+  if (payment.status === 'failed') { sendSuccess(res, payment, 'Payment failure already recorded'); return; }
+
+  payment.status = 'failed';
+  payment.failureReason = String(description || reason || 'The payment could not be completed');
+  payment.failureCode = String(code || '');
+  payment.failedAt = new Date();
+  if (razorpayPaymentId) payment.razorpayPaymentId = String(razorpayPaymentId);
+  await payment.save();
+
+  await announcePaymentFailure(application, payment, req.user!._id, req.user!.name);
+
+  sendSuccess(res, payment, 'Payment failure recorded');
+};
+
 // Step 2: verify checkout signature, then mark payment complete
 export const verifyPayment = async (req: AuthRequest, res: Response): Promise<void> => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
@@ -156,7 +238,12 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
 
   if (!verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
     payment.status = 'failed';
+    payment.failureReason = 'Payment signature verification failed';
+    payment.failureCode = 'SIGNATURE_MISMATCH';
+    payment.failedAt = new Date();
+    payment.razorpayPaymentId = razorpay_payment_id;
     await payment.save();
+    await announcePaymentFailure(application, payment, req.user!._id, req.user!.name);
     sendError(res, 'Payment verification failed. If money was deducted, it will be refunded automatically.', 400);
     return;
   }

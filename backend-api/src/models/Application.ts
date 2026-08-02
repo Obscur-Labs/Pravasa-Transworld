@@ -38,6 +38,23 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   visa_delivered: 'Visa Delivered',
 };
 
+// Some missions want original papers in hand rather than scans. When the admin asks
+// for them, the applicant ships the documents and reports the consignment back. The
+// whole exchange sits outside the main flow — nothing here ever blocks an application.
+export interface ICourierRequest {
+  requested: boolean;
+  instructions: string;
+  address: string;
+  requestedAt: Date | null;
+  trackingNumber: string;
+  phone: string;
+  // When the applicant expects the shipment to land, so the office knows what to watch
+  // for. Their estimate, not a commitment — receivedAt is what actually happened.
+  expectedDate: string;
+  submittedAt: Date | null;
+  receivedAt: Date | null;
+}
+
 export interface IApplication extends Document {
   user: mongoose.Types.ObjectId;
   visaType: mongoose.Types.ObjectId;
@@ -69,10 +86,32 @@ export interface IApplication extends Document {
   // Snapshot of the visa terms the applicant ticked at submission, so the record of
   // what was agreed to survives later edits to the visa type's terms.
   acceptedTerms: { text: string; required: boolean }[];
+  courier: ICourierRequest;
   referenceId: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** A cleared courier exchange — also the shape applications created before this existed get. */
+export const EMPTY_COURIER: ICourierRequest = {
+  requested: false, instructions: '', address: '', requestedAt: null,
+  trackingNumber: '', phone: '', expectedDate: '', submittedAt: null, receivedAt: null,
+};
+
+const CourierSchema = new Schema<ICourierRequest>(
+  {
+    requested: { type: Boolean, default: false },
+    instructions: { type: String, default: '' },
+    address: { type: String, default: '' },
+    requestedAt: { type: Date, default: null },
+    trackingNumber: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    expectedDate: { type: String, default: '' },
+    submittedAt: { type: Date, default: null },
+    receivedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
 
 const ApplicationSchema = new Schema<IApplication>(
   {
@@ -104,6 +143,7 @@ const ApplicationSchema = new Schema<IApplication>(
     childFee: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
     acceptedTerms: [{ text: { type: String }, required: { type: Boolean, default: false }, _id: false }],
+    courier: { type: CourierSchema, default: () => ({}) },
     referenceId: { type: String, unique: true },
   },
   { timestamps: true }

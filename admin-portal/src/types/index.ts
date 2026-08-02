@@ -324,6 +324,36 @@ export interface PromoHistory {
   usedBy: PromoUsage[];
 }
 
+/** Original documents shipped in, when the mission wants paper rather than scans. */
+export interface CourierRequest {
+  requested: boolean;
+  instructions: string;
+  address: string;
+  requestedAt: string | null;
+  trackingNumber: string;
+  phone: string;
+  /** The applicant's estimate of when the shipment lands — not a confirmed arrival. */
+  expectedDate: string;
+  submittedAt: string | null;
+  receivedAt: string | null;
+}
+
+export interface Payment {
+  _id: string;
+  amount: number;
+  method: 'online' | 'cash' | 'manual_override';
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  transactionId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  failureReason: string;
+  failureCode: string;
+  failedAt: string | null;
+  paidAt: string | null;
+  adminNote: string;
+  createdAt: string;
+}
+
 export interface Application {
   _id: string;
   user: User;
@@ -342,6 +372,7 @@ export interface Application {
   submissionDate?: string;
   expectedDate?: string;
   paymentAmount: number;
+  courier?: CourierRequest;
   referenceId: string;
   createdAt: string;
   updatedAt: string;

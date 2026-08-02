@@ -66,6 +66,12 @@ export const createPaymentOrder = (id: string, promoCode?: string) =>
   api.post(`/user/applications/${id}/payment/order`, promoCode ? { promoCode } : {});
 export const verifyPayment = (id: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
   api.post(`/user/applications/${id}/payment/verify`, data);
+export const recordPaymentFailure = (
+  id: string,
+  data: { razorpayOrderId?: string; razorpayPaymentId?: string; code?: string; description?: string },
+) => api.post(`/user/applications/${id}/payment/failed`, data);
+export const submitCourierDetails = (id: string, data: { trackingNumber: string; phone: string; expectedDate: string }) =>
+  api.put(`/user/applications/${id}/courier`, data);
 
 // User — Document Vault
 export const getVaultDocuments = () => api.get('/user/vault');

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2,
-  Circle, Receipt, FileText, PencilLine, AlertTriangle,
+  Circle, Receipt, FileText, PencilLine, AlertTriangle, Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,11 @@ import { toast } from '@/components/ui/use-toast';
 import {
   getApplication, reviewDocument, approveAllDocuments, updateStatus, uploadVisaFile,
   manualPaymentOverride, downloadApplicationDocumentsZip, deleteApplication, downloadApplicationReceipt,
+  requestCourier, markCourierReceived,
 } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
-import type { Application, Document, VisaFile } from '@/types';
+import type { Application, Document, Payment, VisaFile } from '@/types';
 import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
 
 // ── 4-step simplified status ──
@@ -54,6 +55,7 @@ export default function AdminApplicationDetailPage() {
   const [application, setApplication] = useState<Application | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [visaFile, setVisaFile] = useState<VisaFile | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -69,6 +71,10 @@ export default function AdminApplicationDetailPage() {
   const [activeTab, setActiveTab] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [courierOpen, setCourierOpen] = useState(false);
+  const [courierInstructions, setCourierInstructions] = useState('');
+  const [courierAddress, setCourierAddress] = useState('');
+  const [courierBusy, setCourierBusy] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -77,11 +83,14 @@ export default function AdminApplicationDetailPage() {
       setApplication(app);
       setDocuments(r.data.data.documents);
       setVisaFile(r.data.data.visaFile);
+      setPayments(r.data.data.payments || []);
       setNewStatus(app.status);
       setProcessingRef(app.processingReferenceNumber || '');
       setEmbassyName(app.embassyName || '');
       setSubmissionDate(app.submissionDate || '');
       setExpectedDate(app.expectedDate || '');
+      setCourierInstructions(app.courier?.instructions || '');
+      setCourierAddress(app.courier?.address || '');
     } finally {
       setLoading(false);
     }
@@ -242,6 +251,28 @@ export default function AdminApplicationDetailPage() {
     }
   };
 
+  const handleCourier = async (action: 'request' | 'withdraw' | 'received') => {
+    setCourierBusy(true);
+    try {
+      if (action === 'received') {
+        await markCourierReceived(id);
+        toast({ title: 'Marked as received', variant: 'success' });
+      } else if (action === 'withdraw') {
+        await requestCourier(id, { requested: false });
+        toast({ title: 'Courier request withdrawn' });
+      } else {
+        await requestCourier(id, { requested: true, instructions: courierInstructions, address: courierAddress });
+        toast({ title: 'Courier request sent', description: 'The applicant has been notified.', variant: 'success' });
+      }
+      setCourierOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.message, variant: 'destructive' });
+    } finally {
+      setCourierBusy(false);
+    }
+  };
+
   const handleTrash = async () => {
     if (!confirm('Move this application to Trash? You can restore it later from the Trash page.')) return;
     setTrashing(true);
@@ -279,6 +310,18 @@ export default function AdminApplicationDetailPage() {
 
   const pendingDocs = documents.filter((d) => d.status === 'pending');
   const rejectedDocs = documents.filter((d) => d.status === 'rejected');
+
+  // The applicant's estimate has come and gone with nothing logged as received — worth
+  // flagging so a lost consignment gets chased instead of quietly sitting there. Both
+  // sides are YYYY-MM-DD, so compare as text: parsing them as dates would put the stored
+  // value at UTC midnight and the local day boundary elsewhere, flagging a day early.
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const courierOverdue = !!application.courier?.expectedDate
+    && !application.courier.receivedAt
+    && application.courier.expectedDate < todayStr;
 
   // Manual dropdown mirrors the 4-step progress (+ Rejected). Keep the current status
   // visible even if it's an internal sub-status set automatically by the workflow.
@@ -751,6 +794,155 @@ export default function AdminApplicationDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Payment attempts — a declined checkout is why an application stalls at payment */}
+          {payments.length > 0 && (
+            <Card>
+              <div className="p-4 border-b border-border">
+                <h3 className="font-semibold text-foreground">Payments</h3>
+              </div>
+              <div className="divide-y divide-border">
+                {payments.map((p) => (
+                  <div key={p._id} className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-foreground tabular-nums">{formatCurrency(p.amount)}</p>
+                      <Badge variant={p.status === 'completed' ? 'success' : p.status === 'failed' ? 'destructive' : 'warning'}>
+                        {p.status === 'completed' ? 'Paid' : p.status === 'failed' ? 'Failed' : p.status === 'refunded' ? 'Refunded' : 'Awaiting'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {p.method === 'cash' ? 'Cash' : 'Online'} &middot; {formatDate(p.paidAt || p.failedAt || p.createdAt)}
+                    </p>
+                    {p.status === 'failed' && p.failureReason && (
+                      <p className="text-xs text-destructive mt-1.5">
+                        {p.failureReason}{p.failureCode ? ` (${p.failureCode})` : ''}
+                      </p>
+                    )}
+                    {p.transactionId && (
+                      <p className="text-[11px] text-muted-foreground font-mono mt-1 break-all">{p.transactionId}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Original documents by courier */}
+          <Card>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+              <Package className="w-4 h-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Courier Documents</h3>
+            </div>
+            <CardContent className="p-4 space-y-3">
+              {!application.courier?.requested && !courierOpen && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Ask the applicant to send the original documents to your office.
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={() => setCourierOpen(true)}>
+                    Request Documents by Courier
+                  </Button>
+                </>
+              )}
+
+              {courierOpen && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">What to send</label>
+                    <textarea
+                      value={courierInstructions}
+                      onChange={(e) => setCourierInstructions(e.target.value)}
+                      rows={2}
+                      placeholder="e.g. Original passport and two photographs"
+                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Send to</label>
+                    <textarea
+                      value={courierAddress}
+                      onChange={(e) => setCourierAddress(e.target.value)}
+                      rows={3}
+                      placeholder="Office address the documents should reach"
+                      className="w-full px-2 py-1.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button className="flex-1" onClick={() => handleCourier('request')} disabled={courierBusy}>
+                      {courierBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : application.courier?.requested ? 'Update Request' : 'Send Request'}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setCourierOpen(false)} disabled={courierBusy}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+
+              {application.courier?.requested && !courierOpen && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Requested {application.courier.requestedAt ? formatDate(application.courier.requestedAt) : ''}
+                    </p>
+                    <Badge variant={application.courier.receivedAt ? 'success' : application.courier.submittedAt ? 'info' : 'warning'}>
+                      {application.courier.receivedAt ? 'Received' : application.courier.submittedAt ? 'In transit' : 'Awaiting shipment'}
+                    </Badge>
+                  </div>
+
+                  {application.courier.instructions && (
+                    <div className="p-2.5 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">What to send</p>
+                      <p className="text-xs text-foreground whitespace-pre-line">{application.courier.instructions}</p>
+                    </div>
+                  )}
+
+                  {application.courier.submittedAt ? (
+                    <div className="p-2.5 rounded-lg bg-accent border border-primary/20 space-y-2">
+                      {application.courier.trackingNumber && (
+                        <div>
+                          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">Consignment number</p>
+                          <p className="text-sm font-semibold text-foreground font-mono break-all">{application.courier.trackingNumber}</p>
+                        </div>
+                      )}
+                      {application.courier.phone && (
+                        <div>
+                          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">Contact number</p>
+                          <p className="text-sm font-semibold text-foreground">{application.courier.phone}</p>
+                        </div>
+                      )}
+                      {application.courier.expectedDate && (
+                        <div>
+                          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">Expected arrival</p>
+                          <p className="text-sm font-semibold text-foreground">{formatDate(application.courier.expectedDate)}</p>
+                          {courierOverdue && (
+                            <p className="text-[11px] text-warning font-medium mt-0.5">Past the expected date — not marked received yet.</p>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Shared {formatDate(application.courier.submittedAt)}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Waiting for the applicant to share the consignment details.
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    {!application.courier.receivedAt && (
+                      <Button size="sm" className="flex-1" onClick={() => handleCourier('received')} disabled={courierBusy}>
+                        {courierBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Mark as Received'}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => setCourierOpen(true)} disabled={courierBusy}>Edit</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
+                      onClick={() => handleCourier('withdraw')} disabled={courierBusy}>
+                      Withdraw
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -5,6 +5,8 @@ export type NotificationType =
   | 'document_approved'
   | 'document_rejected'
   | 'payment_request'
+  | 'payment_failed'
+  | 'courier_requested'
   | 'status_update'
   | 'visa_approved'
   | 'visa_delivered'

@@ -102,6 +102,10 @@ export const uploadVisaFile = (id: string, formData: FormData) =>
   });
 export const manualPaymentOverride = (id: string, adminNote?: string) =>
   api.put(`/admin/applications/${id}/manual-payment`, { adminNote });
+export const requestCourier = (id: string, data: { requested: boolean; instructions?: string; address?: string }) =>
+  api.put(`/admin/applications/${id}/courier`, data);
+export const markCourierReceived = (id: string) =>
+  api.put(`/admin/applications/${id}/courier/received`);
 export const deleteApplication = (id: string) => api.delete(`/admin/applications/${id}`);
 
 // Payments

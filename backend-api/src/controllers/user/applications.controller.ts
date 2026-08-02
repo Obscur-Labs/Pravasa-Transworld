@@ -217,6 +217,47 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
   sendSuccess(res, doc, 'Document uploaded');
 };
 
+/**
+ * Reports back a shipment of original documents the admin asked for. Every field is
+ * accepted on its own — an applicant who only has a consignment number, or only a
+ * contact number to reach them on, can still tell us what they know.
+ */
+export const submitCourierDetails = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { trackingNumber, phone, expectedDate } = req.body || {};
+
+  const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+  if (!application.courier?.requested) { sendError(res, 'No courier request on this application'); return; }
+
+  const tracking = String(trackingNumber || '').trim();
+  const contact = String(phone || '').trim();
+  const eta = String(expectedDate || '').trim();
+  if (!tracking && !contact && !eta) { sendError(res, 'Enter a consignment number, a contact number or an expected date'); return; }
+
+  application.courier.trackingNumber = tracking;
+  application.courier.phone = contact;
+  application.courier.expectedDate = eta;
+  application.courier.submittedAt = new Date();
+  await application.save();
+
+  const AdminNotification = (await import('../../models/AdminNotification')).default;
+  const notif = await AdminNotification.create({
+    title: 'Documents Couriered',
+    message: `${req.user!.name} couriered the documents for application ${application.referenceId}${tracking ? ` — consignment ${tracking}` : ''}${eta ? `, expected around ${eta}` : ''}.`,
+    type: 'courier_shipped',
+    application: application._id,
+  });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to('admin_room').emit('admin_notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
+  sendSuccess(res, application, 'Courier details saved');
+};
+
 export const makePayment = async (req: AuthRequest, res: Response): Promise<void> => {
   const application = await Application.findOne({ _id: req.params.id, user: req.user!._id });
   if (!application) { sendError(res, 'Application not found', 404); return; }

@@ -30,8 +30,10 @@ router.get('/applications/:id', apps.getApplication);
 router.post('/ocr/passport', upload.single('file'), apps.scanPassport);
 router.post('/applications/:id/documents', upload.single('file'), apps.uploadDocument);
 router.post('/applications/:id/documents/from-vault', apps.addDocumentFromVault);
+router.put('/applications/:id/courier', apps.submitCourierDetails);
 router.post('/applications/:id/payment/order', payments.createPaymentOrder);
 router.post('/applications/:id/payment/verify', payments.verifyPayment);
+router.post('/applications/:id/payment/failed', payments.recordPaymentFailure);
 
 // Document Vault
 router.get('/vault', vault.getVaultDocuments);

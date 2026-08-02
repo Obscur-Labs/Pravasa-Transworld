@@ -14,11 +14,11 @@ import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getActiveCountries, getPublicVisaTypes, createApplication, uploadDocument,
-  addDocumentFromVault, createPaymentOrder, verifyPayment, getVaultDocuments,
+  addDocumentFromVault, createPaymentOrder, verifyPayment, recordPaymentFailure, getVaultDocuments,
   validatePromoCode, downloadVisaSummaryPdf,
 } from '@/lib/api';
 import PassportScanCard, { PASSPORT_FRONT_FIELDS, PASSPORT_BACK_FIELDS } from '@/components/passport/PassportScanCard';
-import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
+import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError, PaymentFailedError } from '@/lib/razorpay';
 import { formatCurrency } from '@/lib/utils';
 import { useVisaConfigLabels } from '@/lib/useVisaConfigLabels';
 import { useAuthStore } from '@/store/auth.store';
@@ -954,6 +954,19 @@ export default function ApplyPage() {
       } catch (err) {
         if (err instanceof PaymentCancelledError) {
           toast({ title: 'Payment pending', description: 'Your application was saved. You can complete payment from the application page.' });
+          router.push(`/applications/${appId}`);
+          return;
+        }
+        // Declined by the gateway. The application is already saved, so record why the
+        // attempt failed and send the applicant to the page where they can retry.
+        if (err instanceof PaymentFailedError) {
+          await recordPaymentFailure(appId, {
+            razorpayOrderId: err.razorpayOrderId,
+            razorpayPaymentId: err.razorpayPaymentId,
+            code: err.code,
+            description: err.description,
+          }).catch(() => {});
+          toast({ title: 'Payment declined', description: `${err.description} Your application was saved — you can try paying again from the application page.`, variant: 'destructive' });
           router.push(`/applications/${appId}`);
           return;
         }

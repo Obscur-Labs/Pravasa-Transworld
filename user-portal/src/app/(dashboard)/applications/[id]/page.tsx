@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Upload, Download, CreditCard, Loader2, CheckCircle2, XCircle,
-  Clock, FileText, PlusCircle, Archive, ChevronDown, X, PencilLine, AlertTriangle,
+  Clock, FileText, PlusCircle, Archive, ChevronDown, X, PencilLine, AlertTriangle, Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getApplication, uploadDocument, createPaymentOrder, verifyPayment,
-  getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt,
+  getApplication, uploadDocument, createPaymentOrder, verifyPayment, recordPaymentFailure,
+  getVaultDocuments, addDocumentFromVault, getUserPayments, downloadReceipt, submitCourierDetails,
 } from '@/lib/api';
-import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError } from '@/lib/razorpay';
+import { loadRazorpayScript, openRazorpayCheckout, PaymentCancelledError, PaymentFailedError } from '@/lib/razorpay';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, travelerOf, travelerTabs } from '@/lib/applicationReview';
 import StatusTimeline from '@/components/dashboard/StatusTimeline';
@@ -85,6 +85,13 @@ export default function ApplicationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+
+  const [courierTracking, setCourierTracking] = useState('');
+  const [courierPhone, setCourierPhone] = useState('');
+  const [courierExpected, setCourierExpected] = useState('');
+  const [editingCourier, setEditingCourier] = useState(false);
+  const [savingCourier, setSavingCourier] = useState(false);
 
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>([]);
   const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
@@ -101,9 +108,13 @@ export default function ApplicationDetailPage() {
   const fetchData = async () => {
     try {
       const r = await getApplication(id);
-      setApplication(r.data.data.application);
+      const app = r.data.data.application as Application;
+      setApplication(app);
       setDocuments(r.data.data.documents);
       setVisaFile(r.data.data.visaFile);
+      setCourierTracking(app.courier?.trackingNumber || '');
+      setCourierPhone(app.courier?.phone || '');
+      setCourierExpected(app.courier?.expectedDate || '');
     } finally {
       setLoading(false);
     }
@@ -214,6 +225,7 @@ export default function ApplicationDetailPage() {
 
   const handlePayment = async () => {
     setPaying(true);
+    setPaymentError('');
     try {
       const orderRes = await createPaymentOrder(id);
       const order = orderRes.data.data;
@@ -226,11 +238,43 @@ export default function ApplicationDetailPage() {
     } catch (err: any) {
       if (err instanceof PaymentCancelledError) {
         toast({ title: 'Payment cancelled', description: 'You can complete the payment anytime from this page.' });
+      } else if (err instanceof PaymentFailedError) {
+        // The gateway declined it. Record the reason so support sees why, and show the
+        // applicant the gateway's own wording rather than a generic failure.
+        setPaymentError(err.description);
+        await recordPaymentFailure(id, {
+          razorpayOrderId: err.razorpayOrderId,
+          razorpayPaymentId: err.razorpayPaymentId,
+          code: err.code,
+          description: err.description,
+        }).catch(() => {});
+        toast({ title: 'Payment declined', description: err.description, variant: 'destructive' });
+        fetchData();
       } else {
-        toast({ title: 'Payment failed', description: err.response?.data?.message || 'Try again', variant: 'destructive' });
+        const message = err.response?.data?.message || 'Something went wrong. Please try again.';
+        setPaymentError(message);
+        toast({ title: 'Payment failed', description: message, variant: 'destructive' });
       }
     } finally {
       setPaying(false);
+    }
+  };
+
+  const handleCourierSubmit = async () => {
+    setSavingCourier(true);
+    try {
+      await submitCourierDetails(id, {
+        trackingNumber: courierTracking.trim(),
+        phone: courierPhone.trim(),
+        expectedDate: courierExpected,
+      });
+      toast({ title: 'Thanks — we have the details', description: 'We will confirm as soon as your documents arrive.', variant: 'success' });
+      setEditingCourier(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Could not save', description: err.response?.data?.message || 'Try again', variant: 'destructive' });
+    } finally {
+      setSavingCourier(false);
     }
   };
 
@@ -363,6 +407,128 @@ export default function ApplicationDetailPage() {
             </Card>
           )}
 
+          {/* Courier the original documents */}
+          {application.courier?.requested && (
+            <Card className="border-violet-200 bg-violet-50">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <Package className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-violet-900 mb-1">
+                      {application.courier.receivedAt ? 'Documents Received' : 'Send Your Original Documents'}
+                    </h3>
+                    {application.courier.receivedAt ? (
+                      <p className="text-violet-700 text-sm">
+                        We received your documents on {formatDate(application.courier.receivedAt)}. Nothing more is needed here.
+                      </p>
+                    ) : (
+                      <p className="text-violet-700 text-sm">
+                        Please courier the original documents to the address below, then share the consignment details so we can track them.
+                      </p>
+                    )}
+
+                    {application.courier.instructions && (
+                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3">
+                        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide mb-1">What to send</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-line">{application.courier.instructions}</p>
+                      </div>
+                    )}
+                    {application.courier.address && (
+                      <div className="mt-2 rounded-xl bg-white border border-violet-200 p-3">
+                        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide mb-1">Send to</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-line">{application.courier.address}</p>
+                      </div>
+                    )}
+
+                    {application.courier.submittedAt && !editingCourier ? (
+                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1.5">
+                            {application.courier.trackingNumber && (
+                              <div>
+                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Consignment number</p>
+                                <p className="text-sm font-semibold text-slate-900 font-mono">{application.courier.trackingNumber}</p>
+                              </div>
+                            )}
+                            {application.courier.phone && (
+                              <div>
+                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Contact number</p>
+                                <p className="text-sm font-semibold text-slate-900">{application.courier.phone}</p>
+                              </div>
+                            )}
+                            {application.courier.expectedDate && (
+                              <div>
+                                <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide">Expected Date</p>
+                                <p className="text-sm font-semibold text-slate-900">{formatDate(application.courier.expectedDate)}</p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <Badge variant={application.courier.receivedAt ? 'success' : 'secondary'}>
+                              {application.courier.receivedAt ? 'Received' : 'In transit'}
+                            </Badge>
+                            {!application.courier.receivedAt && (
+                              <button onClick={() => setEditingCourier(true)}
+                                className="text-xs font-semibold text-violet-700 hover:text-violet-900">
+                                Update details
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : !application.courier.receivedAt ? (
+                      <div className="mt-3 rounded-xl bg-white border border-violet-200 p-3 space-y-2.5">
+                        <div>
+                          <label className="text-xs font-semibold text-violet-800 block mb-1">Consignment number</label>
+                          <input
+                            type="text"
+                            value={courierTracking}
+                            onChange={(e) => setCourierTracking(e.target.value)}
+                            placeholder="Tracking number from your courier receipt"
+                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-violet-800 block mb-1">Contact number</label>
+                          <input
+                            type="tel"
+                            value={courierPhone}
+                            onChange={(e) => setCourierPhone(e.target.value)}
+                            placeholder="Number we can reach you on about this shipment"
+                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-violet-800 block mb-1">Expected Date</label>
+                          <input
+                            type="date"
+                            value={courierExpected}
+                            onChange={(e) => setCourierExpected(e.target.value)}
+                            min={new Date().toISOString().slice(0, 10)}
+                            className="w-full h-9 px-3 rounded-lg border border-violet-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                          <p className="text-[11px] text-violet-500 mt-1">The delivery date your courier estimated.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" onClick={handleCourierSubmit}
+                            disabled={savingCourier || (!courierTracking.trim() && !courierPhone.trim() && !courierExpected)}
+                            className="bg-violet-600 hover:bg-violet-700">
+                            {savingCourier ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Share details'}
+                          </Button>
+                          {editingCourier && (
+                            <button onClick={() => setEditingCourier(false)} className="text-xs text-slate-400 hover:text-slate-600 px-2">
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Awaiting payment */}
           {['submitted', 'payment_pending'].includes(application.status) && (
             <Card className="border-blue-200 bg-blue-50">
@@ -374,9 +540,25 @@ export default function ApplicationDetailPage() {
                     <p className="text-2xl font-bold text-blue-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
                   </div>
                   <Button onClick={handlePayment} disabled={paying} className="ml-4">
-                    {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" />Pay Now</>}
+                    {paying ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><CreditCard className="w-4 h-4 mr-2" />{paymentError ? 'Try Again' : 'Pay Now'}</>}
                   </Button>
                 </div>
+
+                {/* The gateway's own wording — vague failures leave people retrying the
+                    same declined card without knowing why. */}
+                {paymentError && (
+                  <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-white p-3">
+                    <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-700">Your last payment did not go through</p>
+                      <p className="text-sm text-red-600 mt-0.5">{paymentError}</p>
+                      <p className="text-xs text-slate-500 mt-1.5">
+                        No money has been taken. If your bank shows a deduction, it is reversed automatically within a few working days.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

@@ -3,7 +3,7 @@ import https from 'https';
 import http from 'http';
 import archiver from 'archiver';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
-import Application, { ApplicationStatus, STATUS_LABELS } from '../../models/Application';
+import Application, { ApplicationStatus, EMPTY_COURIER, STATUS_LABELS } from '../../models/Application';
 import Country from '../../models/Country';
 import Document from '../../models/Document';
 import Notification from '../../models/Notification';
@@ -63,7 +63,10 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
 
   const documents = await Document.find({ application: application._id });
   const visaFile = await VisaFile.findOne({ application: application._id });
-  sendSuccess(res, { application, documents, visaFile });
+  // Attempts, not just successes — a failed checkout is the reason an application sits
+  // at payment_pending, and the reviewer needs to see it without leaving the page.
+  const payments = await Payment.find({ application: application._id }).sort({ createdAt: -1 });
+  sendSuccess(res, { application, documents, visaFile, payments });
 };
 
 export const getDashboardStats = async (_req: AdminRequest, res: Response): Promise<void> => {
@@ -270,6 +273,88 @@ export const updateStatus = async (req: AdminRequest, res: Response): Promise<vo
   } catch (err) { console.error(err); }
 
   sendSuccess(res, application, 'Status updated');
+};
+
+// Ask the applicant to ship original documents (or withdraw the request). Nothing about
+// this gates the application — it runs alongside whatever stage the application is at.
+export const requestCourier = async (req: AdminRequest, res: Response): Promise<void> => {
+  const { requested, instructions, address } = req.body || {};
+
+  const application = await Application.findById(req.params.id).populate('user', 'name email');
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+
+  // Applications created before couriering existed have no subdocument to write into.
+  if (!application.courier) application.courier = { ...EMPTY_COURIER };
+
+  const isRequesting = requested !== false;
+  if (!isRequesting) {
+    // Withdrawing clears the whole exchange, including anything the applicant sent back,
+    // so a later request starts clean rather than showing a stale consignment.
+    application.courier = { ...EMPTY_COURIER };
+    await application.save();
+    logActivity(req, 'update', 'Application', `${application.referenceId} — courier request withdrawn`);
+    sendSuccess(res, application, 'Courier request withdrawn');
+    return;
+  }
+
+  application.courier.requested = true;
+  application.courier.instructions = String(instructions || '');
+  application.courier.address = String(address || '');
+  application.courier.requestedAt = new Date();
+  await application.save();
+
+  logActivity(req, 'update', 'Application', `${application.referenceId} — documents requested by courier`);
+
+  const notif = await Notification.create({
+    user: application.user,
+    title: 'Send Your Documents by Courier',
+    message: `We need the original documents for application ${application.referenceId}. Open the application for the shipping address, then share the consignment number once you have sent them.`,
+    type: 'courier_requested',
+    application: application._id,
+  });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
+  const user = application.user as unknown as { name: string; email: string };
+  try {
+    await sendStatusUpdateEmail(user.email, user.name, 'Documents requested by courier', application.referenceId);
+  } catch (err) { console.error(err); }
+
+  sendSuccess(res, application, 'Courier request sent to the applicant');
+};
+
+// Confirm the shipment arrived, which closes the loop for the applicant.
+export const markCourierReceived = async (req: AdminRequest, res: Response): Promise<void> => {
+  const application = await Application.findById(req.params.id).populate('user', 'name email');
+  if (!application) { sendError(res, 'Application not found', 404); return; }
+  if (!application.courier?.requested) { sendError(res, 'No courier request on this application'); return; }
+
+  application.courier.receivedAt = new Date();
+  await application.save();
+
+  logActivity(req, 'update', 'Application', `${application.referenceId} — courier documents received`);
+
+  const notif = await Notification.create({
+    user: application.user,
+    title: 'Documents Received',
+    message: `We have received the documents you couriered for application ${application.referenceId}.`,
+    type: 'general',
+    application: application._id,
+  });
+
+  try {
+    const { getIO } = await import('../../utils/socket');
+    getIO().to(`user_${(application.user as any)._id}`).emit('notification', notif);
+  } catch (err) {
+    console.error('Socket emission failed', err);
+  }
+
+  sendSuccess(res, application, 'Marked as received');
 };
 
 export const uploadVisaFile = async (req: AdminRequest, res: Response): Promise<void> => {

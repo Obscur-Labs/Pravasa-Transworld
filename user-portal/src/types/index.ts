@@ -159,6 +159,20 @@ export function mergeFormItems(fields: FormField[], docs: DocumentRequirement[])
   return items.sort((a, b) => a.order - b.order);
 }
 
+/** Original documents shipped in, when the mission wants paper rather than scans. */
+export interface CourierRequest {
+  requested: boolean;
+  instructions: string;
+  address: string;
+  requestedAt: string | null;
+  trackingNumber: string;
+  phone: string;
+  /** The applicant's estimate of when the shipment lands — not a confirmed arrival. */
+  expectedDate: string;
+  submittedAt: string | null;
+  receivedAt: string | null;
+}
+
 export interface Application {
   _id: string;
   visaType: VisaType;
@@ -173,6 +187,7 @@ export interface Application {
   embassyName?: string;
   submissionDate?: string;
   paymentAmount: number;
+  courier?: CourierRequest;
   referenceId: string;
   createdAt: string;
   updatedAt: string;

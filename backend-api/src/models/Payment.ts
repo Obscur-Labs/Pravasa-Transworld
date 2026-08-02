@@ -21,6 +21,11 @@ export interface IPayment extends Document {
   adminNote: string;
   receiptUrl: string;
   paidAt: Date | null;
+  // Why the gateway turned the attempt down, kept verbatim so support can act on it
+  // ("card declined by issuer", "insufficient funds", …). Set alongside status 'failed'.
+  failureReason: string;
+  failureCode: string;
+  failedAt: Date | null;
   createdAt: Date;
 }
 
@@ -43,6 +48,9 @@ const PaymentSchema = new Schema<IPayment>(
     adminNote: { type: String, default: '' },
     receiptUrl: { type: String, default: '' },
     paidAt: { type: Date, default: null },
+    failureReason: { type: String, default: '' },
+    failureCode: { type: String, default: '' },
+    failedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
