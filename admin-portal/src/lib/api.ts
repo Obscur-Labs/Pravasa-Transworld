@@ -76,6 +76,16 @@ export const getReceiptConfig = () => api.get('/admin/receipt-config');
 export const updateReceiptConfig = (data: object) => api.put('/admin/receipt-config', data);
 export const downloadDemoReceipt = () => api.get('/admin/receipt-config/demo', { responseType: 'blob' });
 
+// Embassy Mail
+export const getEmbassyMailConfig = () => api.get('/admin/embassy-mail-config');
+export const updateEmbassyMailConfig = (data: object) => api.put('/admin/embassy-mail-config', data);
+/** The saved format filled in with one application's data, plus its attachable docs and send history. */
+export const getEmbassyMailDraft = (id: string) => api.get(`/admin/applications/${id}/embassy-mail`);
+export const sendEmbassyMail = (
+  id: string,
+  data: { to: string; cc?: string; subject: string; body: string; documentIds: string[] },
+) => api.post(`/admin/applications/${id}/embassy-mail`, data);
+
 // Activity Logs
 export const getActivityLogs = () => api.get('/admin/activity-logs');
 export const deleteAllActivityLogs = () => api.delete('/admin/activity-logs');

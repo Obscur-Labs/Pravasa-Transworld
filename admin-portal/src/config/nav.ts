@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, FileText, Globe2, Users, Kanban,
-  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt,
+  Bell, MessageSquare, LayoutTemplate, Trash2, Tag, History, SlidersHorizontal, Receipt, Mail,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -24,6 +24,7 @@ export const configNavItems: NavItem[] = [
   { href: '/form-config', label: 'Form Presets', icon: LayoutTemplate },
   { href: '/visa-config', label: 'Visa Config', icon: SlidersHorizontal },
   { href: '/receipt-config', label: 'Receipt Config', icon: Receipt },
+  { href: '/embassy-mail-config', label: 'Embassy Mail', icon: Mail },
 ];
 
 export const bottomNavItems: NavItem[] = [

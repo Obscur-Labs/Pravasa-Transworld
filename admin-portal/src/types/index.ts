@@ -183,6 +183,8 @@ export interface Country {
   _id: string;
   name: string;
   flag: string;
+  /** Last embassy/agency address an application for this country was mailed to. */
+  embassyEmail?: string;
   description: string;
   isActive: boolean;
   showOnWebsite: boolean;
@@ -223,6 +225,65 @@ export interface ReceiptConfig {
   stateCode: string;
   sacCode: string;
   logoUrl: string;
+}
+
+/** The house format every embassy mail starts from — one saved record, edited on the config page. */
+export interface EmbassyMailConfig {
+  _id: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  defaultCc: string;
+  replyTo: string;
+}
+
+/** A {{token}} the template understands. Served by the backend so the docs can't drift. */
+export interface EmbassyMailPlaceholder {
+  token: string;
+  description: string;
+}
+
+/** The address embassy mail actually goes out as — env-driven, shown read-only. */
+export interface EmbassyMailSender {
+  name: string;
+  email: string;
+  /** True when it shares the no-reply notification sender instead of having its own. */
+  shared: boolean;
+}
+
+export interface EmbassyMailAttachment {
+  document: string | null;
+  name: string;
+  size: number;
+}
+
+/** A mail that actually went out — the record kept against the application. */
+export interface EmbassyMail {
+  _id: string;
+  to: string;
+  cc: string[];
+  subject: string;
+  body: string;
+  attachments: EmbassyMailAttachment[];
+  sentByName: string;
+  createdAt: string;
+}
+
+export interface EmbassyMailDraftDocument {
+  _id: string;
+  requirementName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  /** Approved documents arrive pre-ticked; the admin can change that before sending. */
+  selected: boolean;
+}
+
+/** Everything the composer opens with: the filled-in format, what can be attached, what was sent before. */
+export interface EmbassyMailDraft {
+  to: string;
+  cc: string;
+  subject: string;
+  body: string;
+  documents: EmbassyMailDraftDocument[];
+  history: EmbassyMail[];
 }
 
 export interface VisaType {

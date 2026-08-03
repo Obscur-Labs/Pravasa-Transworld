@@ -19,6 +19,9 @@ export interface ICountry extends Document {
   name: string;
   flag: string;
   code: string;
+  /** Embassy/agency address applications for this country are mailed to. Remembered
+   *  from the last send, so the composer pre-fills instead of being retyped. */
+  embassyEmail: string;
   description: string;
   isActive: boolean;
   showOnWebsite: boolean;
@@ -36,6 +39,7 @@ const CountrySchema = new Schema<ICountry>(
     name: { type: String, required: true, trim: true, unique: true },
     flag: { type: String, required: true },
     code: { type: String, default: '', trim: true, uppercase: true },
+    embassyEmail: { type: String, default: '', trim: true },
     description: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
     showOnWebsite: { type: Boolean, default: false },

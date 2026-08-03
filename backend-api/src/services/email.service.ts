@@ -1,5 +1,7 @@
 import * as Brevo from '@getbrevo/brevo';
-import { emailApi, MAIL_FROM_NAME, MAIL_FROM_EMAIL } from '../config/email';
+import {
+  emailApi, MAIL_FROM_NAME, MAIL_FROM_EMAIL, EMBASSY_FROM_NAME, EMBASSY_FROM_EMAIL,
+} from '../config/email';
 
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -29,14 +31,28 @@ const footer = () => `
   </div>
 `;
 
-async function sendMail(to: string, subject: string, html: string, label: string): Promise<void> {
-  console.log(`[EMAIL:${label}] Preparing to send → ${to} | Subject: "${subject}"`);
+/** Extras only the embassy mail needs — the templated notifications never set these. */
+interface MailExtras {
+  cc?: string[];
+  replyTo?: string;
+  /** Base64-encoded file contents, as Brevo expects them. */
+  attachments?: { name: string; content: string }[];
+  /** Overrides the no-reply notification identity. Must be a verified Brevo sender. */
+  from?: { name: string; email: string };
+}
+
+async function sendMail(to: string, subject: string, html: string, label: string, extras: MailExtras = {}): Promise<void> {
+  const sender = extras.from ?? { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL };
+  console.log(`[EMAIL:${label}] Preparing to send → ${to} | From: ${sender.email} | Subject: "${subject}"`);
 
   const email = new Brevo.SendSmtpEmail();
-  email.sender = { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL };
+  email.sender = sender;
   email.to = [{ email: to }];
   email.subject = subject;
   email.htmlContent = html;
+  if (extras.cc?.length) email.cc = extras.cc.map((address) => ({ email: address }));
+  if (extras.replyTo) email.replyTo = { email: extras.replyTo };
+  if (extras.attachments?.length) email.attachment = extras.attachments;
 
   try {
     const { body } = await emailApi.sendTransacEmail(email);
@@ -152,6 +168,53 @@ export async function sendStatusUpdateEmail(
       </div>
     `,
     'APP_STATUS'
+  );
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Forwards an application to an embassy or agency.
+ *
+ * Unlike the notification mails above, this one is written by a person and read by one:
+ * the body goes out exactly as composed (pre-wrap keeps the aligned detail blocks), and
+ * the footer invites a reply instead of warning against it, because the reply is the
+ * whole point.
+ */
+export async function sendEmbassyMail(opts: {
+  to: string;
+  cc?: string[];
+  replyTo?: string;
+  subject: string;
+  body: string;
+  attachments?: { name: string; content: string }[];
+  companyName?: string;
+}): Promise<void> {
+  const { to, cc, subject, body, attachments } = opts;
+  const companyName = opts.companyName || EMBASSY_FROM_NAME;
+  // The mission's reply has to reach a person. Fall back to the embassy sender itself
+  // rather than leaving it to the provider's default.
+  const replyTo = opts.replyTo || EMBASSY_FROM_EMAIL;
+  console.log(`[EMBASSY_MAIL] ${attachments?.length || 0} attachment(s) → ${to} | reply-to: ${replyTo}`);
+
+  await sendMail(
+    to,
+    subject,
+    `
+      <div style="${baseStyle}">
+        <div style="padding: 32px;">
+          <pre style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #0f172a; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(body)}</pre>
+        </div>
+        <div style="background: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #64748b; font-size: 12px; margin: 0;">
+            Sent by ${escapeHtml(companyName)}. Please reply to this email for any clarification.
+          </p>
+        </div>
+      </div>
+    `,
+    'EMBASSY_MAIL',
+    { cc, replyTo, attachments, from: { name: EMBASSY_FROM_NAME, email: EMBASSY_FROM_EMAIL } }
   );
 }
 

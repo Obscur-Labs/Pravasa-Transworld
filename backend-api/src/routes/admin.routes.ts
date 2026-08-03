@@ -14,6 +14,7 @@ import * as promoCodes from '../controllers/admin/promoCodes.controller';
 import * as activityLogs from '../controllers/admin/activityLogs.controller';
 import * as visaConfig from '../controllers/admin/visaConfig.controller';
 import * as receiptConfig from '../controllers/admin/receiptConfig.controller';
+import * as embassyMail from '../controllers/admin/embassyMail.controller';
 
 const router = asyncRouter();
 router.use(adminProtect);
@@ -49,6 +50,9 @@ router.route('/visa-config/:id').put(visaConfig.updateVisaConfigOption).delete(v
 router.route('/receipt-config').get(receiptConfig.getReceiptConfig).put(receiptConfig.updateReceiptConfig);
 router.get('/receipt-config/demo', receiptConfig.downloadDemoReceipt);
 
+// Embassy Mail Config — the default format every embassy mail starts from
+router.route('/embassy-mail-config').get(embassyMail.getEmbassyMailConfig).put(embassyMail.updateEmbassyMailConfig);
+
 // Trash
 router.get('/trash', trash.getTrash);
 router.delete('/trash', trash.emptyTrash);
@@ -65,6 +69,8 @@ router.post('/applications/:id/visa-file', upload.single('file'), apps.uploadVis
 router.put('/applications/:id/manual-payment', apps.manualPaymentOverride);
 router.put('/applications/:id/courier', apps.requestCourier);
 router.put('/applications/:id/courier/received', apps.markCourierReceived);
+router.get('/applications/:id/embassy-mail', embassyMail.getEmbassyMailDraft);
+router.post('/applications/:id/embassy-mail', embassyMail.sendApplicationEmbassyMail);
 router.get('/applications/:id/documents/zip', apps.downloadApplicationDocumentsZip);
 router.get('/applications/:id/receipt', apps.downloadApplicationReceipt);
 router.delete('/applications/:id', apps.deleteApplication);

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, Upload, ExternalLink, Download, Trash2,
-  Circle, Receipt, FileText, PencilLine, AlertTriangle, Package,
+  Circle, Receipt, FileText, PencilLine, AlertTriangle, Package, Mail, Paperclip,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +16,10 @@ import {
   manualPaymentOverride, downloadApplicationDocumentsZip, deleteApplication, downloadApplicationReceipt,
   requestCourier, markCourierReceived,
 } from '@/lib/api';
+import { EmbassyMailDialog } from '@/components/shared/embassy-mail-dialog';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { buildReviewRows, generalAnswers, travelerOf, travelerTabs } from '@/lib/applicationReview';
-import type { Application, Document, Payment, VisaFile } from '@/types';
+import type { Application, Document, EmbassyMail, Payment, VisaFile } from '@/types';
 import { STATUS_LABELS, SELECTABLE_STATUSES } from '@/types';
 
 // ── 4-step simplified status ──
@@ -56,6 +57,8 @@ export default function AdminApplicationDetailPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [visaFile, setVisaFile] = useState<VisaFile | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [embassyMails, setEmbassyMails] = useState<EmbassyMail[]>([]);
+  const [mailOpen, setMailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -84,6 +87,7 @@ export default function AdminApplicationDetailPage() {
       setDocuments(r.data.data.documents);
       setVisaFile(r.data.data.visaFile);
       setPayments(r.data.data.payments || []);
+      setEmbassyMails(r.data.data.embassyMails || []);
       setNewStatus(app.status);
       setProcessingRef(app.processingReferenceNumber || '');
       setEmbassyName(app.embassyName || '');
@@ -766,6 +770,52 @@ export default function AdminApplicationDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Forward the application to the embassy / agency handling it */}
+          <Card>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Embassy Mail</h3>
+              {embassyMails.length > 0 && (
+                <Badge variant="info" className="ml-auto">{embassyMails.length} sent</Badge>
+              )}
+            </div>
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Mail this application&apos;s details and documents to the embassy or agency. The draft is
+                written from your saved format and stays editable before sending.
+              </p>
+              <Button className="w-full" onClick={() => setMailOpen(true)}>
+                <Mail className="w-4 h-4 mr-2" />
+                {embassyMails.length > 0 ? 'Send Another Mail' : 'Compose Mail'}
+              </Button>
+
+              {embassyMails.length > 0 && (
+                <div className="pt-1 space-y-2">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Already sent</p>
+                  {embassyMails.map((mail) => (
+                    <div key={mail._id} className="p-2.5 rounded-lg border border-border bg-muted/30">
+                      <p className="text-xs font-semibold text-foreground break-all">{mail.to}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{mail.subject}</p>
+                      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+                        <span>{formatDate(mail.createdAt)}</span>
+                        <span>&middot;</span>
+                        <span>{mail.sentByName}</span>
+                        {mail.attachments.length > 0 && (
+                          <>
+                            <span>&middot;</span>
+                            <span className="inline-flex items-center gap-1">
+                              <Paperclip className="w-3 h-3" />{mail.attachments.length}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Cash Payment Override */}
           {['payment_pending', 'submitted'].includes(application.status) && (
             <Card className="border-warning/30">
@@ -945,6 +995,14 @@ export default function AdminApplicationDetailPage() {
           </Card>
         </div>
       </div>
+
+      <EmbassyMailDialog
+        applicationId={id}
+        applicationRef={application.referenceId}
+        open={mailOpen}
+        onOpenChange={setMailOpen}
+        onSent={fetchData}
+      />
     </div>
   );
 }

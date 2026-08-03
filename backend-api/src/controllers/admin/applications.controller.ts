@@ -1,11 +1,10 @@
 import { Response } from 'express';
-import https from 'https';
-import http from 'http';
 import archiver from 'archiver';
 import { AdminRequest } from '../../middleware/adminAuth.middleware';
 import Application, { ApplicationStatus, EMPTY_COURIER, STATUS_LABELS } from '../../models/Application';
 import Country from '../../models/Country';
 import Document from '../../models/Document';
+import EmbassyMail from '../../models/EmbassyMail';
 import Notification from '../../models/Notification';
 import VisaFile from '../../models/VisaFile';
 import User from '../../models/User';
@@ -17,21 +16,8 @@ import { generateReceiptPDF } from '../../services/pdf.service';
 import { buildReceiptData } from '../../utils/receiptData';
 import { computeVisaPricing, computeSubtotal, computeGst } from '../../utils/pricing';
 import { logActivity } from '../../utils/activityLog';
+import { fetchBuffer } from '../../utils/fetchBuffer';
 import { sendSuccess, sendError } from '../../utils/response';
-
-async function fetchBuffer(url: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https://') ? https : http;
-    const chunks: Buffer[] = [];
-    const req = protocol.get(url, (res) => {
-      if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', reject);
-    });
-    req.on('error', reject);
-  });
-}
 
 export const getApplications = async (req: AdminRequest, res: Response): Promise<void> => {
   const { status, country, page = '1', limit = '20' } = req.query;
@@ -66,7 +52,10 @@ export const getApplication = async (req: AdminRequest, res: Response): Promise<
   // Attempts, not just successes — a failed checkout is the reason an application sits
   // at payment_pending, and the reviewer needs to see it without leaving the page.
   const payments = await Payment.find({ application: application._id }).sort({ createdAt: -1 });
-  sendSuccess(res, { application, documents, visaFile, payments });
+  // What has already been forwarded to the embassy, so a second send is a decision
+  // rather than an accident.
+  const embassyMails = await EmbassyMail.find({ application: application._id }).sort({ createdAt: -1 });
+  sendSuccess(res, { application, documents, visaFile, payments, embassyMails });
 };
 
 export const getDashboardStats = async (_req: AdminRequest, res: Response): Promise<void> => {
