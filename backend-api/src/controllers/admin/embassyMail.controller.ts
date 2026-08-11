@@ -12,7 +12,7 @@ import { fetchBuffer } from '../../utils/fetchBuffer';
 import { getCompanyInfo } from '../../utils/receiptData';
 import { sendSuccess, sendError } from '../../utils/response';
 import {
-  PLACEHOLDERS, formatFormData, formatDocumentList, renderTemplate,
+  PLACEHOLDERS, FormDetail, listFormDetails, formatFormData, formatDocumentList, renderTemplate,
 } from '../../utils/embassyMailTemplate';
 
 // Brevo rejects a request whose attachments exceed 10 MB. Stop a little short of that
@@ -44,7 +44,11 @@ function describeTravellers(app: IApplication): string {
 }
 
 /** Every token the saved template can use, filled from this application. */
-async function buildTokens(app: any, attached: IDocument[]): Promise<Record<string, string>> {
+async function buildTokens(
+  app: any,
+  attached: IDocument[],
+  details: FormDetail[],
+): Promise<Record<string, string>> {
   const company = await getCompanyInfo();
   const travelDate = formatDate(app.travelDate);
   const travelEndDate = formatDate(app.travelEndDate);
@@ -66,7 +70,7 @@ async function buildTokens(app: any, attached: IDocument[]): Promise<Record<stri
     processingReference: app.processingReferenceNumber || '',
     submissionDate: formatDate(app.submissionDate),
     expectedDate: formatDate(app.expectedDate),
-    formData: formatFormData(app),
+    formData: formatFormData(details),
     documentList: formatDocumentList(attached),
     companyName: company.companyName,
     status: STATUS_LABELS[app.status as keyof typeof STATUS_LABELS] || app.status || '',
@@ -104,8 +108,11 @@ export const updateEmbassyMailConfig = async (req: AdminRequest, res: Response):
 
 /**
  * Everything the composer opens with: the saved format already filled in with this
- * application's data, the documents available to attach (approved ones pre-selected),
- * and what has been sent for this application before.
+ * application's data, the form answers and documents available to include (with the
+ * safe ones pre-selected), and what has been sent for this application before.
+ *
+ * The raw template and its tokens go out alongside the rendered draft so the composer
+ * can re-render the message locally as details are ticked, without a round trip per tick.
  */
 export const getEmbassyMailDraft = async (req: AdminRequest, res: Response): Promise<void> => {
   const application = await Application.findById(req.params.id)
@@ -120,7 +127,12 @@ export const getEmbassyMailDraft = async (req: AdminRequest, res: Response): Pro
   // The draft is written as though the pre-selected set is what goes out, so
   // {{documentList}} lines up with the ticked boxes the admin is looking at.
   const preSelected = documents.filter((d) => d.status === 'approved');
-  const tokens = await buildTokens(application, preSelected.length > 0 ? preSelected : documents);
+  const formFields = listFormDetails(application);
+  const tokens = await buildTokens(
+    application,
+    preSelected.length > 0 ? preSelected : documents,
+    formFields.filter((f) => f.selected),
+  );
 
   const history = await EmbassyMail.find({ application: application._id }).sort({ createdAt: -1 });
 
@@ -129,6 +141,9 @@ export const getEmbassyMailDraft = async (req: AdminRequest, res: Response): Pro
     cc: config.defaultCc,
     subject: renderTemplate(config.subjectTemplate, tokens),
     body: renderTemplate(config.bodyTemplate, tokens),
+    bodyTemplate: config.bodyTemplate,
+    tokens,
+    formFields,
     documents: documents.map((d) => ({
       _id: d._id,
       requirementName: d.requirementName,

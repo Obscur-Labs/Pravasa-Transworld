@@ -276,12 +276,28 @@ export interface EmbassyMailDraftDocument {
   selected: boolean;
 }
 
+/** One form answer, offered to the composer as its own tickable line. */
+export interface EmbassyMailDraftField {
+  /** The original form key — what the composer tracks its selection by. */
+  key: string;
+  /** "Adult 1", "Child 1", or empty for answers that belong to the trip as a whole. */
+  group: string;
+  label: string;
+  value: string;
+  /** Trip-wide answers arrive pre-ticked; each traveller's personal answers do not. */
+  selected: boolean;
+}
+
 /** Everything the composer opens with: the filled-in format, what can be attached, what was sent before. */
 export interface EmbassyMailDraft {
   to: string;
   cc: string;
   subject: string;
   body: string;
+  /** The raw saved template, so the composer can re-render as form details are ticked. */
+  bodyTemplate: string;
+  tokens: Record<string, string>;
+  formFields: EmbassyMailDraftField[];
   documents: EmbassyMailDraftDocument[];
   history: EmbassyMail[];
 }
