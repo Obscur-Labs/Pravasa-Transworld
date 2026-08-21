@@ -32,13 +32,13 @@ export default function CountriesSection() {
   const display = countries.length > 0 ? countries : FALLBACK_COUNTRIES;
 
   return (
-    <section id="destinations" className="py-24 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white relative overflow-hidden">
-      <div className="absolute top-0 left-10 w-[400px] h-[400px] bg-blue-200/30 rounded-full blur-3xl pointer-events-none animate-float" />
+    <section id="destinations" className="py-24 bg-gradient-to-b from-slate-50 via-brand-50/30 to-white relative overflow-hidden">
+      <div className="absolute top-0 left-10 w-[400px] h-[400px] bg-brand-200/30 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute bottom-0 right-10 w-[350px] h-[350px] bg-indigo-100/40 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <span className="inline-block glass-light glass-light-interactive text-blue-700 text-xs font-bold px-4 py-1.5 rounded-full mb-4 border border-blue-200/40 uppercase tracking-widest">
+          <span className="inline-block glass-light glass-light-interactive text-brand-700 text-xs font-bold px-4 py-1.5 rounded-full mb-4 border border-brand-200/40 uppercase tracking-widest">
             Popular Destinations
           </span>
           <h2 className="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Destinations We Support</h2>
@@ -54,7 +54,7 @@ export default function CountriesSection() {
               <Link
                 key={c._id}
                 href={href}
-                className="glass-light rounded-3xl p-6 border border-white/70 shadow-sm hover:border-blue-300/40 hover:bg-white/95 hover:shadow-[0_20px_45px_rgba(59,130,246,0.08)] transition-all duration-300 group block"
+                className="glass-light rounded-3xl p-6 border border-white/70 shadow-sm hover:border-brand-300/40 hover:bg-white/95 hover:shadow-[0_20px_45px_rgba(48,149,192,0.08)] transition-all duration-300 group block"
               >
                 <div className="relative overflow-hidden rounded-lg w-12 h-8 mb-4 border border-slate-100 shadow-sm transition-transform duration-300 group-hover:scale-110">
                   <img
@@ -63,7 +63,7 @@ export default function CountriesSection() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <h3 className="font-extrabold text-slate-800 text-base mb-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="font-extrabold text-slate-800 text-base mb-2 group-hover:text-brand-600 transition-colors">
                   {c.name}
                 </h3>
                 {c.description && (
@@ -78,7 +78,7 @@ export default function CountriesSection() {
           <Button
             asChild
             variant="outline"
-            className="group border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-semibold"
+            className="group border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-300 font-semibold"
           >
             <Link href="/countries">
               View All Destinations
@@ -87,7 +87,7 @@ export default function CountriesSection() {
           </Button>
           <Button
             asChild
-            className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xl shadow-blue-500/10 hover:shadow-blue-500/20 hover:scale-105 transition-all duration-300 border-0"
+            className="group bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-xl shadow-brand-500/10 hover:shadow-brand-500/20 hover:scale-105 transition-all duration-300 border-0"
           >
             <Link href="/login">
               Apply Now

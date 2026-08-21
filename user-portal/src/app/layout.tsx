@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] });
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
 
 export const viewport: Viewport = {
-  themeColor: '#1e40af',
+  themeColor: '#0B2E3D', // brand navy, straight off the logo
   width: 'device-width',
   initialScale: 1,
 };
@@ -83,9 +83,13 @@ export const metadata: Metadata = {
     languages: { 'en-US': BASE_URL },
   },
 
-  // Place favicon.ico, favicon-16x16.png, favicon-32x32.png, apple-touch-icon.png in /public
+  // All generated from the logo's plane-and-pin mark; see /public.
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+    ],
     apple: '/apple-touch-icon.png',
   },
 

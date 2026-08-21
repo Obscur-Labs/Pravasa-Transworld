@@ -16,9 +16,9 @@ const baseStyle = `
 `;
 
 const header = (title: string) => `
-  <div style="background: #1d4ed8; padding: 32px; text-align: center;">
+  <div style="background: #0B2E3D; padding: 32px; text-align: center;">
     <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Pravasa Transworld</h1>
-    <p style="color: #bfdbfe; margin: 8px 0 0; font-size: 14px;">${title}</p>
+    <p style="color: #DFC29A; margin: 8px 0 0; font-size: 14px;">${title}</p>
   </div>
 `;
 
@@ -75,12 +75,12 @@ export async function sendOTPEmail(email: string, name: string, otp: string): Pr
       <div style="${baseStyle}">
         ${header('Secure Login')}
         <div style="padding: 40px 32px;">
-          <p style="color: #0f172a; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
           <p style="color: #475569; font-size: 15px; margin: 0 0 32px;">
             Use the OTP below to log into your Pravasa Transworld account. It expires in 10 minutes.
           </p>
-          <div style="background: #eff6ff; border: 2px dashed #1d4ed8; border-radius: 8px; padding: 24px; text-align: center; margin: 0 0 32px;">
-            <p style="color: #1d4ed8; font-size: 42px; font-weight: 800; letter-spacing: 12px; margin: 0;">${otp}</p>
+          <div style="background: #EFF7FB; border: 2px dashed #165874; border-radius: 8px; padding: 24px; text-align: center; margin: 0 0 32px;">
+            <p style="color: #165874; font-size: 42px; font-weight: 800; letter-spacing: 12px; margin: 0;">${otp}</p>
           </div>
           <p style="color: #94a3b8; font-size: 13px; margin: 0;">
             If you didn't request this OTP, please ignore this email.
@@ -109,7 +109,7 @@ export async function sendDocumentStatusEmail(
       <div style="${baseStyle}">
         ${header(isApproved ? 'Documents Approved' : 'Document Revision Required')}
         <div style="padding: 40px 32px;">
-          <p style="color: #0f172a; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
           ${isApproved ? `
             <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">
               Great news! Your documents for application <strong>${referenceId}</strong> have been approved.
@@ -117,7 +117,7 @@ export async function sendDocumentStatusEmail(
             <p style="color: #475569; font-size: 15px; margin: 0 0 32px;">
               Please log in to complete your payment and continue the visa processing.
             </p>
-            <a href="${frontendUrl}/applications" style="display: inline-block; background: #1d4ed8; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            <a href="${frontendUrl}/applications" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
               Make Payment
             </a>
           ` : `
@@ -127,7 +127,7 @@ export async function sendDocumentStatusEmail(
             ${reason ? `<div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 4px; margin: 0 0 24px;">
               <p style="color: #dc2626; font-size: 14px; margin: 0;"><strong>Reason:</strong> ${reason}</p>
             </div>` : ''}
-            <a href="${frontendUrl}/applications" style="display: inline-block; background: #1d4ed8; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            <a href="${frontendUrl}/applications" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
               Re-upload Documents
             </a>
           `}
@@ -153,14 +153,14 @@ export async function sendStatusUpdateEmail(
       <div style="${baseStyle}">
         ${header('Application Status Update')}
         <div style="padding: 40px 32px;">
-          <p style="color: #0f172a; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
           <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">
             Your visa application <strong>${referenceId}</strong> status has been updated.
           </p>
-          <div style="background: #eff6ff; border-radius: 8px; padding: 20px; margin: 0 0 32px; text-align: center;">
-            <p style="color: #1d4ed8; font-size: 18px; font-weight: 700; margin: 0;">${statusLabel}</p>
+          <div style="background: #EFF7FB; border-radius: 8px; padding: 20px; margin: 0 0 32px; text-align: center;">
+            <p style="color: #165874; font-size: 18px; font-weight: 700; margin: 0;">${statusLabel}</p>
           </div>
-          <a href="${frontendUrl}/applications" style="display: inline-block; background: #1d4ed8; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+          <a href="${frontendUrl}/applications" style="display: inline-block; background: #165874; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">
             View Application
           </a>
         </div>
@@ -204,7 +204,7 @@ export async function sendEmbassyMail(opts: {
     `
       <div style="${baseStyle}">
         <div style="padding: 32px;">
-          <pre style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #0f172a; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(body)}</pre>
+          <pre style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #061E27; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(body)}</pre>
         </div>
         <div style="background: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0;">
           <p style="color: #64748b; font-size: 12px; margin: 0;">
@@ -232,7 +232,7 @@ export async function sendVisaDeliveredEmail(
       <div style="${baseStyle}">
         ${header('Visa Delivered')}
         <div style="padding: 40px 32px;">
-          <p style="color: #0f172a; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
+          <p style="color: #061E27; font-size: 16px; margin: 0 0 16px;">Hi ${name},</p>
           <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">
             Congratulations! Your visa for application <strong>${referenceId}</strong> is ready.
           </p>

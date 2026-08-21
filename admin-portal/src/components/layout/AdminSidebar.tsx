@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LogOut, Settings, Shield, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { LogOut, Settings, MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -90,9 +90,13 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <div className="p-6 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-            <Shield className="w-4.5 h-4.5 text-primary-foreground" />
-          </div>
+          {/* The square mark, not the wordmark: it is a navy tile, so it reads the
+              same on the light and dark sidebar without a second asset. */}
+          <img
+            src="/logo-mark.png"
+            alt="Pravasa Transworld"
+            className="w-8 h-8 rounded-lg flex-shrink-0"
+          />
           <div className="min-w-0">
             <span className="text-foreground font-semibold text-sm block truncate">Pravasa Transworld</span>
             <p className="text-muted-foreground text-xs">Admin Console</p>

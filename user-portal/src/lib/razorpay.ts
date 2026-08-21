@@ -90,7 +90,7 @@ export function openRazorpayCheckout(order: RazorpayOrderData): Promise<Razorpay
       name: order.name,
       description: order.description,
       prefill: order.prefill,
-      theme: { color: '#1d4ed8' },
+      theme: { color: '#0B2E3D' },
       handler: (response: RazorpayCheckoutResult) => settle(() => resolve(response)),
       modal: {
         ondismiss: () => settle(() => reject(new PaymentCancelledError())),

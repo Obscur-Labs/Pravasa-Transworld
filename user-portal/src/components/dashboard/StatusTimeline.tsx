@@ -47,7 +47,7 @@ export default function StatusTimeline({ currentStatus }: Props) {
             <div className="flex flex-col items-center">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors border-2 ${
                 state === 'done' ? 'bg-green-500 border-green-500' :
-                state === 'active' ? 'bg-blue-600 border-blue-600' :
+                state === 'active' ? 'bg-brand-600 border-brand-600' :
                 'bg-white border-slate-200'
               }`}>
                 {state === 'done' ? (
@@ -65,13 +65,13 @@ export default function StatusTimeline({ currentStatus }: Props) {
             <div className={`pt-1.5 pb-2 ${!isLast ? 'mb-0' : ''}`}>
               <p className={`text-sm font-semibold ${
                 state === 'done' ? 'text-green-700' :
-                state === 'active' ? 'text-blue-700' :
+                state === 'active' ? 'text-brand-700' :
                 'text-slate-400'
               }`}>
                 {step.label}
               </p>
               {state === 'active' && (
-                <p className="text-xs text-blue-500 mt-0.5">In progress</p>
+                <p className="text-xs text-brand-500 mt-0.5">In progress</p>
               )}
               {state === 'done' && (
                 <p className="text-xs text-green-500 mt-0.5">Completed</p>

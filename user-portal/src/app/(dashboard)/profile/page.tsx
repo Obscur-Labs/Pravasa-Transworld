@@ -80,17 +80,17 @@ export default function ProfilePage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6 flex items-center gap-5">
         {/* Avatar with upload button */}
         <div className="relative flex-shrink-0">
-          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden ring-4 ring-blue-50">
+          <div className="w-20 h-20 rounded-full bg-brand-100 flex items-center justify-center overflow-hidden ring-4 ring-brand-50">
             {user.profilePhoto ? (
               <img src={user.profilePhoto} alt="Profile" className="w-20 h-20 object-cover" />
             ) : (
-              <User className="w-8 h-8 text-blue-400" />
+              <User className="w-8 h-8 text-brand-400" />
             )}
           </div>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploadingPhoto}
-            className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-600 hover:bg-brand-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors disabled:opacity-60"
             title="Change photo"
           >
             {uploadingPhoto ? (
@@ -116,7 +116,7 @@ export default function ProfilePage() {
             className={`mt-2 text-xs capitalize ${
               user.accountType === 'corporate'
                 ? 'border-violet-300 text-violet-700 bg-violet-50'
-                : 'border-blue-300 text-blue-700 bg-blue-50'
+                : 'border-brand-300 text-brand-700 bg-brand-50'
             }`}
           >
             {user.accountType === 'corporate' ? <Building2 className="w-3 h-3 mr-1 inline" /> : null}
@@ -186,7 +186,7 @@ export default function ProfilePage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+          className="w-full h-10 bg-brand-600 hover:bg-brand-700 text-white font-medium"
         >
           {saving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />

@@ -25,14 +25,14 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-24 bg-gradient-to-b from-white to-blue-50/20 relative overflow-hidden border-t border-slate-100">
+    <section id="contact" className="py-24 bg-gradient-to-b from-white to-brand-50/20 relative overflow-hidden border-t border-slate-100">
       {/* Decorative light glowing blobs with very slow & gentle animations */}
-      <div className="absolute top-0 left-1/3 w-96 h-96 bg-blue-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+      <div className="absolute top-0 left-1/3 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
       <div className="absolute bottom-0 right-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <span className="inline-block bg-blue-50 text-blue-800 border border-blue-100/60 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-widest shadow-sm">
+          <span className="inline-block bg-brand-50 text-brand-800 border border-brand-100/60 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-widest shadow-sm">
             Get In Touch
           </span>
           <h2 className="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Need Help?</h2>
@@ -50,9 +50,9 @@ export default function ContactSection() {
                 { icon: Phone, label: 'Call Us', value: '+1 (800) 123-4567' },
                 { icon: MapPin, label: 'Hours', value: 'Mon–Fri, 9AM–6PM EST' },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-blue-200 shadow-sm transition-all duration-300">
-                  <div className="w-10 h-10 bg-blue-50 border border-blue-100/50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-5 h-5 text-blue-600" />
+                <div key={label} className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-slate-100 hover:border-brand-200 shadow-sm transition-all duration-300">
+                  <div className="w-10 h-10 bg-brand-50 border border-brand-100/50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-5 h-5 text-brand-600" />
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-bold tracking-wide uppercase">{label}</p>
@@ -81,7 +81,7 @@ export default function ContactSection() {
           </div>
 
           {/* Right form */}
-          <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-[0_20px_50px_rgba(59,130,246,0.04)]">
+          <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-[0_20px_50px_rgba(48,149,192,0.04)]">
             {sent ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mb-4">
@@ -91,7 +91,7 @@ export default function ContactSection() {
                 <p className="text-slate-600 text-sm mb-6 font-semibold">Thank you for reaching out. Our team will get back to you within 24 hours.</p>
                 <button
                   onClick={() => setSent(false)}
-                  className="text-sm text-blue-600 hover:text-blue-700 transition-colors font-bold underline"
+                  className="text-sm text-brand-600 hover:text-brand-700 transition-colors font-bold underline"
                 >
                   Send another message
                 </button>
@@ -114,7 +114,7 @@ export default function ContactSection() {
                         placeholder="Your full name"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 focus:bg-white font-medium"
+                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all duration-300 focus:bg-white font-medium"
                       />
                     </div>
                     <div>
@@ -124,7 +124,7 @@ export default function ContactSection() {
                         placeholder="+1 (000) 000-0000"
                         value={form.phone}
                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 focus:bg-white font-medium"
+                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all duration-300 focus:bg-white font-medium"
                       />
                     </div>
                   </div>
@@ -136,7 +136,7 @@ export default function ContactSection() {
                       placeholder="you@email.com"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 focus:bg-white font-medium"
+                      className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all duration-300 focus:bg-white font-medium"
                     />
                   </div>
                   <div>
@@ -147,13 +147,13 @@ export default function ContactSection() {
                       placeholder="How can we help you?"
                       value={form.message}
                       onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-300 focus:bg-white font-medium"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none transition-all duration-300 focus:bg-white font-medium"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-all duration-300 text-sm shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] border-0"
+                    className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-all duration-300 text-sm shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] border-0"
                   >
                     {submitting ? (
                       <><Loader2 className="w-4 h-4 animate-spin text-white" />Sending...</>

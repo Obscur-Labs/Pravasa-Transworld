@@ -37,7 +37,7 @@ const aboutSchema = {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-blue-950">
+    <div className="min-h-screen bg-brand-950">
       <JsonLd data={aboutSchema} />
       <Navbar />
       <Hero />

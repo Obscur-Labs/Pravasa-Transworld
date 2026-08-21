@@ -217,7 +217,7 @@ function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onD
 
       <div
         className={`relative rounded-2xl overflow-hidden border-2 transition-all ${
-          hasFile ? 'border-green-300 bg-green-50' : dragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-blue-300'
+          hasFile ? 'border-green-300 bg-green-50' : dragging ? 'border-brand-400 bg-brand-50' : 'border-slate-200 bg-slate-50 hover:border-brand-300'
         }`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -260,7 +260,7 @@ function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onD
             <div className="relative w-full h-36 rounded-lg overflow-hidden border border-green-200">
               <img src={preview} alt={`Passport ${side}`} className="w-full h-full object-cover" />
               {scanning && (
-                <div className="absolute inset-0 bg-blue-900/40 flex flex-col items-center justify-center gap-1 text-white">
+                <div className="absolute inset-0 bg-brand-900/40 flex flex-col items-center justify-center gap-1 text-white">
                   <ScanLine className="w-5 h-5 animate-pulse" />
                   <span className="text-[10px] font-semibold">Reading…</span>
                 </div>
@@ -276,8 +276,8 @@ function SideCard({ side, file, preview, scanning, dragging, onPick, onDrop, onD
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 text-center">
-              <div className={`w-10 h-10 rounded-xl border-2 border-dashed flex items-center justify-center ${dragging ? 'border-blue-400 bg-blue-100' : 'border-slate-300 bg-white'}`}>
-                <Camera className={`w-5 h-5 ${dragging ? 'text-blue-500' : 'text-slate-400'}`} />
+              <div className={`w-10 h-10 rounded-xl border-2 border-dashed flex items-center justify-center ${dragging ? 'border-brand-400 bg-brand-100' : 'border-slate-300 bg-white'}`}>
+                <Camera className={`w-5 h-5 ${dragging ? 'text-brand-500' : 'text-slate-400'}`} />
               </div>
               <p className="text-[11px] font-semibold text-slate-600">{isFront ? 'Bio-data page' : 'Back / address page'}</p>
               <p className="text-[10px] text-slate-400">Click or drag & drop</p>
@@ -374,7 +374,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
         value={values[k] || ''}
         onChange={(e) => setField(k, e.target.value)}
         placeholder={scanning ? 'Reading…' : '—'}
-        className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="mt-0.5 w-full h-8 px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
     </div>
   );
@@ -443,7 +443,7 @@ export default function PassportScanCard({ requirementName, mode = 'pair', front
                   onChange={(e) => setField('Address', e.target.value)}
                   rows={2}
                   placeholder={scanning ? 'Reading…' : '—'}
-                  className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 />
               </div>
             </div>

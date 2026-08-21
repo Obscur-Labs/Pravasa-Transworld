@@ -35,7 +35,7 @@ export default function DashboardPage() {
   }, []);
 
   const statCards = [
-    { label: 'Active Applications', value: stats.active, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Active Applications', value: stats.active, icon: FileText, color: 'text-brand-600', bg: 'bg-brand-50' },
     { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
     { label: 'Approved', value: stats.approved, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
     { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-red-600', bg: 'bg-red-50' },
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       <Card>
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="font-semibold text-slate-900">Recent Applications</h2>
-          <Link href="/applications" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+          <Link href="/applications" className="text-sm text-brand-600 hover:underline flex items-center gap-1">
             View all <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

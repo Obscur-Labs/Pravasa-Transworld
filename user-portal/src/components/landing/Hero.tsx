@@ -17,7 +17,7 @@ export default function Hero() {
       rate: '99%', 
       processing: '8–12 Days', 
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-blue-50/10 to-indigo-50/5' 
+      bgGradient: 'from-brand-50/10 to-indigo-50/5' 
     },
     { 
       country: 'United Kingdom', 
@@ -28,7 +28,7 @@ export default function Hero() {
       rate: '97%', 
       processing: '5–10 Days', 
       statusColor: 'bg-amber-50 text-amber-700 border-amber-200/50',
-      bgGradient: 'from-indigo-50/10 to-blue-50/5' 
+      bgGradient: 'from-indigo-50/10 to-brand-50/5' 
     },
     { 
       country: 'United States', 
@@ -39,7 +39,7 @@ export default function Hero() {
       rate: '98%', 
       processing: '10–15 Days', 
       statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/50',
-      bgGradient: 'from-blue-50/10 to-indigo-50/5' 
+      bgGradient: 'from-brand-50/10 to-indigo-50/5' 
     },
     { 
       country: 'France', 
@@ -55,9 +55,9 @@ export default function Hero() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-50/70 via-white to-blue-50/40 pt-20 pb-32">
+    <section className="relative overflow-hidden bg-gradient-to-br from-brand-50/70 via-white to-brand-50/40 pt-20 pb-32">
       {/* Decorative large light glowing blobs with very slow & gentle animations */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand-100/30 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-50/20 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute top-1/3 right-10 w-[300px] h-[300px] bg-cyan-100/20 rounded-full blur-3xl pointer-events-none animate-float-reverse" />
 
@@ -65,14 +65,14 @@ export default function Hero() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
           {/* Left Side Copy */}
           <div>
-            <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-800 border border-blue-100/60 px-4 py-1.5 rounded-full text-sm font-semibold mb-8 shadow-sm">
-              <Star className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
+            <div className="inline-flex items-center gap-2 bg-brand-50 text-brand-800 border border-brand-100/60 px-4 py-1.5 rounded-full text-sm font-semibold mb-8 shadow-sm">
+              <Star className="w-3.5 h-3.5 fill-brand-600 text-brand-600" />
               Trusted by 50,000+ travelers worldwide
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black leading-tight mb-6 text-slate-900 tracking-tight">
               Your Visa, <br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Simplified.</span>
+              <span className="bg-gradient-to-r from-brand-600 to-brand-800 bg-clip-text text-transparent">Simplified.</span>
             </h1>
 
             <p className="text-lg text-slate-600 leading-relaxed mb-10 max-w-lg font-medium">
@@ -84,7 +84,7 @@ export default function Hero() {
               <Button
                 size="lg"
                 asChild
-                className="group bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-600/10 hover:shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border-0 text-base font-semibold"
+                className="group bg-brand-600 hover:bg-brand-700 text-white shadow-xl shadow-brand-600/10 hover:shadow-brand-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border-0 text-base font-semibold"
               >
                 <Link href="/login">
                   Apply For Visa
@@ -103,9 +103,9 @@ export default function Hero() {
 
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600 font-medium">
               {[
-                { icon: Shield, text: 'Secure & encrypted', color: 'text-blue-600' },
-                { icon: Clock, text: 'Real-time tracking', color: 'text-blue-600' },
-                { icon: CheckCircle, text: '98% success rate', color: 'text-blue-600' },
+                { icon: Shield, text: 'Secure & encrypted', color: 'text-brand-600' },
+                { icon: Clock, text: 'Real-time tracking', color: 'text-brand-600' },
+                { icon: CheckCircle, text: '98% success rate', color: 'text-brand-600' },
               ].map(({ icon: Icon, text, color }) => (
                 <div key={text} className="flex items-center gap-2 group cursor-pointer">
                   <Icon className={`w-4.5 h-4.5 ${color}`} />
@@ -125,7 +125,7 @@ export default function Hero() {
                   onClick={() => setSelectedIndex(i)}
                   className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 ${
                     selectedIndex === i
-                      ? 'bg-blue-600 text-white shadow-md border border-blue-700'
+                      ? 'bg-brand-600 text-white shadow-md border border-brand-700'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'
                   }`}
                 >
@@ -140,14 +140,14 @@ export default function Hero() {
               {/* Main Visa Card */}
               <div className="animate-float relative group">
                 {/* Dynamic highlight glow behind the card */}
-                <div className="absolute -inset-0.5 rounded-[2.2rem] bg-blue-500/5 opacity-40 blur-lg transition duration-1000" />
+                <div className="absolute -inset-0.5 rounded-[2.2rem] bg-brand-500/5 opacity-40 blur-lg transition duration-1000" />
                 
-                <div className="w-[21rem] h-[13.5rem] bg-white/90 rounded-[2rem] p-6 relative overflow-hidden border border-blue-100 shadow-[0_20px_45px_rgba(59,130,246,0.06)] backdrop-blur-2xl">
+                <div className="w-[21rem] h-[13.5rem] bg-white/90 rounded-[2rem] p-6 relative overflow-hidden border border-brand-100 shadow-[0_20px_45px_rgba(48,149,192,0.06)] backdrop-blur-2xl">
                   {/* Dynamic Inner Gradient blending based on country */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${visaTemplates[selectedIndex].bgGradient} opacity-40 transition-all duration-500`} />
                   
                   {/* Rotating decorative overlay inside card */}
-                  <div className="absolute -top-1/2 -right-1/2 w-72 h-72 bg-blue-500/5 rounded-full blur-2xl animate-spin-slow pointer-events-none" />
+                  <div className="absolute -top-1/2 -right-1/2 w-72 h-72 bg-brand-500/5 rounded-full blur-2xl animate-spin-slow pointer-events-none" />
 
                   <div className="relative h-full flex flex-col justify-between">
                     <div className="flex justify-between items-start">
@@ -188,9 +188,9 @@ export default function Hero() {
               </div>
 
               {/* Floating Card 1: Success Rate */}
-              <div className="absolute -bottom-6 -left-12 bg-white/95 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-100 shadow-[0_10px_30px_rgba(59,130,246,0.05)] animate-float-reverse pointer-events-auto select-none">
-                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100/50">
-                  <Shield className="w-4.5 h-4.5 text-blue-600" />
+              <div className="absolute -bottom-6 -left-12 bg-white/95 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-100 shadow-[0_10px_30px_rgba(48,149,192,0.05)] animate-float-reverse pointer-events-auto select-none">
+                <div className="w-9 h-9 bg-brand-50 rounded-xl flex items-center justify-center border border-brand-100/50">
+                  <Shield className="w-4.5 h-4.5 text-brand-600" />
                 </div>
                 <div>
                   <p className="text-xs font-black text-slate-800">{visaTemplates[selectedIndex].rate}</p>
@@ -199,9 +199,9 @@ export default function Hero() {
               </div>
 
               {/* Floating Card 2: Processing speed */}
-              <div className="absolute -top-4 -right-10 bg-white/95 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-100 shadow-[0_10px_30px_rgba(59,130,246,0.05)] animate-float pointer-events-auto select-none">
-                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100/50">
-                  <Clock className="w-4.5 h-4.5 text-blue-600" />
+              <div className="absolute -top-4 -right-10 bg-white/95 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-100 shadow-[0_10px_30px_rgba(48,149,192,0.05)] animate-float pointer-events-auto select-none">
+                <div className="w-9 h-9 bg-brand-50 rounded-xl flex items-center justify-center border border-brand-100/50">
+                  <Clock className="w-4.5 h-4.5 text-brand-600" />
                 </div>
                 <div>
                   <p className="text-xs font-black text-slate-800">{visaTemplates[selectedIndex].processing}</p>
@@ -222,9 +222,9 @@ export default function Hero() {
           ].map((s) => (
             <div 
               key={s.label} 
-              className="bg-white rounded-3xl p-6 text-center border border-slate-100 hover:border-blue-100/70 hover:shadow-[0_12px_25px_rgba(59,130,246,0.03)] transition-all duration-300 shadow-sm"
+              className="bg-white rounded-3xl p-6 text-center border border-slate-100 hover:border-brand-100/70 hover:shadow-[0_12px_25px_rgba(48,149,192,0.03)] transition-all duration-300 shadow-sm"
             >
-              <p className="text-3xl font-black text-blue-600 mb-1 tracking-tight">{s.value}</p>
+              <p className="text-3xl font-black text-brand-600 mb-1 tracking-tight">{s.value}</p>
               <p className="text-xs text-slate-500 font-bold tracking-widest uppercase">{s.label}</p>
             </div>
           ))}

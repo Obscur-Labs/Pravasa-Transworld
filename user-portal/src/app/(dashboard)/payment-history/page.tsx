@@ -149,7 +149,7 @@ export default function PaymentHistoryPage() {
                 <button
                   onClick={() => handleDownloadReceipt(p._id, p.application?.referenceId)}
                   disabled={downloading === p._id}
-                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors disabled:opacity-50"
                 >
                   {downloading === p._id ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

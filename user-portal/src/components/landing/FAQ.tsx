@@ -35,12 +35,12 @@ export default function FAQ() {
   return (
     <section className="py-24 bg-gradient-to-b from-slate-50 to-white relative overflow-hidden border-t border-slate-100">
       {/* Light background blobs */}
-      <div className="absolute top-0 left-10 w-96 h-96 bg-blue-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+      <div className="absolute top-0 left-10 w-96 h-96 bg-brand-100/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
       <div className="absolute bottom-0 right-10 w-80 h-80 bg-indigo-100/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
       <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <span className="inline-block bg-blue-50 text-blue-800 border border-blue-100/60 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-widest shadow-sm">
+          <span className="inline-block bg-brand-50 text-brand-800 border border-brand-100/60 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-widest shadow-sm">
             FAQ
           </span>
           <h2 className="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Frequently Asked Questions</h2>
@@ -53,7 +53,7 @@ export default function FAQ() {
               key={idx}
               className={`bg-white border rounded-3xl overflow-hidden transition-all duration-300 ${
                 open === idx 
-                  ? 'border-blue-200 bg-blue-50/10 shadow-[0_15px_30px_rgba(59,130,246,0.03)] scale-[1.01]' 
+                  ? 'border-brand-200 bg-brand-50/10 shadow-[0_15px_30px_rgba(48,149,192,0.03)] scale-[1.01]' 
                   : 'border-slate-200 shadow-sm'
               }`}
             >
@@ -61,12 +61,12 @@ export default function FAQ() {
                 className="w-full flex items-center justify-between p-5 text-left focus:outline-none"
                 onClick={() => setOpen(open === idx ? null : idx)}
               >
-                <span className={`font-bold text-sm pr-4 transition-colors ${open === idx ? 'text-blue-600' : 'text-slate-800'}`}>
+                <span className={`font-bold text-sm pr-4 transition-colors ${open === idx ? 'text-brand-600' : 'text-slate-800'}`}>
                   {faq.q}
                 </span>
                 <ChevronDown
                   className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
-                    open === idx ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                    open === idx ? 'rotate-180 text-brand-600' : 'text-slate-400'
                   }`}
                 />
               </button>

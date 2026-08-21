@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Globe, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -67,7 +67,7 @@ function OtpBoxes({ value, onChange }: { value: string[]; onChange: (v: string[]
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           onFocus={(e) => e.target.select()}
-          className="w-11 h-13 text-center text-xl font-bold rounded-xl border-2 border-slate-200 bg-slate-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+          className="w-11 h-13 text-center text-xl font-bold rounded-xl border-2 border-slate-200 bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none transition-all"
           style={{ height: '3.25rem' }}
         />
       ))}
@@ -167,7 +167,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="flex flex-col items-center gap-3 mb-8">
-            <Skeleton className="h-10 w-56 rounded-xl" />
+            <Skeleton className="h-10 w-36 rounded-xl" />
             <Skeleton className="h-7 w-44" />
             <Skeleton className="h-4 w-64" />
           </div>
@@ -187,11 +187,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-slate-900">Pravasa Transworld</span>
+          {/* The wordmark carries the name, so no text label repeats it. */}
+          <Link href="/" className="inline-flex mb-6" aria-label="Pravasa Transworld — home">
+            <img
+              src="/logo.png"
+              alt="Pravasa Transworld"
+              width={1841}
+              height={516}
+              className="h-10 w-auto"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-slate-900">
             {step === 'form' ? 'Welcome back' : 'Check your email'}
@@ -224,7 +228,7 @@ export default function LoginPage() {
               </Button>
               <p className="text-center text-sm text-slate-500">
                 Don&apos;t have an account?{' '}
-                <Link href="/register" className="text-blue-600 font-semibold hover:underline">
+                <Link href="/register" className="text-brand-600 font-semibold hover:underline">
                   Register here
                 </Link>
               </p>
@@ -252,7 +256,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleResend}
                     disabled={resending}
-                    className="text-blue-600 font-semibold hover:underline disabled:opacity-50"
+                    className="text-brand-600 font-semibold hover:underline disabled:opacity-50"
                   >
                     {resending ? 'Resending…' : 'Resend OTP'}
                   </button>

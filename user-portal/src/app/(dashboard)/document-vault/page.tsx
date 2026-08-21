@@ -44,7 +44,7 @@ function OpenDocBtn({ id, className }: { id: string; className?: string }) {
   };
   return (
     <button onClick={open} disabled={loading} title="Open"
-      className={`p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${className ?? ''}`}>
+      className={`p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors ${className ?? ''}`}>
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
     </button>
   );
@@ -54,7 +54,7 @@ function OpenDocBtn({ id, className }: { id: string; className?: string }) {
 const SaveBtn = ({ onClick, disabled, loading, label = 'Save to Vault' }: { onClick: () => void; disabled: boolean; loading: boolean; label?: string }) => (
   <button onClick={onClick} disabled={disabled || loading}
     className="w-full max-w-sm py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-    style={!disabled && !loading ? { background: 'linear-gradient(135deg,#4f46e5,#2563eb)', color: '#fff', boxShadow: '0 4px 15px rgba(79,70,229,.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
+    style={!disabled && !loading ? { background: 'linear-gradient(135deg,#0F4157,#207497)', color: '#fff', boxShadow: '0 4px 15px rgba(15,65,87,.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
     {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading…</> : label}
   </button>
 );
@@ -159,7 +159,7 @@ function AadhaarUploader({ existingFront, existingBack, onDone }: { existingFron
           { label: 'Back',  ok: !!(existingBack  || bFile), fn: () => { setFlipped(true); setTimeout(() => bRef.current?.click(), 380); } }
         ].map(s => (
           <button key={s.label} onClick={s.fn}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium border transition-all ${s.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}`}>
+            className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium border transition-all ${s.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-brand-300 hover:text-brand-600'}`}>
             {s.ok ? <CheckCircle2 className="w-3 h-3" /> : <Upload className="w-3 h-3" />}{s.label}
           </button>
         ))}
@@ -197,7 +197,7 @@ function PanUploader({ existing, onDone }: { existing: VaultDoc | null; onDone: 
       {/* PAN card */}
       <div onClick={() => !existing && ref.current?.click()}
         className="relative overflow-hidden group"
-        style={{ width: '100%', maxWidth: 420, height: 265, borderRadius: 16, cursor: existing ? 'default' : 'pointer', boxShadow: '0 20px 45px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.15)', background: 'linear-gradient(135deg,#0f172a 0%,#1e3a8a 45%,#1d4ed8 100%)' }}>
+        style={{ width: '100%', maxWidth: 420, height: 265, borderRadius: 16, cursor: existing ? 'default' : 'pointer', boxShadow: '0 20px 45px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.15)', background: 'linear-gradient(135deg,#061E27 0%,#0B2E3D 45%,#165874 100%)' }}>
         {/* diagonal shimmer */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
           style={{ background: 'linear-gradient(135deg,transparent 30%,rgba(255,255,255,.8) 50%,transparent 70%)', backgroundSize: '200% 200%', animation: 'shimmer 2s infinite' }} />
@@ -222,7 +222,7 @@ function PanUploader({ existing, onDone }: { existing: VaultDoc | null; onDone: 
               <Upload className="w-7 h-7 text-white" />
             </div>
             <p className="text-white text-sm font-bold">PAN Card Front</p>
-            <p className="text-blue-300 text-xs">Click to upload · JPG or PNG</p>
+            <p className="text-brand-300 text-xs">Click to upload · JPG or PNG</p>
           </div>
         )}
       </div>
@@ -374,7 +374,7 @@ function PolaroidUploader({ existing, onDone }: { existing: VaultDoc | null; onD
 
 /* ─────────────────────────── A4 Sheet (statements, degree, other) ───────── */
 const A4_THEME = {
-  bank_statement: { grad: 'from-sky-600 to-blue-700',   emoji: '🏦', accent: '#0ea5e9', title: 'BANK STATEMENT' },
+  bank_statement: { grad: 'from-sky-600 to-brand-700',   emoji: '🏦', accent: '#3095C0', title: 'BANK STATEMENT' },
   degree:         { grad: 'from-amber-600 to-yellow-700', emoji: '🎓', accent: '#d97706', title: 'CERTIFICATE'    },
   other:          { grad: 'from-slate-500 to-slate-700', emoji: '📄', accent: '#64748b', title: 'DOCUMENT'        },
 } as Record<string, { grad: string; emoji: string; accent: string; title: string }>;
@@ -510,7 +510,7 @@ function OtherDocUploader({ onRefresh }: { onRefresh: () => void }) {
           onChange={e => setLabel(e.target.value)}
           placeholder="e.g. Offer Letter, NOC, Bank Statement Mar 2024…"
           className="w-full px-3.5 py-2.5 text-sm border-2 rounded-xl outline-none transition-all placeholder:text-slate-300"
-          style={{ borderColor: label.trim() ? '#3b82f6' : '#e2e8f0', boxShadow: label.trim() ? '0 0 0 3px rgba(59,130,246,.1)' : 'none' }}
+          style={{ borderColor: label.trim() ? '#3095C0' : '#e2e8f0', boxShadow: label.trim() ? '0 0 0 3px rgba(48,149,192,.1)' : 'none' }}
         />
         {!label.trim() && file && (
           <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">⚠ Please enter a document name before saving.</p>
@@ -594,7 +594,7 @@ function MiniModel({ type, status }: { type: DocType; status: 'done' | 'partial'
       );
     case 'pan':
       return (
-        <div style={{ width: 88, height: 56, borderRadius: 10, overflow: 'hidden', background: 'linear-gradient(135deg,#0f172a,#1e3a8a)', boxShadow: '4px 6px 16px rgba(0,0,0,.3)', transform: 'rotateY(-12deg) rotateX(6deg)', position: 'relative' }}>
+        <div style={{ width: 88, height: 56, borderRadius: 10, overflow: 'hidden', background: 'linear-gradient(135deg,#061E27,#0B2E3D)', boxShadow: '4px 6px 16px rgba(0,0,0,.3)', transform: 'rotateY(-12deg) rotateX(6deg)', position: 'relative' }}>
           <div className="absolute top-1.5 left-2 text-yellow-400/40 text-[7px] font-mono">INCOME TAX</div>
           <div className="absolute top-1.5 right-2 w-5 h-3 rounded-sm bg-yellow-400/25 border border-yellow-400/35" />
           <Done />
@@ -622,7 +622,7 @@ function MiniModel({ type, status }: { type: DocType; status: 'done' | 'partial'
     case 'bank_statement':
       return (
         <div className="relative overflow-hidden" style={{ width: 66, height: 90, borderRadius: 3, background: '#fff', boxShadow: '2px 3px 0 #e2e8f0, 5px 6px 0 #cbd5e1, 0 10px 20px rgba(0,0,0,.1)', transform: 'rotateX(10deg) rotateY(5deg)' }}>
-          <div className="h-5 bg-gradient-to-r from-sky-600 to-blue-700" style={{ borderRadius: '3px 3px 0 0' }} />
+          <div className="h-5 bg-gradient-to-r from-sky-600 to-brand-700" style={{ borderRadius: '3px 3px 0 0' }} />
           <div className="p-1.5 space-y-1">{[...Array(7)].map((_, i) => <div key={i} className="h-px bg-slate-200" />)}</div>
           {tick && <CheckCircle2 className="absolute bottom-1.5 right-1.5 w-3 h-3 text-sky-500" />}
         </div>
@@ -709,7 +709,7 @@ function GalleryCard({ doc, onReplace, onDelete, replacing, deleting }: {
         </div>
         {Object.keys(doc.extractedData ?? {}).length > 0 && (
           <div className="bg-slate-50 rounded-lg p-2.5">
-            <p className="text-[10px] font-bold text-blue-700 flex items-center gap-1 mb-1.5"><Scan className="w-3 h-3" />OCR Extracted</p>
+            <p className="text-[10px] font-bold text-brand-700 flex items-center gap-1 mb-1.5"><Scan className="w-3 h-3" />OCR Extracted</p>
             {Object.entries(doc.extractedData).slice(0, 3).map(([k, v]) => (
               <div key={k} className="flex justify-between text-[10px]">
                 <span className="text-slate-400 capitalize">{k}</span>
@@ -802,14 +802,14 @@ function AadhaarGalleryCard({ front, back, onReplace, onDelete, replacing, delet
           </div>
 
           {/* back */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5">
-            <p className="text-[10px] font-bold text-blue-700 mb-1.5 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />Back
+          <div className="bg-brand-50 border border-brand-100 rounded-xl p-2.5">
+            <p className="text-[10px] font-bold text-brand-700 mb-1.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-400 inline-block" />Back
             </p>
             {back ? (
               <div className="flex gap-1">
                 <button onClick={() => bRef.current?.click()} disabled={replacing === back._id}
-                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold bg-white border border-brand-200 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                   {replacing === back._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}Replace
                 </button>
                 <button onClick={() => onDelete(back._id)} disabled={deleting === back._id}
@@ -897,7 +897,7 @@ export default function DocumentVaultPage() {
           return (
             <button key={t} onClick={() => setActive(isActive ? null : t)}
               className={`relative flex flex-col items-center gap-2.5 p-3 pt-4 rounded-2xl border-2 transition-all duration-200 text-center overflow-hidden ${
-                isActive    ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100 scale-[1.04]'
+                isActive    ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-100 scale-[1.04]'
                 : s==='done'    ? 'border-green-200 bg-green-50/60 hover:border-green-400 hover:shadow-md'
                 : s==='partial' ? 'border-amber-200 bg-amber-50/60 hover:border-amber-400 hover:shadow-md'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5'}`}>
@@ -914,7 +914,7 @@ export default function DocumentVaultPage() {
               <p className="text-[9px] text-slate-400 leading-tight">{cfg.sublabel}</p>
 
               {/* active pointer */}
-              {isActive && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-blue-500" />}
+              {isActive && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-brand-500" />}
             </button>
           );
         })}
@@ -922,14 +922,14 @@ export default function DocumentVaultPage() {
 
       {/* upload panel */}
       {active && (
-        <div className="relative bg-gradient-to-b from-slate-50 to-white rounded-3xl border-2 border-blue-100 p-7 mb-8 shadow-xl shadow-blue-50 mt-2 transition-all">
+        <div className="relative bg-gradient-to-b from-slate-50 to-white rounded-3xl border-2 border-brand-100 p-7 mb-8 shadow-xl shadow-brand-50 mt-2 transition-all">
           <button onClick={() => setActive(null)} className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
             <X className="w-4 h-4" />
           </button>
           <h3 className="font-bold text-slate-900 text-base mb-0.5">{CFG[active].label}</h3>
           <p className="text-slate-400 text-xs mb-7 flex items-center flex-wrap gap-2">
             {active === 'other' ? 'Add as many documents as you need — each gets its own name.' : CFG[active].sublabel}
-            {CFG[active].ocr && <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
+            {CFG[active].ocr && <span className="inline-flex items-center gap-1 bg-brand-50 text-brand-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"><Scan className="w-2.5 h-2.5" />OCR auto-extract</span>}
             {active === 'other' && <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">Unlimited uploads</span>}
           </p>
           {renderUploader(active)}

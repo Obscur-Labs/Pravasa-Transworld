@@ -5,8 +5,6 @@ import Footer from '@/components/layout/Footer';
 import PromoPopup from '@/components/landing/PromoPopup';
 import DestinationsExplorer from '@/components/landing/DestinationsExplorer';
 import { JsonLd } from '@/components/seo/JsonLd';
-import { getPublicCountries } from '@/lib/api';
-import type { Country } from '@/types';
 import { ArrowRight } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pravasatransworld.com';
@@ -81,15 +79,11 @@ const serviceSchema = {
   },
 };
 
-export default async function LandingPage() {
-  let countries: Country[] = [];
-  try {
-    const r = await getPublicCountries();
-    countries = r.data.data;
-  } catch {
-    countries = [];
-  }
-
+// Deliberately not async and fetching nothing: this page is static shell + SEO metadata,
+// and DestinationsExplorer loads the country list in the browser. Rendering the list here
+// would make Next prerender it at build time, so newly published countries would not show
+// on the live site until the next deploy.
+export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <JsonLd data={organizationSchema} />
@@ -97,7 +91,7 @@ export default async function LandingPage() {
       <JsonLd data={serviceSchema} />
       <Navbar />
 
-      <DestinationsExplorer initialCountries={countries} />
+      <DestinationsExplorer />
 
       {/* ── CTA ── */}
       <section className="py-14 px-4 bg-white border-t border-slate-100">
@@ -106,7 +100,7 @@ export default async function LandingPage() {
           <p className="text-slate-500 font-medium mb-6">Create a free account and track your visa in real time.</p>
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 hover:scale-105 duration-200"
+            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-brand-600/20 hover:scale-105 duration-200"
           >
             Get Started Free <ArrowRight className="w-4 h-4" />
           </Link>

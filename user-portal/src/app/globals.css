@@ -5,25 +5,30 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --foreground: 198 70% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 198 70% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    --popover-foreground: 198 70% 12%;
+    --primary: 198 65% 36%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --secondary: 198 45% 96%;
+    --secondary-foreground: 198 70% 14%;
+    --muted: 198 30% 96%;
+    --muted-foreground: 198 14% 45%;
+    --accent: 35 49% 95%;
+    --accent-foreground: 35 49% 30%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 198 25% 90%;
+    --input: 198 25% 90%;
+    --ring: 198 65% 36%;
     --radius: 0.5rem;
+
+    /* Raw brand values, straight off the logo — for gradients and canvas work
+       that cannot go through a Tailwind class. */
+    --brand-navy: #0B2E3D;
+    --brand-gold: #9F7437;
   }
 }
 
@@ -45,15 +50,15 @@ html { scroll-behavior: smooth; }
     @apply bg-white/15 backdrop-blur-2xl border border-white/25 shadow-2xl;
   }
   .text-gradient {
-    @apply bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-white to-gold-300 bg-clip-text text-transparent;
   }
   .bg-mesh {
     background-image:
-      radial-gradient(at 40% 20%, rgba(59,130,246,0.3) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, rgba(99,102,241,0.2) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, rgba(37,99,235,0.25) 0px, transparent 50%),
-      radial-gradient(at 80% 50%, rgba(59,130,246,0.15) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(79,70,229,0.2) 0px, transparent 50%);
+      radial-gradient(at 40% 20%, rgba(32,116,151,0.28) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, rgba(159,116,55,0.18) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, rgba(11,46,61,0.25) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, rgba(48,149,192,0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(159,116,55,0.14) 0px, transparent 50%);
   }
 
   /* Premium Keyframe Animations for Glassmorphism (Extremely Gentle & Slow) */
@@ -89,9 +94,9 @@ html { scroll-behavior: smooth; }
 
   /* Glass hover transition (Very clean & professional) */
   .glass-interactive {
-    @apply transition-all duration-300 ease-out hover:bg-white/15 hover:border-white/35 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-blue-500/5 cursor-pointer;
+    @apply transition-all duration-300 ease-out hover:bg-white/15 hover:border-white/35 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-brand-500/5 cursor-pointer;
   }
   .glass-light-interactive {
-    @apply transition-all duration-300 ease-out hover:bg-white/90 hover:border-white/90 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-blue-600/5 cursor-pointer;
+    @apply transition-all duration-300 ease-out hover:bg-white/90 hover:border-white/90 hover:-translate-y-[2px] hover:shadow-xl hover:shadow-brand-600/5 cursor-pointer;
   }
 }

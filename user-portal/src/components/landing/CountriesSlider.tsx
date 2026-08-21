@@ -40,17 +40,17 @@ export default function CountriesSlider() {
     c.slug ? `/countries/${c.slug}` : `/countries/${c._id}`;
 
   return (
-    <section id="destinations" className="py-24 bg-gradient-to-b from-blue-900 to-indigo-950 relative overflow-hidden">
+    <section id="destinations" className="py-24 bg-gradient-to-b from-brand-900 to-indigo-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-mesh pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between mb-12">
           <div>
-            <span className="inline-block glass text-blue-200 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
+            <span className="inline-block glass text-brand-200 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
               Destinations
             </span>
             <h2 className="text-4xl font-bold text-white">Popular Destinations</h2>
-            <p className="text-blue-300 mt-2 text-lg">We process visas for top destinations worldwide.</p>
+            <p className="text-brand-300 mt-2 text-lg">We process visas for top destinations worldwide.</p>
           </div>
           {count > 3 && (
             <div className="hidden sm:flex items-center gap-2">
@@ -98,10 +98,10 @@ export default function CountriesSlider() {
                     </div>
                     <h3 className="text-lg font-bold text-white mb-2">{c.name}</h3>
                     {c.description && (
-                      <p className="text-sm text-blue-300 leading-relaxed line-clamp-2">{c.description}</p>
+                      <p className="text-sm text-brand-300 leading-relaxed line-clamp-2">{c.description}</p>
                     )}
                     <div className="mt-4 pt-4 border-t border-white/10">
-                      <span className="text-sm text-blue-300 hover:text-white font-medium transition-colors flex items-center gap-1 group-hover:gap-2">
+                      <span className="text-sm text-brand-300 hover:text-white font-medium transition-colors flex items-center gap-1 group-hover:gap-2">
                         View Visa Details <ArrowRight className="w-3.5 h-3.5" />
                       </span>
                     </div>

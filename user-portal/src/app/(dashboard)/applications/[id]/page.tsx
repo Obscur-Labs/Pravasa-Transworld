@@ -63,8 +63,8 @@ function triggerFileUpload(onFile: (file: File) => void) {
 function ExtractedDetails({ data }: { data?: Record<string, string> }) {
   if (!data || Object.keys(data).length === 0) return null;
   return (
-    <div className="mx-3.5 mb-3.5 p-3 bg-blue-50/60 rounded-lg border border-blue-100">
-      <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wide mb-2">We read these details from your document</p>
+    <div className="mx-3.5 mb-3.5 p-3 bg-brand-50/60 rounded-lg border border-brand-100">
+      <p className="text-[10px] font-bold text-brand-500 uppercase tracking-wide mb-2">We read these details from your document</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
         {Object.entries(data).map(([k, v]) => (
           <div key={k} className="text-xs">
@@ -354,7 +354,7 @@ export default function ApplicationDetailPage() {
                 </div>
                 <div>
                   <p className="text-slate-400 text-xs">Visa Fee</p>
-                  <p className="font-bold text-blue-700">{formatCurrency(application.paymentAmount)}</p>
+                  <p className="font-bold text-brand-700">{formatCurrency(application.paymentAmount)}</p>
                 </div>
               </div>
               {application.rejectionReason && (
@@ -531,13 +531,13 @@ export default function ApplicationDetailPage() {
 
           {/* Awaiting payment */}
           {['submitted', 'payment_pending'].includes(application.status) && (
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-brand-200 bg-brand-50">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-blue-900 mb-1">Payment Required</h3>
-                    <p className="text-blue-700 text-sm">Complete the payment securely via Razorpay to start processing your application.</p>
-                    <p className="text-2xl font-bold text-blue-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
+                    <h3 className="font-bold text-brand-900 mb-1">Payment Required</h3>
+                    <p className="text-brand-700 text-sm">Complete the payment securely via Razorpay to start processing your application.</p>
+                    <p className="text-2xl font-bold text-brand-900 mt-2">{formatCurrency(application.paymentAmount)}</p>
                   </div>
                   <Button onClick={handlePayment} disabled={paying} className="ml-4">
                     {paying ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -627,29 +627,29 @@ export default function ApplicationDetailPage() {
           {/* Visa Submission — embassy details */}
           {['visa_processing', 'embassy_review'].includes(application.status) &&
             (application.processingReferenceNumber || application.embassyName || application.submissionDate) && (
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-brand-200 bg-brand-50">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                  <h3 className="font-bold text-blue-900">Visa Submission</h3>
+                  <Clock className="w-5 h-5 text-brand-600 flex-shrink-0" />
+                  <h3 className="font-bold text-brand-900">Visa Submission</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   {application.processingReferenceNumber && (
                     <div>
-                      <p className="text-xs text-blue-600">Reference Number</p>
-                      <p className="font-semibold text-blue-900 font-mono">{application.processingReferenceNumber}</p>
+                      <p className="text-xs text-brand-600">Reference Number</p>
+                      <p className="font-semibold text-brand-900 font-mono">{application.processingReferenceNumber}</p>
                     </div>
                   )}
                   {application.embassyName && (
                     <div>
-                      <p className="text-xs text-blue-600">Embassy</p>
-                      <p className="font-semibold text-blue-900">{application.embassyName}</p>
+                      <p className="text-xs text-brand-600">Embassy</p>
+                      <p className="font-semibold text-brand-900">{application.embassyName}</p>
                     </div>
                   )}
                   {application.submissionDate && (
                     <div>
-                      <p className="text-xs text-blue-600">Submission Date</p>
-                      <p className="font-semibold text-blue-900">{formatDate(application.submissionDate)}</p>
+                      <p className="text-xs text-brand-600">Submission Date</p>
+                      <p className="font-semibold text-brand-900">{formatDate(application.submissionDate)}</p>
                     </div>
                   )}
                 </div>
@@ -683,7 +683,7 @@ export default function ApplicationDetailPage() {
                         activeTravelerTab === tab
                           ? isChild
                             ? 'border-emerald-500 text-emerald-700 bg-emerald-50'
-                            : 'border-blue-500 text-blue-700 bg-blue-50'
+                            : 'border-brand-500 text-brand-700 bg-brand-50'
                           : 'border-transparent text-slate-500 hover:text-slate-700'
                       }`}
                     >
@@ -691,7 +691,7 @@ export default function ApplicationDetailPage() {
                       {tabDocCount > 0 && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                           activeTravelerTab === tab
-                            ? isChild ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                            ? isChild ? 'bg-emerald-100 text-emerald-600' : 'bg-brand-100 text-brand-600'
                             : 'bg-slate-200 text-slate-500'
                         }`}>{tabDocCount}</span>
                       )}
@@ -737,7 +737,7 @@ export default function ApplicationDetailPage() {
                               ) : (
                                 <button
                                   onClick={() => triggerFileUpload((file) => handleUpload(file, row.requirementName))}
-                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors flex-shrink-0"
+                                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 transition-colors flex-shrink-0"
                                 >
                                   <Upload className="w-3.5 h-3.5" /> Upload
                                 </button>
@@ -780,7 +780,7 @@ export default function ApplicationDetailPage() {
                                     className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
                                       doc.status === 'rejected'
                                         ? 'bg-red-600 border-red-600 text-white hover:bg-red-700'
-                                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-brand-50 hover:border-brand-300 hover:text-brand-700'
                                     }`}
                                   >
                                     <Upload className="w-3.5 h-3.5" />
@@ -807,7 +807,7 @@ export default function ApplicationDetailPage() {
                     {!showExtraUpload ? (
                       <button
                         onClick={() => setShowExtraUpload(true)}
-                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 font-medium transition-colors"
                       >
                         <PlusCircle className="w-4 h-4" />
                         Add additional document
@@ -820,7 +820,7 @@ export default function ApplicationDetailPage() {
                             placeholder="Document name (e.g. Bank Statement)"
                             value={extraDocName}
                             onChange={(e) => setExtraDocName(e.target.value)}
-                            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                           />
                           <button
                             onClick={() => { setShowExtraUpload(false); setExtraDocName(''); setExtraVaultOpen(false); }}
@@ -846,7 +846,7 @@ export default function ApplicationDetailPage() {
                             <button
                               disabled={!extraDocName.trim() || uploading !== null}
                               onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
-                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
                             >
                               {uploading === extraDocName
                                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -958,7 +958,7 @@ export default function ApplicationDetailPage() {
                                     </button>
                                     <button
                                       onClick={() => triggerFileUpload((file) => handleUpload(file, req.name))}
-                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 transition-colors"
                                     >
                                       <Upload className="w-3.5 h-3.5" />
                                       {doc ? 'Replace' : 'Upload New'}
@@ -1044,19 +1044,19 @@ export default function ApplicationDetailPage() {
                 {canUploadDocs && (
                   <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                     {!showExtraUpload ? (
-                      <button onClick={() => setShowExtraUpload(true)} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                      <button onClick={() => setShowExtraUpload(true)} className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 font-medium transition-colors">
                         <PlusCircle className="w-4 h-4" />Add additional document
                       </button>
                     ) : (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <input type="text" placeholder="Document name" value={extraDocName} onChange={(e) => setExtraDocName(e.target.value)}
-                            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                           <button onClick={() => { setShowExtraUpload(false); setExtraDocName(''); }} className="text-xs text-slate-400 hover:text-slate-600 px-2">Cancel</button>
                         </div>
                         {extraDocName.trim() && (
                           <button disabled={uploading !== null} onClick={() => triggerFileUpload((file) => handleUpload(file, extraDocName))}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-brand-600 border-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors">
                             {uploading === extraDocName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Upload className="w-3.5 h-3.5" /> Upload New</>}
                           </button>
                         )}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Globe } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { SocketProvider } from '@/components/providers/SocketProvider';
@@ -128,11 +128,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <Link href="/" className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Globe className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-slate-900 text-sm">Pravasa Transworld</span>
+              <Link href="/" className="flex items-center" aria-label="Pravasa Transworld — home">
+                <img src="/logo.png" alt="Pravasa Transworld" className="h-7 w-auto" />
               </Link>
             </div>
 
@@ -144,13 +141,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               <NotificationDropdown />
               <Link
                 href="/profile"
-                className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center hover:ring-2 hover:ring-blue-400 transition-all overflow-hidden flex-shrink-0"
+                className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center hover:ring-2 hover:ring-brand-400 transition-all overflow-hidden flex-shrink-0"
                 title="Profile"
               >
                 {user?.profilePhoto ? (
                   <img src={user.profilePhoto} alt="" className="w-8 h-8 object-cover" />
                 ) : (
-                  <span className="text-blue-700 font-semibold text-sm">
+                  <span className="text-brand-700 font-semibold text-sm">
                     {user?.name?.[0]?.toUpperCase() ?? '?'}
                   </span>
                 )}

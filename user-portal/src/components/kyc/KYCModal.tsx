@@ -33,7 +33,7 @@ function AadhaarSideCard({
         style={{
           background: isFront
             ? 'linear-gradient(135deg,#FF9933 0%,#FF9933 30%,#ffffff 45%,#ffffff 55%,#138808 70%,#138808 100%)'
-            : 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)',
+            : 'linear-gradient(135deg,#0B2E3D 0%,#207497 60%,#3095C0 100%)',
         }}
       >
         <span className="text-[9px] font-bold tracking-widest"
@@ -67,8 +67,8 @@ function AadhaarSideCard({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-center">
-            <div className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-blue-300 group-hover:bg-blue-50 transition-all">
-              <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <div className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-brand-300 group-hover:bg-brand-50 transition-all">
+              <Upload className="w-5 h-5 text-slate-400 group-hover:text-brand-500 transition-colors" />
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-600">{side} side</p>
@@ -87,7 +87,7 @@ function AadhaarSideCard({
         ) : (
           <button
             onClick={onPick}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 transition-all"
           >
             <Upload className="w-3 h-3" /> Upload
           </button>
@@ -104,7 +104,7 @@ function PanCard({ image, done, onPick }: { image: string | null; done: boolean;
       style={{ borderColor: done || image ? '#86efac' : '#e2e8f0' }}>
       {/* Header */}
       <div className="px-4 py-2.5 flex items-center justify-between"
-        style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e3a8a 45%,#1d4ed8 100%)' }}>
+        style={{ background: 'linear-gradient(135deg,#061E27 0%,#0B2E3D 45%,#165874 100%)' }}>
         <span className="text-[10px] font-bold tracking-widest text-white/80">INCOME TAX DEPT — PAN</span>
         {(done || image) && (
           <span className="flex items-center gap-1 bg-green-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
@@ -131,8 +131,8 @@ function PanCard({ image, done, onPick }: { image: string | null; done: boolean;
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-blue-300 group-hover:bg-blue-50 transition-all">
-              <CreditCard className="w-7 h-7 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center group-hover:border-brand-300 group-hover:bg-brand-50 transition-all">
+              <CreditCard className="w-7 h-7 text-slate-400 group-hover:text-brand-500 transition-colors" />
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-600">PAN Card Front</p>
@@ -239,7 +239,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
 
         {/* Header */}
         <div className="relative overflow-hidden px-6 pt-7 pb-6"
-          style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 40%,#1d4ed8 80%,#0369a1 100%)' }}>
+          style={{ background: 'linear-gradient(135deg,#061E27 0%,#0F4157 40%,#165874 80%,#165874 100%)' }}>
           <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-20 animate-pulse"
             style={{ background: 'radial-gradient(circle,#818cf8,transparent)' }} />
           <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full opacity-15 animate-pulse"
@@ -252,7 +252,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
             </div>
             <div>
               <h2 className="text-white font-bold text-lg leading-tight">Verify Your Identity</h2>
-              <p className="text-blue-200 text-xs mt-0.5">Required to start any visa application</p>
+              <p className="text-brand-200 text-xs mt-0.5">Required to start any visa application</p>
             </div>
           </div>
 
@@ -317,7 +317,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
                 disabled={!canAadhaar || uploading}
                 className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={canAadhaar && !uploading
-                  ? { background: 'linear-gradient(135deg,#4f46e5,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(79,70,229,0.4)' }
+                  ? { background: 'linear-gradient(135deg,#0F4157,#207497)', color: 'white', boxShadow: '0 4px 15px rgba(15,65,87,0.4)' }
                   : { background: '#f1f5f9', color: '#94a3b8' }}
               >
                 {uploading
@@ -342,7 +342,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
                 <div className="flex justify-center mb-4">
                   <button
                     onClick={pickPan}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium border bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-all"
+                    className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium border bg-slate-50 text-slate-500 border-slate-200 hover:border-brand-300 hover:text-brand-600 transition-all"
                   >
                     <Upload className="w-3 h-3" />
                     Choose PAN image
@@ -363,7 +363,7 @@ export default function KYCModal({ initialStatus, onComplete }: Props) {
                 disabled={!canPan || uploading}
                 className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={canPan && !uploading
-                  ? { background: 'linear-gradient(135deg,#4f46e5,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(79,70,229,0.4)' }
+                  ? { background: 'linear-gradient(135deg,#0F4157,#207497)', color: 'white', boxShadow: '0 4px 15px rgba(15,65,87,0.4)' }
                   : { background: '#f1f5f9', color: '#94a3b8' }}
               >
                 {uploading

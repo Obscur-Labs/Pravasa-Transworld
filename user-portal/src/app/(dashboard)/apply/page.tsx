@@ -107,12 +107,12 @@ function Counter({ value, onChange, min }: { value: number; onChange: (v: number
   return (
     <div className="flex items-center gap-3">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min}
-        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-brand-400 hover:text-brand-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
         <Minus className="w-4 h-4" />
       </button>
       <span className="w-5 text-center text-base font-bold text-slate-900 tabular-nums">{value}</span>
       <button type="button" onClick={() => onChange(value + 1)}
-        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-colors">
+        className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors">
         <Plus className="w-4 h-4" />
       </button>
     </div>
@@ -184,10 +184,10 @@ function TravelPlanModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(8px)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden my-6">
-        <div className="px-6 pt-5 pb-4 flex items-start justify-between" style={{ background: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#0ea5e9 100%)' }}>
+        <div className="px-6 pt-5 pb-4 flex items-start justify-between" style={{ background: 'linear-gradient(135deg,#0B2E3D 0%,#207497 60%,#3095C0 100%)' }}>
           <div>
             <h2 className="text-white font-bold text-lg leading-tight">Plan Your Travel</h2>
-            <p className="text-blue-200 text-xs mt-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> {country.name}</p>
+            <p className="text-brand-200 text-xs mt-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> {country.name}</p>
           </div>
           <button onClick={onClose} className="text-white/60 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
         </div>
@@ -213,9 +213,9 @@ function TravelPlanModal({
 
           {/* Selected range display */}
           <div className="grid grid-cols-2 gap-2">
-            <div className={`rounded-xl border px-3 py-2 ${startDate ? 'border-blue-300 bg-blue-50' : 'border-dashed border-slate-200 bg-slate-50'}`}>
+            <div className={`rounded-xl border px-3 py-2 ${startDate ? 'border-brand-300 bg-brand-50' : 'border-dashed border-slate-200 bg-slate-50'}`}>
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Departure</p>
-              <p className={`text-sm font-bold mt-0.5 ${startDate ? 'text-blue-800' : 'text-slate-300'}`}>
+              <p className={`text-sm font-bold mt-0.5 ${startDate ? 'text-brand-800' : 'text-slate-300'}`}>
                 {startDate ? fmtDisplay(fmtDate(startDate)) : 'Select date'}
               </p>
             </div>
@@ -254,7 +254,7 @@ function TravelPlanModal({
                 const isEnd = endDate && sameDay(d, endDate);
                 const inRange = !disabled && isInRange(d);
                 return (
-                  <div key={i} className={`relative flex items-center justify-center ${inRange ? 'bg-blue-100' : ''} ${isStart ? 'rounded-l-full' : ''} ${isEnd ? 'rounded-r-full' : ''}`}>
+                  <div key={i} className={`relative flex items-center justify-center ${inRange ? 'bg-brand-100' : ''} ${isStart ? 'rounded-l-full' : ''} ${isEnd ? 'rounded-r-full' : ''}`}>
                     <button
                       type="button"
                       disabled={disabled}
@@ -262,9 +262,9 @@ function TravelPlanModal({
                       onMouseEnter={() => startDate && !endDate && setHoverDate(d)}
                       onMouseLeave={() => setHoverDate(null)}
                       className={`w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors z-10 relative ${
-                        isStart || isEnd ? 'bg-blue-600 text-white font-bold shadow' :
+                        isStart || isEnd ? 'bg-brand-600 text-white font-bold shadow' :
                         disabled ? 'text-slate-300 cursor-not-allowed' :
-                        'text-slate-700 hover:bg-blue-50'
+                        'text-slate-700 hover:bg-brand-50'
                       }`}>
                       {d.getDate()}
                     </button>
@@ -278,7 +278,7 @@ function TravelPlanModal({
             onClick={() => canConfirm && onConfirm({ startDate: fmtDate(startDate!), endDate: fmtDate(endDate!), adults, children })}
             disabled={!canConfirm}
             className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={canConfirm ? { background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: 'white', boxShadow: '0 4px 15px rgba(37,99,235,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
+            style={canConfirm ? { background: 'linear-gradient(135deg,#0B2E3D,#207497)', color: 'white', boxShadow: '0 4px 15px rgba(32,116,151,0.35)' } : { background: '#f1f5f9', color: '#94a3b8' }}>
             Continue
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -396,7 +396,7 @@ function VisaOverviewModal({
         </div>
 
         {/* Header */}
-        <div className="flex-shrink-0 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 px-5 sm:px-6 py-4 sm:py-5">
+        <div className="flex-shrink-0 bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 px-5 sm:px-6 py-4 sm:py-5">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -420,7 +420,7 @@ function VisaOverviewModal({
 
           {/* Price + quick chips */}
           <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-blue-800 px-3 py-1.5 rounded-full shadow-sm">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-brand-800 px-3 py-1.5 rounded-full shadow-sm">
               <CreditCard className="w-3.5 h-3.5" />
               {formatCurrency(adultRate)} / adult{isCorporate ? ' (Corp)' : ''}
             </span>
@@ -430,12 +430,12 @@ function VisaOverviewModal({
               </span>
             )}
             {visa.processingTime && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-blue-100 px-3 py-1.5 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-brand-100 px-3 py-1.5 rounded-full">
                 <Clock className="w-3.5 h-3.5" />{visa.processingTime}
               </span>
             )}
             {visa.validity && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-blue-100 px-3 py-1.5 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-brand-100 px-3 py-1.5 rounded-full">
                 <Shield className="w-3.5 h-3.5" />Valid: {visa.validity}
               </span>
             )}
@@ -485,7 +485,7 @@ function VisaOverviewModal({
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Entry Type</p>
               <div className="flex flex-wrap gap-2">
                 {visa.entry.map((e) => (
-                  <span key={e} className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{labelFor('entryType', e)}</span>
+                  <span key={e} className="text-xs font-bold px-3 py-1.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">{labelFor('entryType', e)}</span>
                 ))}
               </div>
             </div>
@@ -566,7 +566,7 @@ function VisaOverviewModal({
         {/* Footer CTA */}
         <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
           <button onClick={handleContinue}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
+            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
             Continue with {visa.name}
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -591,17 +591,17 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
     <button
       onClick={onClick}
       className={`w-full rounded-2xl overflow-hidden border-2 text-left transition-all duration-200 group ${
-        selected ? 'border-blue-500 ring-2 ring-blue-100 shadow-lg' : 'border-slate-200 hover:border-blue-300 hover:shadow-lg'
+        selected ? 'border-brand-500 ring-2 ring-brand-100 shadow-lg' : 'border-slate-200 hover:border-brand-300 hover:shadow-lg'
       }`}
     >
       {/* Card header */}
-      <div className="relative overflow-hidden px-5 py-5 bg-gradient-to-br from-slate-800 via-blue-900 to-indigo-900">
+      <div className="relative overflow-hidden px-5 py-5 bg-gradient-to-br from-slate-800 via-brand-900 to-indigo-900">
         <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/5" />
         <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         <div className="relative z-10">
           <div className="flex items-start justify-between mb-3">
             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-              visa.visaSubType === 'e-visa' ? 'bg-blue-400/30 text-blue-100' : 'bg-amber-400/30 text-amber-100'
+              visa.visaSubType === 'e-visa' ? 'bg-brand-400/30 text-brand-100' : 'bg-amber-400/30 text-amber-100'
             }`}>
               {labelFor('visaSubType', visa.visaSubType)}
             </span>
@@ -638,10 +638,10 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
         )}
 
         {/* Price footer */}
-        <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-blue-50/50 flex items-center justify-between">
+        <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-brand-50/50 flex items-center justify-between">
           <div>
             <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">From</p>
-            <p className="text-lg font-bold text-blue-700">{formatCurrency(adultPrice)}</p>
+            <p className="text-lg font-bold text-brand-700">{formatCurrency(adultPrice)}</p>
             <p className="text-[10px] text-slate-400">per adult</p>
           </div>
           {childPrice > 0 && (
@@ -651,9 +651,9 @@ function VisaCard({ visa, selected, adultPrice, childPrice, onClick }: {
             </div>
           )}
           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-            selected ? 'bg-blue-600' : 'bg-slate-100 group-hover:bg-blue-100'
+            selected ? 'bg-brand-600' : 'bg-slate-100 group-hover:bg-brand-100'
           }`}>
-            <ArrowRight className={`w-4 h-4 ${selected ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} />
+            <ArrowRight className={`w-4 h-4 ${selected ? 'text-white' : 'text-slate-400 group-hover:text-brand-600'}`} />
           </div>
         </div>
       </div>
@@ -1049,14 +1049,14 @@ export default function ApplyPage() {
       );
     }
     if (field.type === 'textarea') {
-      return <textarea {...common} rows={3} placeholder={field.placeholder} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />;
+      return <textarea {...common} rows={3} placeholder={field.placeholder} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />;
     }
     if (field.type === 'radio' && field.options.length > 0) {
       return (
         <div className="flex flex-wrap gap-4 mt-1">
           {field.options.map((o) => (
             <label key={o} className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name={key} value={o} checked={formData[key] === o} onChange={() => setFormData({ ...formData, [key]: o })} className="text-blue-600 focus:ring-blue-500" />
+              <input type="radio" name={key} value={o} checked={formData[key] === o} onChange={() => setFormData({ ...formData, [key]: o })} className="text-brand-600 focus:ring-brand-500" />
               <span className="text-sm text-slate-700">{o}</span>
             </label>
           ))}
@@ -1121,7 +1121,7 @@ export default function ApplyPage() {
     const applicantType = req.applicantType || 'adult';
 
     return (
-      <div key={req._id || req.name} className={`rounded-xl border-2 p-4 transition-all ${source ? 'border-green-200 bg-green-50' : req.required ? 'border-slate-200 bg-white hover:border-blue-200' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
+      <div key={req._id || req.name} className={`rounded-xl border-2 p-4 transition-all ${source ? 'border-green-200 bg-green-50' : req.required ? 'border-slate-200 bg-white hover:border-brand-200' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
         <div className="flex items-start gap-3 mb-3">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${source ? 'bg-green-100' : 'bg-slate-100'}`}>
             {source ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4 text-slate-400" />}
@@ -1155,7 +1155,7 @@ export default function ApplyPage() {
               const isSelected = source?.type === 'vault' && source.vaultDocId === vd._id;
               return (
                 <button key={vd._id} onClick={() => isSelected ? clearDocSource(sk) : selectVaultDoc(sk, vd)}
-                  className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${isSelected ? 'bg-green-100 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'}`}>
+                  className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${isSelected ? 'bg-green-100 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-brand-300 hover:bg-brand-50'}`}>
                   <Vault className="w-3 h-3" />
                   {isSelected ? `Selected: ${vd.label} ✓` : `Use from vault: ${vd.label}`}
                 </button>
@@ -1165,7 +1165,7 @@ export default function ApplyPage() {
         )}
 
         <div className="ml-11">
-          <button onClick={() => pickFileFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors">
+          <button onClick={() => pickFileFor(sk)} className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg border border-brand-100 transition-colors">
             <Upload className="w-3.5 h-3.5" />
             {source?.type === 'file' ? 'Replace file' : 'Upload file'}
           </button>
@@ -1217,10 +1217,10 @@ export default function ApplyPage() {
           const active = step === n;
           return (
             <div key={label} className="flex items-center flex-1 min-w-0">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? 'bg-green-500 text-white' : active ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                 {done ? <Check className="w-3.5 h-3.5" /> : n}
               </div>
-              <span className={`text-xs font-medium hidden sm:block ml-1.5 mr-1 ${active ? 'text-blue-700' : done ? 'text-green-700' : 'text-slate-400'}`}>{label}</span>
+              <span className={`text-xs font-medium hidden sm:block ml-1.5 mr-1 ${active ? 'text-brand-700' : done ? 'text-green-700' : 'text-slate-400'}`}>{label}</span>
               {i < STEPS.length - 1 && <div className={`flex-1 h-0.5 mx-1 ${step > n ? 'bg-green-300' : 'bg-slate-200'}`} />}
             </div>
           );
@@ -1263,12 +1263,12 @@ export default function ApplyPage() {
                         onClick={() => handleCountrySelect(c)}
                         className={`group rounded-2xl border-2 text-left transition-all duration-200 overflow-hidden ${
                           isSelected
-                            ? 'border-blue-500 ring-2 ring-blue-100 shadow-md'
-                            : 'border-slate-200 hover:border-blue-300 hover:shadow-md'
+                            ? 'border-brand-500 ring-2 ring-brand-100 shadow-md'
+                            : 'border-slate-200 hover:border-brand-300 hover:shadow-md'
                         }`}
                       >
                         {/* Cover photo or flag */}
-                        <div className="relative aspect-video bg-gradient-to-br from-blue-50 to-slate-100 overflow-hidden">
+                        <div className="relative aspect-video bg-gradient-to-br from-brand-50 to-slate-100 overflow-hidden">
                           {coverImg ? (
                             <img
                               src={coverImg}
@@ -1295,7 +1295,7 @@ export default function ApplyPage() {
 
                           {/* Selected checkmark */}
                           {isSelected && (
-                            <div className="absolute top-2 right-2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow">
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-brand-600 rounded-full flex items-center justify-center shadow">
                               <Check className="w-3.5 h-3.5 text-white" />
                             </div>
                           )}
@@ -1303,13 +1303,13 @@ export default function ApplyPage() {
 
                         {/* Info */}
                         <div className="p-3 bg-white">
-                          <p className={`text-sm font-bold leading-tight ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                          <p className={`text-sm font-bold leading-tight ${isSelected ? 'text-brand-700' : 'text-slate-800'}`}>
                             {c.name}
                           </p>
                           {c.description && (
                             <p className="text-xs text-slate-400 mt-0.5 line-clamp-1 leading-snug">{c.description}</p>
                           )}
-                          <p className="text-[10px] font-semibold text-blue-500 mt-1.5 flex items-center gap-1">
+                          <p className="text-[10px] font-semibold text-brand-500 mt-1.5 flex items-center gap-1">
                             <Globe className="w-2.5 h-2.5" /> Visa available
                           </p>
                         </div>
@@ -1348,7 +1348,7 @@ export default function ApplyPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {travelStartDate && (
-                  <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
+                  <span className="flex items-center gap-1 text-xs text-brand-600 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-full font-medium">
                     <Calendar className="w-3 h-3" />
                     {new Date(travelStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     {travelEndDate && <> → {new Date(travelEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>}
@@ -1357,7 +1357,7 @@ export default function ApplyPage() {
                 <span className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full font-medium">
                   <Users className="w-3 h-3" /> {adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}
                 </span>
-                <button onClick={() => { setPendingCountry(selectedCountry); setShowTravelModal(true); }} className="text-xs text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2">Edit</button>
+                <button onClick={() => { setPendingCountry(selectedCountry); setShowTravelModal(true); }} className="text-xs text-brand-600 hover:text-brand-800 font-medium underline underline-offset-2">Edit</button>
               </div>
             </div>
 
@@ -1403,7 +1403,7 @@ export default function ApplyPage() {
                 return (
                   <button key={tr.key} onClick={() => setActiveTraveler(idx)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border-2 transition-all ${
-                      isActive ? (tr.type === 'adult' ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800')
+                      isActive ? (tr.type === 'adult' ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800')
                       : 'border-slate-200 text-slate-500 hover:border-slate-300'
                     }`}>
                     {complete ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Users className="w-3.5 h-3.5" />}
@@ -1447,7 +1447,7 @@ export default function ApplyPage() {
                   </button>
                   {activeTraveler < travelers.length - 1 ? (
                     <button onClick={() => setActiveTraveler((i) => Math.min(travelers.length - 1, i + 1))}
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                      className="text-sm font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1">
                       Next traveller <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : <span className="text-xs text-slate-400">All travellers</span>}
@@ -1516,7 +1516,7 @@ export default function ApplyPage() {
                       .filter(([, v]) => v && String(v).trim());
                     return (
                       <div key={tr.key} className="border-t border-slate-100 first:border-t-0 pt-3 first:pt-0">
-                        <p className={`text-xs font-bold mb-1.5 ${tr.type === 'adult' ? 'text-blue-700' : 'text-emerald-700'}`}>{tr.label}</p>
+                        <p className={`text-xs font-bold mb-1.5 ${tr.type === 'adult' ? 'text-brand-700' : 'text-emerald-700'}`}>{tr.label}</p>
                         {entries.length === 0 ? (
                           <p className="text-xs text-slate-400 italic">No details provided</p>
                         ) : (
@@ -1623,12 +1623,12 @@ export default function ApplyPage() {
                   ...(children > 0 ? feeRows('Child', { base: r.childBase, vfs: r.childVfs, fee: r.childFee }, children) : []),
                 ];
                 return (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
                     <div className="flex items-center gap-1.5 mb-3">
-                      <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Payment Summary</p>
+                      <p className="text-xs text-brand-600 font-semibold uppercase tracking-wide">Payment Summary</p>
                       {/* Hover (i) — full fee breakdown */}
                       <span className="relative group inline-flex">
-                        <Info className="w-3.5 h-3.5 text-blue-500 cursor-help" />
+                        <Info className="w-3.5 h-3.5 text-brand-500 cursor-help" />
                         <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
                           <span className="block bg-slate-900 text-white rounded-xl p-3 shadow-xl">
                             <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Full Price Breakdown</span>
@@ -1674,20 +1674,20 @@ export default function ApplyPage() {
                           </div>
                         </>
                       )}
-                      <div className="border-t border-blue-200 pt-2" />
+                      <div className="border-t border-brand-200 pt-2" />
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-blue-800">Total</p>
+                          <p className="text-sm font-semibold text-brand-800">Total</p>
                           {r.corp && <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Corporate</span>}
                         </div>
                         <div className="text-right">
                           {discount > 0 && <p className="text-xs text-slate-400 line-through">{formatCurrency(base)}</p>}
-                          <p className="text-2xl font-bold text-blue-900">{formatCurrency(finalTotal)}</p>
+                          <p className="text-2xl font-bold text-brand-900">{formatCurrency(finalTotal)}</p>
                           <p className="text-[10px] text-slate-400">Inclusive of 18% GST</p>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-end mt-3"><CreditCard className="w-6 h-6 text-blue-400" /></div>
+                    <div className="flex items-center justify-end mt-3"><CreditCard className="w-6 h-6 text-brand-400" /></div>
                   </div>
                 );
               })()}
@@ -1709,7 +1709,7 @@ export default function ApplyPage() {
                           type="checkbox"
                           checked={!!termsAccepted[i]}
                           onChange={(e) => setTermsAccepted((prev) => ({ ...prev, [i]: e.target.checked }))}
-                          className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                          className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 shrink-0"
                         />
                         <span className="text-sm text-slate-700 group-hover:text-slate-900">
                           {term.text}

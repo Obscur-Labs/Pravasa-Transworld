@@ -105,25 +105,25 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
     }
   }
   if (!logoDrawn) {
-    doc.roundedRect(MARGIN, 40, 60, 60, 8).fill('#1d4ed8');
+    doc.roundedRect(MARGIN, 40, 60, 60, 8).fill('#0B2E3D');
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(24)
       .text((company.companyName || 'P').trim().charAt(0).toUpperCase(), MARGIN, 62, { width: 60, align: 'center' });
   }
 
-  doc.fillColor('#1d4ed8').font('Helvetica-Bold').fontSize(14).text(company.companyName || 'Pravasa Transworld', MARGIN + 110, 42, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  doc.fillColor('#0B2E3D').font('Helvetica-Bold').fontSize(14).text(company.companyName || 'Pravasa Transworld', MARGIN + 110, 42, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
   doc.fillColor('#b91c1c').font('Helvetica').fontSize(8);
   const addrLines = [company.addressLine1, company.addressLine2].filter(Boolean);
   addrLines.forEach((line) => doc.text(line as string, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' }));
   const contactBits = [company.phone && `Tel: ${company.phone}`, company.fax && `Fax: ${company.fax}`].filter(Boolean).join('   ');
   if (contactBits) doc.text(contactBits, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
   if (company.email) doc.text(`Email: ${company.email}`, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
-  if (company.gstin) doc.fillColor('#1d4ed8').text(`GSTIN: ${company.gstin}${company.stateName ? ` (${company.stateName.toUpperCase()})` : ''}`, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
+  if (company.gstin) doc.fillColor('#165874').text(`GSTIN: ${company.gstin}${company.stateName ? ` (${company.stateName.toUpperCase()})` : ''}`, MARGIN + 110, doc.y, { width: PAGE_RIGHT - MARGIN - 110, align: 'right' });
 
   doc.y = Math.max(doc.y, 115);
   doc.moveDown(0.8);
 
   // ── Title ──────────────────────────────────────────────────────────────────
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16)
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(16)
     .text(isCorporate ? 'TAX INVOICE' : 'PAYMENT RECEIPT', MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN, align: 'center' });
   if (isCorporate) {
     doc.fontSize(9).fillColor('#7c3aed').font('Helvetica-Oblique').text('Original For Recipient', MARGIN, doc.y - 2, { width: PAGE_RIGHT - MARGIN, align: 'right' });
@@ -133,7 +133,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
   // ── Meta block: To M/s (left) + Invoice details (right) ────────────────────
   const metaTop = doc.y;
   const leftW = 300;
-  doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a');
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#061E27');
   doc.text('To M/s :', MARGIN, metaTop, { continued: true, width: leftW });
   doc.font('Helvetica').text(` ${data.userName}`);
   if (isCorporate && data.clientGstin) {
@@ -147,7 +147,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
   const rightW = PAGE_RIGHT - rightX;
   let ry = metaTop;
   const rightRow = (label: string, value: string) => {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(label, rightX, ry, { continued: true, width: rightW });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#061E27').text(label, rightX, ry, { continued: true, width: rightW });
     doc.font('Helvetica').text(` ${value}`, { width: rightW });
     ry = doc.y;
   };
@@ -198,7 +198,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
 
     if (y + rowHeight > 780) { doc.addPage(); y = MARGIN; drawTableHeader(doc, y, headerH); y += headerH; }
 
-    doc.font('Helvetica').fontSize(8).fillColor('#0f172a');
+    doc.font('Helvetica').fontSize(8).fillColor('#061E27');
     doc.text(String(sr), COLS.sr.x, y + 4, { width: COLS.sr.w, align: 'center' });
 
     let dy = y + 4;
@@ -224,7 +224,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
 
   y += 6;
   const totalRow = (label: string, value: string, bold = false) => {
-    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).fillColor('#0f172a')
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).fillColor('#061E27')
       .text(label, COLS.desc.x, y, { width: COLS.servCharges.x + COLS.servCharges.w - COLS.desc.x, align: 'right' });
     doc.text(value, COLS.amount.x, y, { width: COLS.amount.w - 6, align: 'right' });
     y += 16;
@@ -255,7 +255,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
 
   y += 4;
   doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, 22).fill('#e0f2fe');
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(9)
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(9)
     .text(amountInWordsINR(netTotal), MARGIN + 8, y + 6, { width: 320 });
   doc.fontSize(10).text('Net Total (INR)', COLS.desc.x, y + 6, { width: COLS.servCharges.x + COLS.servCharges.w - COLS.desc.x, align: 'right' });
   doc.text(inr(netTotal), COLS.amount.x, y + 6, { width: COLS.amount.w - 6, align: 'right' });
@@ -270,7 +270,7 @@ async function renderReceipt(doc: PDFKit.PDFDocument, data: ReceiptData, isCorpo
 
 function drawTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
   doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, height).fill('#e2e8f0');
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8);
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(8);
   doc.text('Sr.', COLS.sr.x, y + 6, { width: COLS.sr.w, align: 'center' });
   doc.text('Narration / Description', COLS.desc.x + 4, y + 6, { width: COLS.desc.w - 6 });
   doc.text('Visa Fees', COLS.visaFees.x, y + 6, { width: COLS.visaFees.w - 6, align: 'right' });
@@ -278,8 +278,8 @@ function drawTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
   doc.text('Serv. Chrgs', COLS.servCharges.x, y + 6, { width: COLS.servCharges.w - 6, align: 'right' });
   doc.text('Amount (INR)', COLS.amount.x, y + 6, { width: COLS.amount.w - 6, align: 'right' });
   drawColumnDividers(doc, y, height);
-  doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#0f172a').stroke();
-  doc.moveTo(MARGIN, y + height).lineTo(PAGE_RIGHT, y + height).lineWidth(1).strokeColor('#0f172a').stroke();
+  doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#061E27').stroke();
+  doc.moveTo(MARGIN, y + height).lineTo(PAGE_RIGHT, y + height).lineWidth(1).strokeColor('#061E27').stroke();
 }
 
 function drawColumnDividers(doc: PDFKit.PDFDocument, y: number, height: number) {
@@ -325,7 +325,7 @@ const DOC_COLS = {
 
 function drawDocTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) {
   doc.rect(MARGIN, y, PAGE_RIGHT - MARGIN, height).fill('#e2e8f0');
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8);
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(8);
   doc.text('Item', DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 6 });
   doc.text('Description', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 6 });
   doc.text('Provide', DOC_COLS.provide.x, y + 6, { width: DOC_COLS.provide.w - 6, align: 'center' });
@@ -334,8 +334,8 @@ function drawDocTableHeader(doc: PDFKit.PDFDocument, y: number, height: number) 
   const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.provide.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
   doc.strokeColor('#cbd5e1').lineWidth(0.5);
   xs.forEach((x) => doc.moveTo(x, y).lineTo(x, y + height).stroke());
-  doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#0f172a').stroke();
-  doc.moveTo(MARGIN, y + height).lineTo(PAGE_RIGHT, y + height).lineWidth(1).strokeColor('#0f172a').stroke();
+  doc.moveTo(MARGIN, y).lineTo(PAGE_RIGHT, y).lineWidth(1).strokeColor('#061E27').stroke();
+  doc.moveTo(MARGIN, y + height).lineTo(PAGE_RIGHT, y + height).lineWidth(1).strokeColor('#061E27').stroke();
 }
 
 export async function generateVisaSummaryPDF(data: VisaSummaryData): Promise<Buffer> {
@@ -352,12 +352,12 @@ export async function generateVisaSummaryPDF(data: VisaSummaryData): Promise<Buf
 
 function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
   // Header band
-  doc.rect(0, 0, doc.page.width, 70).fill('#1d4ed8');
+  doc.rect(0, 0, doc.page.width, 70).fill('#0B2E3D');
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18).text('Pravasa Transworld', MARGIN, 22);
   doc.fontSize(10).font('Helvetica').text('Visa Details', MARGIN, 46);
 
   doc.y = 95;
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16).text(`${data.countryName} — ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
+  doc.fillColor('#061E27').font('Helvetica-Bold').fontSize(16).text(`${data.countryName} — ${data.visaName}`, MARGIN, doc.y, { width: PAGE_RIGHT - MARGIN });
   doc.moveDown(0.8);
 
   // Key info grid
@@ -380,7 +380,7 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
       const x = MARGIN + col * colW + 10;
       const y = gy + row * 20;
       doc.font('Helvetica').fontSize(8).fillColor('#64748b').text(label, x, y, { continued: true, width: colW - 20 });
-      doc.font('Helvetica-Bold').fillColor('#0f172a').text(`  ${value}`, { width: colW - 20 });
+      doc.font('Helvetica-Bold').fillColor('#061E27').text(`  ${value}`, { width: colW - 20 });
     });
     doc.y = gy + Math.ceil(info.length / 2) * 20 + 10;
     doc.moveDown(0.8);
@@ -388,14 +388,14 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
 
   // Description
   if (data.description?.trim()) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text('About', MARGIN, doc.y);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#061E27').text('About', MARGIN, doc.y);
     doc.font('Helvetica').fontSize(9).fillColor('#334155').text(data.description.trim(), MARGIN, doc.y + 2, { width: PAGE_RIGHT - MARGIN });
     doc.moveDown(0.8);
   }
 
   // Documents table
   if (data.documents.length > 0) {
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Information Required', MARGIN, doc.y);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#061E27').text('Information Required', MARGIN, doc.y);
     doc.moveDown(0.4);
 
     const headerH = 20;
@@ -411,14 +411,14 @@ function renderVisaSummary(doc: PDFKit.PDFDocument, data: VisaSummaryData) {
 
       if (y + rowHeight > 780) { doc.addPage(); y = MARGIN; drawDocTableHeader(doc, y, headerH); y += headerH; }
 
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#0f172a').text(row.name, DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 8 });
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#061E27').text(row.name, DOC_COLS.name.x + 4, y + 6, { width: DOC_COLS.name.w - 8 });
       doc.font('Helvetica').fillColor('#475569').text(row.description || '—', DOC_COLS.desc.x + 4, y + 6, { width: DOC_COLS.desc.w - 8 });
       doc.fillColor('#475569').font('Helvetica')
         .text(row.kind === 'document' ? 'Upload' : 'Answer', DOC_COLS.provide.x, y + 6, { width: DOC_COLS.provide.w - 6, align: 'center' });
       doc.fillColor(row.required ? '#b91c1c' : '#64748b').font('Helvetica-Bold')
         .text(row.required ? 'Required' : 'Optional', DOC_COLS.required.x, y + 6, { width: DOC_COLS.required.w - 6, align: 'center' });
       const appliesLabel = row.applicantType === 'child' ? 'Child' : row.applicantType === 'both' ? 'All' : 'Adult';
-      doc.fillColor('#0f172a').font('Helvetica').text(appliesLabel, DOC_COLS.applies.x, y + 6, { width: DOC_COLS.applies.w - 6, align: 'center' });
+      doc.fillColor('#061E27').font('Helvetica').text(appliesLabel, DOC_COLS.applies.x, y + 6, { width: DOC_COLS.applies.w - 6, align: 'center' });
 
       const xs = [DOC_COLS.name.x, DOC_COLS.desc.x, DOC_COLS.provide.x, DOC_COLS.required.x, DOC_COLS.applies.x, PAGE_RIGHT];
       doc.strokeColor('#e2e8f0').lineWidth(0.5);

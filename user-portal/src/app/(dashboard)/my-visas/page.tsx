@@ -81,7 +81,7 @@ export default function MyVisasPage() {
                 <div className="flex gap-2">
                   <Link
                     href={`/applications/${app._id}`}
-                    className="flex-1 text-center text-sm font-medium text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1"
+                    className="flex-1 text-center text-sm font-medium text-brand-600 border border-brand-200 rounded-lg py-1.5 hover:bg-brand-50 transition-colors flex items-center justify-center gap-1"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     View Details

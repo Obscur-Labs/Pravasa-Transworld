@@ -45,7 +45,7 @@ export default function NotificationDropdown() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
           <h3 className="font-semibold text-slate-800">Notifications</h3>
           {unreadCount > 0 && (
-            <button onClick={markAllAsRead} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+            <button onClick={markAllAsRead} className="text-xs font-medium text-brand-600 hover:text-brand-700">
               Mark all read
             </button>
           )}
@@ -59,7 +59,7 @@ export default function NotificationDropdown() {
                 key={notif._id}
                 onClick={() => handleClick(notif)}
                 className={`group px-4 py-3 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
-                  notif.read ? 'bg-white hover:bg-slate-50 opacity-75' : 'bg-blue-50/50 hover:bg-blue-50'
+                  notif.read ? 'bg-white hover:bg-slate-50 opacity-75' : 'bg-brand-50/50 hover:bg-brand-50'
                 }`}
               >
                 <div className="flex justify-between items-start mb-1">
@@ -67,7 +67,7 @@ export default function NotificationDropdown() {
                     {notif.title}
                   </h4>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {!notif.read && <span className="w-2 h-2 bg-blue-600 rounded-full" />}
+                    {!notif.read && <span className="w-2 h-2 bg-brand-600 rounded-full" />}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
                       className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
@@ -87,7 +87,7 @@ export default function NotificationDropdown() {
           <Link
             href="/notifications"
             onClick={() => setOpen(false)}
-            className="flex items-center justify-center w-full py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center w-full py-2.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-slate-100 transition-colors"
           >
             View all notifications
           </Link>

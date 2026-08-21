@@ -6,6 +6,37 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ── Brand palette, sampled straight from the Pravasa Transworld logo ──
+        // brand-900 (#0B2E3D) is the exact navy of the wordmark; gold-600 (#9F7437)
+        // is the exact gold of the plane, pin and "TRANSWORLD" rule. The rest of each
+        // ramp is the same hue held steady with the lightness stepped, so any shade
+        // pairs cleanly with the artwork.
+        brand: {
+          50:  '#EFF7FB',
+          100: '#DEEFF7',
+          200: '#BFE0EE',
+          300: '#94C9E0',
+          400: '#61AFD1',
+          500: '#3095C0',
+          600: '#207497',
+          700: '#165874',
+          800: '#0F4157',
+          900: '#0B2E3D',
+          950: '#061E27',
+        },
+        gold: {
+          50:  '#FCF8F3',
+          100: '#F8EFE3',
+          200: '#EEDCC4',
+          300: '#DFC29A',
+          400: '#CCA266',
+          500: '#BE8A41',
+          600: '#9F7437',
+          700: '#825E2B',
+          800: '#674B22',
+          900: '#503A1B',
+          950: '#322410',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

@@ -1,6 +1,6 @@
 ﻿'use client';
 import Link from 'next/link';
-import { Globe, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -28,11 +28,16 @@ export default function Navbar() {
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:shadow-blue-500/20 transition-all">
-              <Globe className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-extrabold text-slate-900 tracking-tight">Pravasa Transworld</span>
+          {/* The wordmark already says "Pravasa Transworld", so it carries the alt text
+              and no repeated label sits beside it. */}
+          <Link href="/" className="flex items-center group" aria-label="Pravasa Transworld — home">
+            <img
+              src="/logo.png"
+              alt="Pravasa Transworld"
+              width={1841}
+              height={516}
+              className="h-9 sm:h-10 w-auto transition-transform duration-200 group-hover:scale-[1.02]"
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -40,7 +45,7 @@ export default function Navbar() {
               <Link
                 key={l.href}
                 href={l.href}
-                className="text-sm font-semibold text-slate-600 hover:text-blue-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200"
+                className="text-sm font-semibold text-slate-600 hover:text-brand-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all duration-200"
               >
                 {l.label}
               </Link>
@@ -52,14 +57,14 @@ export default function Navbar() {
               variant="ghost"
               size="sm"
               asChild
-              className="text-slate-600 hover:text-blue-600 hover:bg-slate-50 font-semibold border-0"
+              className="text-slate-600 hover:text-brand-600 hover:bg-slate-50 font-semibold border-0"
             >
               <Link href="/login">Sign In</Link>
             </Button>
             <Button
               size="sm"
               asChild
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/10 border-0 font-semibold"
+              className="bg-gold-600 hover:bg-gold-700 text-white shadow-md shadow-gold-600/20 border-0 font-semibold"
             >
               <Link href="/register">Get Started</Link>
             </Button>
@@ -80,7 +85,7 @@ export default function Navbar() {
             <Link
               key={l.href}
               href={l.href}
-              className="block text-sm font-semibold text-slate-600 hover:text-blue-600 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
+              className="block text-sm font-semibold text-slate-600 hover:text-brand-600 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
               onClick={() => setOpen(false)}
             >
               {l.label}
@@ -90,7 +95,7 @@ export default function Navbar() {
             <Button variant="outline" size="sm" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
-            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold" asChild>
+            <Button size="sm" className="w-full bg-gold-600 hover:bg-gold-700 text-white font-semibold" asChild>
               <Link href="/register">Get Started</Link>
             </Button>
           </div>

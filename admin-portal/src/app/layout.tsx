@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -14,11 +14,22 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Portal',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   robots: {
     index: false,
     follow: false,
     googleBot: { index: false, follow: false },
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0B2E3D',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

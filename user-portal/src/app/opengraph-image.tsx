@@ -16,7 +16,7 @@ export default function OgImage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%)',
+          background: 'linear-gradient(135deg, #061E27 0%, #0B2E3D 55%, #165874 100%)',
           fontFamily: 'sans-serif',
           position: 'relative',
           overflow: 'hidden',
@@ -37,7 +37,8 @@ export default function OgImage() {
             width: 80,
             height: 80,
             borderRadius: 20,
-            background: 'rgba(255,255,255,0.15)',
+            background: 'rgba(159,116,55,0.22)',
+            border: '1px solid rgba(159,116,55,0.55)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -45,7 +46,7 @@ export default function OgImage() {
             fontSize: 44,
           }}
         >
-          🌐
+          ✈
         </div>
 
         {/* Brand name */}
@@ -66,7 +67,7 @@ export default function OgImage() {
         <div
           style={{
             fontSize: 28,
-            color: 'rgba(255,255,255,0.75)',
+            color: 'rgba(223,194,154,0.85)',
             marginBottom: 40,
             textAlign: 'center',
             maxWidth: 700,
@@ -82,12 +83,12 @@ export default function OgImage() {
               key={text}
               style={{
                 padding: '10px 24px',
-                background: 'rgba(255,255,255,0.15)',
+                background: 'rgba(159,116,55,0.18)',
                 borderRadius: 100,
-                color: '#ffffff',
+                color: '#DFC29A',
                 fontSize: 20,
                 fontWeight: 600,
-                border: '1px solid rgba(255,255,255,0.25)',
+                border: '1px solid rgba(159,116,55,0.45)',
               }}
             >
               {text}

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Plus, LogOut,
-  Globe, Stamp, CreditCard, FolderLock, ChevronLeft, ChevronRight, X, User,
+  Stamp, CreditCard, FolderLock, ChevronLeft, ChevronRight, X, User,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -36,12 +36,13 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile = false }
     <aside className={asideClass}>
       {/* Logo */}
       <div className={`border-b border-slate-100 flex items-center flex-shrink-0 ${isCollapsed ? 'h-16 justify-center' : 'h-16 px-5 justify-between'}`}>
-        <Link href="/" className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Globe className="w-5 h-5 text-white" />
-          </div>
-          {!isCollapsed && (
-            <span className="text-lg font-bold text-slate-900 truncate">Pravasa Transworld</span>
+        {/* Collapsed rail has no room for the wordmark, so it falls back to the
+            square mark cut from the same artwork. */}
+        <Link href="/" className="flex items-center min-w-0" aria-label="Pravasa Transworld — home">
+          {isCollapsed ? (
+            <img src="/logo-mark.png" alt="Pravasa Transworld" className="w-8 h-8 rounded-lg flex-shrink-0" />
+          ) : (
+            <img src="/logo.png" alt="Pravasa Transworld" className="h-8 w-auto" />
           )}
         </Link>
         {mobile ? (
@@ -71,11 +72,11 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile = false }
         className={`border-b border-slate-100 flex-shrink-0 transition-colors hover:bg-slate-50 ${isCollapsed ? 'py-4 flex justify-center' : 'px-4 py-4'}`}
       >
         <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
             {user?.profilePhoto ? (
               <img src={user.profilePhoto} alt="" className="w-9 h-9 object-cover" />
             ) : (
-              <span className="text-blue-700 font-semibold text-sm">
+              <span className="text-brand-700 font-semibold text-sm">
                 {user?.name?.[0]?.toUpperCase() ?? '?'}
               </span>
             )}
@@ -102,7 +103,7 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile = false }
                 isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'
               } ${
                 active
-                  ? 'bg-blue-50 text-blue-700'
+                  ? 'bg-brand-50 text-brand-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
@@ -129,7 +130,7 @@ export default function DashboardSidebar({ collapsed, onToggle, mobile = false }
           title={isCollapsed && !mobile ? 'Profile' : undefined}
           className={`flex items-center rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors ${
             isCollapsed && !mobile ? 'p-2 justify-center' : 'gap-3 px-3 py-2.5 w-full'
-          } ${pathname === '/profile' ? 'bg-blue-50 text-blue-700' : ''}`}
+          } ${pathname === '/profile' ? 'bg-brand-50 text-brand-700' : ''}`}
         >
           <User className="w-4 h-4 flex-shrink-0" />
           {(!isCollapsed || mobile) && 'Profile'}

@@ -102,17 +102,17 @@ export default function NotificationsPage() {
           {notifications.map((n) => (
             <div
               key={n._id}
-              className={`group p-4 transition-colors cursor-pointer ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/60'}`}
+              className={`group p-4 transition-colors cursor-pointer ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/40 hover:bg-brand-50/60'}`}
               onClick={() => handleOpen(n)}
             >
               <div className="flex items-start gap-3">
-                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-blue-500'}`} />
+                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-brand-500'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>{n.title}</p>
                   <p className="text-sm text-slate-500 mt-0.5">{n.message}</p>
                   <p className="text-xs text-slate-400 mt-1">{formatDate(n.createdAt)}</p>
                   {n.application && (
-                    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-600 mt-1.5">
+                    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 mt-1.5">
                       Open application <ChevronRight className="w-3 h-3" />
                     </span>
                   )}
